@@ -43,3 +43,7 @@ coverage/
 
 # Claude Code session memory (working notes, not project artifacts)
 memory/
+
+# macOS
+.DS_Store
+**/.DS_Store
