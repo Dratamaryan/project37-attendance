@@ -1,0 +1,56 @@
+# Project 37 — Absensi Project 37
+
+A church event attendance web app for a single Indonesian congregation, replacing manual Google Form (`PEMBARUAN DATA UMAT`) tracking with a real-time check-in tool and long-term member database.
+
+## What It Does
+
+- **Volunteer check-in** at events: type a phone number → tap Check In. Target: 50 people in 30 minutes.
+- **Admin event management**: recurring events (bi-weekly Friday worship, monthly Sunday communion) auto-generate instances 12 months ahead.
+- **Birthday notifications**: daily Telegram digest to the admin listing today's birthdays (consent-gated).
+- **Analytics & Excel export**: attendance trends, top attendees, parish breakdown, new vs. returning.
+- **Team access**: admin invites organizers with scoped permissions.
+
+## Stack
+
+| Layer | Choice |
+|---|---|
+| Frontend + API | Next.js 14 (App Router, TypeScript, Tailwind) on Vercel |
+| Database + Auth + Storage | Supabase Pro (Postgres 15, RLS, pg_cron, Magic Link) |
+| Admin notifications | Telegram Bot API |
+| Email (Phase 1) | Gmail SMTP via Nodemailer |
+| Email (Phase 2) | Resend |
+| i18n | next-intl (Indonesian / English) |
+| Phone validation | libphonenumber-js |
+| Excel export | SheetJS |
+| Charts | Recharts |
+
+**Cost: $25/month (Supabase Pro) + $15/year domain.**
+
+## Key Design Decisions
+
+- Phone number (`phone_e164`) is the unique identifier for members — no login required for congregants.
+- All authorization enforced at the database layer via Postgres RLS — not just application code.
+- Every PII mutation writes to `audit_log`.
+- Soft-delete only (`deleted_at`); data is never hard-deleted except by scheduled retention job.
+- Single-tenant, single-codebase, single deployment.
+
+## Sprint Plan (high level)
+
+| Sprint | Focus |
+|---|---|
+| 0 | Foundations — deployable shell with auth |
+| 1 | People & Check-In Core |
+| 2 | Events & Attendance |
+| 3 | Analytics & Export |
+| 4 | Notifications & Invites |
+| 5 | Users, Settings & Polish |
+| 6 | UAT & Launch |
+
+Full specs: `./docs/`
+
+## Branding
+
+- App name: **Absensi Project 37**
+- Colors: gold `#A8924A`, charcoal `#0F0F0F`
+- Default language: Indonesian (`id`)
+- Admin email: admin-example@example.test

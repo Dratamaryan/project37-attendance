@@ -40,3 +40,6 @@ coverage/
 # Misc
 *.pem
 .vercel
+
+# Claude Code session memory (working notes, not project artifacts)
+memory/
