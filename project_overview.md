@@ -14,7 +14,7 @@ A church event attendance web app for a single Indonesian congregation, replacin
 
 | Layer | Choice |
 |---|---|
-| Frontend + API | Next.js 14 (App Router, TypeScript, Tailwind) on Vercel |
+| Frontend + API | Next.js 16.2+ (App Router, TypeScript, Tailwind v4) on Vercel |
 | Database + Auth + Storage | Supabase Pro (Postgres 15, RLS, pg_cron, Magic Link) |
 | Admin notifications | Telegram Bot API |
 | Email (Phase 1) | Gmail SMTP via Nodemailer |
@@ -33,6 +33,7 @@ A church event attendance web app for a single Indonesian congregation, replacin
 - Every PII mutation writes to `audit_log`.
 - Soft-delete only (`deleted_at`); data is never hard-deleted except by scheduled retention job.
 - Single-tenant, single-codebase, single deployment.
+- Tailwind v4 CSS-first configuration: styles defined in `globals.css` via `@theme`, no `tailwind.config.ts`.
 
 ## Sprint Plan (high level)
 
