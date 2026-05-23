@@ -25,10 +25,14 @@
 9. Stop after each Sprint Tracker task and wait for the user to verify before moving to the next one.
 10. When in doubt about scope, ask before expanding. Prefer small, focused commits over large ones.
 
+## Dev Server
+
+11. After changing `proxy.ts`, any `.env*` file, `next.config.ts`, or `package.json`, restart the dev server (Ctrl+C then `npm run dev`). HMR does not reliably pick up infrastructure-level changes.
+
 ## Before Declaring a Task Done
 
-11. Run `npm run lint` and `npm run typecheck` — both must pass cleanly.
+12. Run `npm run lint` and `npm run typecheck` — both must pass cleanly.
 
 ## Commit Style
 
-12. Use conventional commits: `feat:`, `fix:`, `chore:`, `docs:`, `test:`. Keep the subject line under 72 characters.
+13. Use conventional commits: `feat:`, `fix:`, `chore:`, `docs:`, `test:`. Keep the subject line under 72 characters.
