@@ -34,6 +34,7 @@ A church event attendance web app for a single Indonesian congregation, replacin
 - Soft-delete only (`deleted_at`); data is never hard-deleted except by scheduled retention job.
 - Single-tenant, single-codebase, single deployment.
 - Tailwind v4 CSS-first configuration: styles defined in `globals.css` via `@theme`, no `tailwind.config.ts`.
+- Three Supabase clients (`lib/supabase/client.ts`, `server.ts`, `admin.ts`) isolate concerns: anon key for RLS-respecting access, service role for bypass-RLS server operations only, never mixed.
 
 ## Sprint Plan (high level)
 

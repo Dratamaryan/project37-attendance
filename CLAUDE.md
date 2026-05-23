@@ -29,10 +29,19 @@
 
 11. After changing `proxy.ts`, any `.env*` file, `next.config.ts`, or `package.json`, restart the dev server (Ctrl+C then `npm run dev`). HMR does not reliably pick up infrastructure-level changes.
 
+12. Supabase client selection:
+    - `lib/supabase/client.ts` — Client Components only.
+    - `lib/supabase/server.ts` — Server Components, Server Actions, Route Handlers.
+    - `lib/supabase/admin.ts` — server contexts that must bypass RLS only (API routes, scheduled functions). Never import in pages or components.
+
+    This separation ensures the service role key never reaches the client bundle, and that the principle of least privilege is enforced at the architectural level — not just trusted to code review.
+
+13. For connectivity smoke tests during development, prefer `auth.getUser()` or a query against an exposed schema table (e.g. `graphql_public.graphql`) rather than RPCing to functions that may not exist on a fresh project (e.g. `public.now` does not exist by default).
+
 ## Before Declaring a Task Done
 
-12. Run `npm run lint` and `npm run typecheck` — both must pass cleanly.
+14. Run `npm run lint` and `npm run typecheck` — both must pass cleanly.
 
 ## Commit Style
 
-13. Use conventional commits: `feat:`, `fix:`, `chore:`, `docs:`, `test:`. Keep the subject line under 72 characters.
+15. Use conventional commits: `feat:`, `fix:`, `chore:`, `docs:`, `test:`. Keep the subject line under 72 characters.
