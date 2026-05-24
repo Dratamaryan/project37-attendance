@@ -38,10 +38,14 @@
 
 13. For connectivity smoke tests during development, prefer `auth.getUser()` or a query against an exposed schema table (e.g. `graphql_public.graphql`) rather than RPCing to functions that may not exist on a fresh project (e.g. `public.now` does not exist by default).
 
+## Supabase Free Tier
+
+14. The project runs on Supabase Free tier during the pitch phase. Free projects pause after 7 days of inactivity — do not assume Pro features (no pg_cron, no point-in-time recovery). The heartbeat cron (`/api/cron/heartbeat`) keeps the project alive. Switch to Pro before production launch.
+
 ## Before Declaring a Task Done
 
-14. Run `npm run lint` and `npm run typecheck` — both must pass cleanly.
+15. Run `npm run lint` and `npm run typecheck` — both must pass cleanly.
 
 ## Commit Style
 
-15. Use conventional commits: `feat:`, `fix:`, `chore:`, `docs:`, `test:`. Keep the subject line under 72 characters.
+16. Use conventional commits: `feat:`, `fix:`, `chore:`, `docs:`, `test:`. Keep the subject line under 72 characters.

@@ -15,7 +15,7 @@ A church event attendance web app for a single Indonesian congregation, replacin
 | Layer | Choice |
 |---|---|
 | Frontend + API | Next.js 16.2+ (App Router, TypeScript, Tailwind v4) on Vercel |
-| Database + Auth + Storage | Supabase Pro (Postgres 15, RLS, pg_cron, Magic Link) |
+| Database + Auth + Storage | Supabase Free → Pro (Postgres 15, RLS, Magic Link) |
 | Admin notifications | Telegram Bot API |
 | Email (Phase 1) | Gmail SMTP via Nodemailer |
 | Email (Phase 2) | Resend |
@@ -24,7 +24,7 @@ A church event attendance web app for a single Indonesian congregation, replacin
 | Excel export | SheetJS |
 | Charts | Recharts |
 
-**Cost: $25/month (Supabase Pro) + $15/year domain.**
+**Cost: $0/month during pitch (Supabase Free) — upgrade to Pro ($25/mo) on approval + $15/year domain.**
 
 ## Key Design Decisions
 
@@ -32,6 +32,7 @@ A church event attendance web app for a single Indonesian congregation, replacin
 - All authorization enforced at the database layer via Postgres RLS — not just application code.
 - Every PII mutation writes to `audit_log`.
 - Soft-delete only (`deleted_at`); data is never hard-deleted except by scheduled retention job.
+- Supabase Free tier keep-alive: daily Vercel Cron writes to `system_health` to prevent project auto-pause (7-day inactivity limit). Remove when migrating to Pro.
 - Single-tenant, single-codebase, single deployment.
 - Tailwind v4 CSS-first configuration: styles defined in `globals.css` via `@theme`, no `tailwind.config.ts`.
 - Three Supabase clients (`lib/supabase/client.ts`, `server.ts`, `admin.ts`) isolate concerns: anon key for RLS-respecting access, service role for bypass-RLS server operations only, never mixed.
