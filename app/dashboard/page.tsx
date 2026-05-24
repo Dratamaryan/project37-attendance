@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
-import { signOut } from './actions'
+import { Card } from '@/components/ui/Card'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -20,43 +20,34 @@ export default async function DashboardPage() {
   const t = await getTranslations('dashboard')
 
   return (
-    <main className="min-h-screen bg-[#0F0F0F] p-8">
+    <main className="p-8">
       <div className="max-w-2xl mx-auto">
-        <h1 className="text-2xl font-semibold text-[#A8924A] mb-8">
+        <h1 className="font-heading text-3xl font-semibold text-charcoal mb-8">
           {t('title')}
         </h1>
 
-        <div className="rounded-2xl bg-white/5 border border-white/10 p-6 space-y-4">
+        <Card className="space-y-4">
           <div>
-            <p className="text-xs text-white/40 uppercase tracking-wide mb-1">
+            <p className="text-xs text-muted uppercase tracking-wide mb-1">
               {t('emailLabel')}
             </p>
-            <p className="text-sm text-white">{email}</p>
+            <p className="text-sm text-ink-2">{email}</p>
           </div>
           <div>
-            <p className="text-xs text-white/40 uppercase tracking-wide mb-1">
+            <p className="text-xs text-muted uppercase tracking-wide mb-1">
               {t('sessionLabel')}
             </p>
-            <p className="text-sm text-white">{sessionStarted} WIB</p>
+            <p className="text-sm text-ink-2">{sessionStarted} WIB</p>
           </div>
           <div>
-            <p className="text-xs text-white/40 uppercase tracking-wide mb-1">
+            <p className="text-xs text-muted uppercase tracking-wide mb-1">
               {t('roleLabel')}
             </p>
-            <p className="text-sm text-white/40 italic">
+            <p className="text-sm text-muted italic">
               {t('rolePlaceholder')}
             </p>
           </div>
-        </div>
-
-        <form action={signOut} className="mt-6">
-          <button
-            type="submit"
-            className="rounded-lg border border-white/20 px-6 py-2.5 text-sm text-white/60 hover:border-white/40 hover:text-white transition-colors"
-          >
-            {t('signOut')}
-          </button>
-        </form>
+        </Card>
       </div>
     </main>
   )

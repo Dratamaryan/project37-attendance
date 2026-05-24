@@ -1,5 +1,7 @@
 import Link from 'next/link'
 import { getTranslations } from 'next-intl/server'
+import { PublicShell } from '@/components/PublicShell'
+import { Card } from '@/components/ui/Card'
 
 type Props = {
   searchParams: Promise<{ reason?: string }>
@@ -25,21 +27,23 @@ export default async function AuthErrorPage({ searchParams }: Props) {
         : 'generic'
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-[#0F0F0F]">
-      <div className="w-full max-w-sm px-6 py-8 rounded-2xl bg-white/5 border border-white/10 text-center">
-        <h1 className="text-xl font-semibold text-white mb-3">
-          {t(`${errorKey}.title`)}
-        </h1>
-        <p className="text-sm text-white/60 mb-6 leading-relaxed">
-          {t(`${errorKey}.body`)}
-        </p>
-        <Link
-          href="/login"
-          className="inline-block rounded-lg bg-[#A8924A] px-6 py-2.5 text-sm font-medium text-[#0F0F0F] hover:bg-[#9a8444] transition-colors"
-        >
-          {t('backToSignIn')}
-        </Link>
-      </div>
-    </main>
+    <PublicShell>
+      <main className="flex-1 flex items-center justify-center p-6">
+        <Card className="w-full max-w-sm text-center">
+          <h1 className="font-heading text-2xl font-semibold text-charcoal mb-3">
+            {t(`${errorKey}.title`)}
+          </h1>
+          <p className="text-sm text-muted mb-6 leading-relaxed">
+            {t(`${errorKey}.body`)}
+          </p>
+          <Link
+            href="/login"
+            className="inline-block rounded-lg bg-gold px-6 py-2.5 text-sm font-medium text-charcoal hover:bg-gold-dark transition-colors"
+          >
+            {t('backToSignIn')}
+          </Link>
+        </Card>
+      </main>
+    </PublicShell>
   )
 }

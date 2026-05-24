@@ -20,13 +20,13 @@ export function LanguageSwitcher({ currentLocale }: Props) {
         disabled={currentLocale === 'id'}
         className={
           currentLocale === 'id'
-            ? 'text-[#A8924A]'
-            : 'text-white/40 hover:text-white/70 transition-colors'
+            ? 'text-gold'
+            : 'text-muted hover:text-ink-2 transition-colors'
         }
       >
         ID
       </button>
-      <span className="text-white/20">/</span>
+      <span className="text-line">/</span>
       <button
         type="submit"
         name="locale"
@@ -34,8 +34,8 @@ export function LanguageSwitcher({ currentLocale }: Props) {
         disabled={currentLocale === 'en'}
         className={
           currentLocale === 'en'
-            ? 'text-[#A8924A]'
-            : 'text-white/40 hover:text-white/70 transition-colors'
+            ? 'text-gold'
+            : 'text-muted hover:text-ink-2 transition-colors'
         }
       >
         EN

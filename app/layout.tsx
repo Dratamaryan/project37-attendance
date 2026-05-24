@@ -1,18 +1,21 @@
 import type { Metadata } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import { Cormorant_Garamond, Plus_Jakarta_Sans } from 'next/font/google'
 import { NextIntlClientProvider } from 'next-intl'
 import { getLocale, getMessages, getTranslations } from 'next-intl/server'
-import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import './globals.css'
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
+const cormorant = Cormorant_Garamond({
+  variable: '--font-cormorant',
   subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  display: 'swap',
 })
 
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
+const jakarta = Plus_Jakarta_Sans({
+  variable: '--font-jakarta',
   subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700'],
+  display: 'swap',
 })
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -20,6 +23,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: t('title'),
     description: t('description'),
+    icons: { icon: '/brand/logo-primary.png' },
   }
 }
 
@@ -34,13 +38,10 @@ export default async function RootLayout({
   return (
     <html
       lang={locale}
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${cormorant.variable} ${jakarta.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col bg-cream text-charcoal">
         <NextIntlClientProvider messages={messages}>
-          <div className="fixed top-4 right-4 z-50">
-            <LanguageSwitcher currentLocale={locale} />
-          </div>
           {children}
         </NextIntlClientProvider>
       </body>

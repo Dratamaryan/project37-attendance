@@ -1,4 +1,7 @@
 {
+  "nav": {
+    "signOut": "Keluar"
+  },
   "metadata": {
     "title": "Absensi Project 37",
     "description": "Aplikasi kehadiran acara dan manajemen anggota gereja"
