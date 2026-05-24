@@ -37,6 +37,11 @@ A church event attendance web app for a single Indonesian congregation, replacin
 - Tailwind v4 CSS-first configuration: styles defined in `globals.css` via `@theme`, no `tailwind.config.ts`.
 - Three Supabase clients (`lib/supabase/client.ts`, `server.ts`, `admin.ts`) isolate concerns: anon key for RLS-respecting access, service role for bypass-RLS server operations only, never mixed.
 
+**Visual design reference:** `docs/design-demo.html` is a self-contained 
+HTML demo of the full UI that the team approved during the design phase. 
+Use this as the source of truth for color, typography, spacing, and 
+component patterns when implementing UI features.
+
 ## Sprint Plan (high level)
 
 | Sprint | Focus |
