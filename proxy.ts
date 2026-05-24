@@ -1,9 +1,13 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-// Paths that require a valid session.
-const PROTECTED_PREFIXES = ['/dashboard']
-// Paths that should redirect authenticated users to /dashboard.
+// Protected routes — unauthenticated users are redirected to /login.
+// Keep this list up to date as new top-level sections are added.
+//   /dashboard  — main app shell
+//   /admin      — admin-only management pages
+//   /checkin    — volunteer check-in flow
+const PROTECTED_PREFIXES = ['/dashboard', '/admin', '/checkin']
+// Auth-only routes — authenticated users are redirected to /dashboard.
 const AUTH_ONLY_PREFIXES = ['/login']
 
 // Next.js 16 renamed middleware.ts → proxy.ts and the export → proxy().
