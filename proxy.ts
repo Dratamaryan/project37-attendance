@@ -1,8 +1,14 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+// Paths that require a valid session.
+const PROTECTED_PREFIXES = ['/dashboard']
+// Paths that should redirect authenticated users to /dashboard.
+const AUTH_ONLY_PREFIXES = ['/login']
+
 // Next.js 16 renamed middleware.ts → proxy.ts and the export → proxy().
-// This proxy runs on every non-static request to refresh Supabase auth tokens.
+// This proxy runs on every non-static request to refresh Supabase auth tokens
+// and enforce route-level authentication.
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
@@ -34,7 +40,33 @@ export async function proxy(request: NextRequest) {
 
   // Validates and refreshes the access token. Must run before any page logic.
   // Do not put code between createServerClient and getClaims().
-  await supabase.auth.getClaims()
+  const { data } = await supabase.auth.getClaims()
+  const isAuthenticated = !!data?.claims
+
+  const { pathname } = request.nextUrl
+  const isProtected = PROTECTED_PREFIXES.some(p => pathname.startsWith(p))
+  const isAuthOnly = AUTH_ONLY_PREFIXES.some(p => pathname.startsWith(p))
+
+  // Propagate any refreshed session cookies to redirect responses so the
+  // browser/server token state stays in sync.
+  function withCookies(response: NextResponse): NextResponse {
+    for (const { name, value, ...options } of supabaseResponse.cookies.getAll()) {
+      response.cookies.set(name, value, options)
+    }
+    return response
+  }
+
+  if (isProtected && !isAuthenticated) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    return withCookies(NextResponse.redirect(url))
+  }
+
+  if (isAuthOnly && isAuthenticated) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/dashboard'
+    return withCookies(NextResponse.redirect(url))
+  }
 
   // IMPORTANT: return supabaseResponse as-is, or copy cookies if creating a
   // new response. Failing to do so will desync browser/server sessions.

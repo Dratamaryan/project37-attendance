@@ -1,8 +1,10 @@
+'use server'
+
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 
-export default async function Home() {
+export async function signOut(): Promise<void> {
   const supabase = await createClient()
-  const { data } = await supabase.auth.getClaims()
-  redirect(data ? '/dashboard' : '/login')
+  await supabase.auth.signOut()
+  redirect('/login')
 }
