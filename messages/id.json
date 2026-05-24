@@ -1,0 +1,44 @@
+{
+  "metadata": {
+    "title": "Absensi Project 37",
+    "description": "Aplikasi kehadiran acara dan manajemen anggota gereja"
+  },
+  "login": {
+    "title": "Absensi Project 37",
+    "subtitle": "Masuk sebagai Admin",
+    "emailLabel": "Alamat email",
+    "emailPlaceholder": "anda@example.com",
+    "sendButton": "Kirim tautan masuk",
+    "sendingButton": "Mengirim…",
+    "successMessage": "Jika email tersebut terdaftar, tautan masuk sedang dalam perjalanan. Periksa kotak masuk Anda (dan folder spam jika diperlukan)."
+  },
+  "dashboard": {
+    "title": "Dasbor",
+    "emailLabel": "Email",
+    "sessionLabel": "Sesi dimulai",
+    "roleLabel": "Peran",
+    "rolePlaceholder": "— akan diisi di Sprint 0 Tugas 8",
+    "signOut": "Keluar"
+  },
+  "auth": {
+    "error": {
+      "configDrift": {
+        "title": "Format tautan masuk salah",
+        "body": "Hubungi administrator — templat email Supabase perlu diperbarui."
+      },
+      "invalidLink": {
+        "title": "Tautan masuk tidak valid",
+        "body": "Tautan tidak memiliki parameter yang diperlukan. Coba klik langsung dari email Anda, atau minta tautan baru."
+      },
+      "otpExpired": {
+        "title": "Tautan masuk sudah tidak berlaku",
+        "body": "Tautan ini sudah kedaluwarsa (berlaku 1 jam) atau sudah digunakan — setiap tautan hanya bisa digunakan sekali. Silakan minta tautan baru."
+      },
+      "generic": {
+        "title": "Tautan masuk sudah tidak berlaku",
+        "body": "Terjadi kesalahan pada tautan masuk Anda. Silakan minta tautan baru."
+      },
+      "backToSignIn": "Kembali ke halaman masuk"
+    }
+  }
+}

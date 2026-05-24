@@ -1,0 +1,44 @@
+{
+  "metadata": {
+    "title": "Absensi Project 37",
+    "description": "Church event attendance and member management"
+  },
+  "login": {
+    "title": "Absensi Project 37",
+    "subtitle": "Admin sign in",
+    "emailLabel": "Email address",
+    "emailPlaceholder": "you@example.com",
+    "sendButton": "Send magic link",
+    "sendingButton": "Sending…",
+    "successMessage": "If that email is registered, a sign-in link is on its way. Check your inbox (and spam folder if needed)."
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "emailLabel": "Email",
+    "sessionLabel": "Session started",
+    "roleLabel": "Role",
+    "rolePlaceholder": "— populated in Sprint 0 Task 8",
+    "signOut": "Sign out"
+  },
+  "auth": {
+    "error": {
+      "configDrift": {
+        "title": "Sign-in link format is incorrect",
+        "body": "Please contact the administrator — the Supabase email template needs to be updated."
+      },
+      "invalidLink": {
+        "title": "Invalid sign-in link",
+        "body": "The link is missing required parameters. Try clicking it directly from your email, or request a new one."
+      },
+      "otpExpired": {
+        "title": "Sign-in link no longer valid",
+        "body": "This link has either expired (valid for 1 hour) or already been used — each link works only once. Please request a new one."
+      },
+      "generic": {
+        "title": "Sign-in link no longer valid",
+        "body": "Something went wrong with your sign-in link. Please request a new one."
+      },
+      "backToSignIn": "Back to sign in"
+    }
+  }
+}

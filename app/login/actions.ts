@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { getTranslations } from 'next-intl/server'
 
 type State = { message: string | null }
 
@@ -15,6 +16,7 @@ export async function sendMagicLink(_prevState: State, formData: FormData): Prom
   if (!email) return { message: null }
 
   const supabase = await createClient()
+  const t = await getTranslations('login')
 
   await Promise.all([
     supabase.auth.signInWithOtp({
@@ -28,9 +30,5 @@ export async function sendMagicLink(_prevState: State, formData: FormData): Prom
   ])
 
   // Always return the same message regardless of whether the email exists — no user enumeration.
-  // TODO: i18n
-  return {
-    message:
-      'If that email is registered, a sign-in link is on its way. Check your inbox (and spam folder if needed).',
-  }
+  return { message: t('successMessage') }
 }
