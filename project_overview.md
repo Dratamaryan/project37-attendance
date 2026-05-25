@@ -36,6 +36,7 @@ A church event attendance web app for a single Indonesian congregation, replacin
 - Single-tenant, single-codebase, single deployment.
 - Tailwind v4 CSS-first configuration: styles defined in `globals.css` via `@theme`, no `tailwind.config.ts`.
 - Three Supabase clients (`lib/supabase/client.ts`, `server.ts`, `admin.ts`) isolate concerns: anon key for RLS-respecting access, service role for bypass-RLS server operations only, never mixed.
+- Schema additions from real-data analysis (May 24, 2026): `gender`, `kepanitiaan`, `tribe` added to `people` table. Wedding/spouse/children/couple-photo fields deferred to Sprint 5 admin UI. See `docs/4. Database Schema.md` "Real Data" section for full data quality findings and import plan.
 
 **Visual design reference:** `docs/design-demo.html` is a self-contained 
 HTML demo of the full UI that the team approved during the design phase. 
