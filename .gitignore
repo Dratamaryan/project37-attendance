@@ -63,3 +63,4 @@ memory/
 # macOS
 .DS_Store
 **/.DS_Store
+docs/data-samples/
