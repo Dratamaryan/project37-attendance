@@ -12,6 +12,8 @@ export const AUDIT_ACTIONS = {
   SETTINGS_UPDATE:       'settings.update',
   PARISH_CREATE:         'parish.create',
   PARISH_APPROVE:        'parish.approve',
+  PHOTO_UPLOAD:          'photo.upload',
+  PHOTO_DELETE:          'photo.delete',
 } as const
 
 export type AuditAction = typeof AUDIT_ACTIONS[keyof typeof AUDIT_ACTIONS]
