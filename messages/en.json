@@ -1,6 +1,9 @@
 {
   "nav": {
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "home": "Home",
+    "checkin": "Check In",
+    "people": "People"
   },
   "metadata": {
     "title": "Absensi Project 37",
@@ -16,12 +19,20 @@
     "successMessage": "If that email is registered, a sign-in link is on its way. Check your inbox (and spam folder if needed)."
   },
   "dashboard": {
-    "title": "Dashboard",
-    "emailLabel": "Email",
-    "sessionLabel": "Session started",
-    "roleLabel": "Role",
-    "rolePlaceholder": "— populated in Sprint 0 Task 8",
-    "signOut": "Sign out"
+    "greeting": "Welcome back, {name}",
+    "role": {
+      "admin": "Admin",
+      "organizer": "Organizer"
+    },
+    "cards": {
+      "checkin_title": "Check In",
+      "checkin_description": "Record attendance for today's event",
+      "people_title": "Manage People",
+      "people_description": "Search, edit, and manage member records",
+      "settings_title": "Settings",
+      "settings_description": "App configuration",
+      "coming_soon": "Coming Soon"
+    }
   },
   "checkin": {
     "title": "Check In",
@@ -86,6 +97,11 @@
     }
   },
   "auth": {
+    "not_authorized": {
+      "title": "Access denied",
+      "message": "You don't have permission to view this page.",
+      "back_to_dashboard": "Back to Dashboard"
+    },
     "error": {
       "configDrift": {
         "title": "Sign-in link format is incorrect",
@@ -105,5 +121,8 @@
       },
       "backToSignIn": "Back to sign in"
     }
+  },
+  "settings": {
+    "coming_soon_message": "Settings will be available in Sprint 5."
   }
 }

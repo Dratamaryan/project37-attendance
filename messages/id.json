@@ -1,6 +1,9 @@
 {
   "nav": {
-    "signOut": "Keluar"
+    "signOut": "Keluar",
+    "home": "Beranda",
+    "checkin": "Daftar Hadir",
+    "people": "Anggota"
   },
   "metadata": {
     "title": "Absensi Project 37",
@@ -16,12 +19,20 @@
     "successMessage": "Jika email tersebut terdaftar, tautan masuk sedang dalam perjalanan. Periksa kotak masuk Anda (dan folder spam jika diperlukan)."
   },
   "dashboard": {
-    "title": "Dasbor",
-    "emailLabel": "Email",
-    "sessionLabel": "Sesi dimulai",
-    "roleLabel": "Peran",
-    "rolePlaceholder": "— akan diisi di Sprint 0 Tugas 8",
-    "signOut": "Keluar"
+    "greeting": "Selamat datang, {name}",
+    "role": {
+      "admin": "Admin",
+      "organizer": "Organizer"
+    },
+    "cards": {
+      "checkin_title": "Daftar Hadir",
+      "checkin_description": "Catat kehadiran untuk acara hari ini",
+      "people_title": "Kelola Anggota",
+      "people_description": "Cari, edit, dan kelola data anggota",
+      "settings_title": "Pengaturan",
+      "settings_description": "Konfigurasi aplikasi",
+      "coming_soon": "Segera Hadir"
+    }
   },
   "checkin": {
     "title": "Daftar Hadir",
@@ -86,6 +97,11 @@
     }
   },
   "auth": {
+    "not_authorized": {
+      "title": "Akses ditolak",
+      "message": "Anda tidak memiliki izin untuk melihat halaman ini.",
+      "back_to_dashboard": "Kembali ke Beranda"
+    },
     "error": {
       "configDrift": {
         "title": "Format tautan masuk salah",
@@ -105,5 +121,8 @@
       },
       "backToSignIn": "Kembali ke halaman masuk"
     }
+  },
+  "settings": {
+    "coming_soon_message": "Pengaturan akan tersedia di Sprint 5."
   }
 }
