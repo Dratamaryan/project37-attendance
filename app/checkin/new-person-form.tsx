@@ -228,21 +228,30 @@ export function NewPersonForm({
       const person = createResult.person
 
       if (state.photoFile) {
-        const uploadResult = await uploadPhoto({
-          personId: person.id,
-          file: state.photoFile,
-          consent: state.consent,
-        })
-
-        if (uploadResult.status === 'uploaded') {
-          await updatePerson(person.id, { photo_url: uploadResult.path })
-        } else {
-          // Photo failed — person is in DB, show error, still add to recent panel
-          dispatch({
-            type: 'SET_SUBMIT_ERROR',
-            errorType: 'photo_upload',
-            message: '',
+        // try/catch is required: uploadPhoto may throw (not return a discriminated
+        // union) if Next.js rejects the request body before the action runs
+        // (e.g. body size limit exceeded) or if a network/RSC error occurs.
+        // Photo failure must NEVER crash the page or block adding to the recent panel.
+        let photoFailed = false
+        try {
+          const uploadResult = await uploadPhoto({
+            personId: person.id,
+            file: state.photoFile,
+            consent: state.consent,
           })
+          if (uploadResult.status === 'uploaded') {
+            await updatePerson(person.id, { photo_url: uploadResult.path })
+          } else {
+            console.warn('[checkin] photo upload non-success:', uploadResult.status)
+            photoFailed = true
+          }
+        } catch (err) {
+          console.error('[checkin] photo upload threw:', err)
+          photoFailed = true
+        }
+
+        if (photoFailed) {
+          dispatch({ type: 'SET_SUBMIT_ERROR', errorType: 'photo_upload', message: '' })
           onPhotoError()
           onSuccess(person)
           return

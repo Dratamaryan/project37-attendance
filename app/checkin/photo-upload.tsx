@@ -12,39 +12,54 @@ type Props = {
 }
 
 const MAX_BYTES = 5 * 1024 * 1024
-const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+// Extension-based allowlist. Extension is the most reliable signal across
+// browsers — iOS Safari sometimes reports HEIC as '' or 'image/heic'
+// inconsistently; MIME type alone is not sufficient.
+const HEIC_EXTS = new Set(['heic', 'heif'])
+const ALLOWED_EXTS = new Set(['jpg', 'jpeg', 'png', 'webp'])
+const ACCEPTED_MIME = ['image/jpeg', 'image/png', 'image/webp']
 
 export function PhotoUpload({ previewUrl, consent, onFileSelect, onClear, onConsentChange }: Props) {
   const t = useTranslations('checkin.form')
   const [fileError, setFileError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  function reject(msg: string) {
+    setFileError(msg)
+    if (inputRef.current) inputRef.current.value = ''
+  }
+
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
     setFileError(null)
 
-    const isHeic =
-      file.type === 'image/heic' ||
-      file.type === 'image/heif' ||
-      file.name.toLowerCase().endsWith('.heic') ||
-      file.name.toLowerCase().endsWith('.heif')
+    // Extension check first — most reliable across browsers and iOS versions.
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
 
-    if (isHeic) {
-      setFileError(t('photo_heic_warning'))
-      if (inputRef.current) inputRef.current.value = ''
+    if (HEIC_EXTS.has(ext)) {
+      reject(t('photo_heic_warning'))
       return
     }
 
-    if (!ACCEPTED_TYPES.includes(file.type)) {
-      setFileError(t('photo_invalid_type'))
-      if (inputRef.current) inputRef.current.value = ''
+    // MIME-type HEIC check as a second layer for files with missing/no extension.
+    if (file.type === 'image/heic' || file.type === 'image/heif') {
+      reject(t('photo_heic_warning'))
+      return
+    }
+
+    if (!ALLOWED_EXTS.has(ext)) {
+      reject(t('photo_invalid_type'))
+      return
+    }
+
+    if (!ACCEPTED_MIME.includes(file.type)) {
+      reject(t('photo_invalid_type'))
       return
     }
 
     if (file.size > MAX_BYTES) {
-      setFileError(t('photo_too_large'))
-      if (inputRef.current) inputRef.current.value = ''
+      reject(t('photo_too_large'))
       return
     }
 

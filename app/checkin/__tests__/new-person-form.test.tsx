@@ -441,6 +441,72 @@ describe('NewPersonForm', () => {
     vi.restoreAllMocks()
   })
 
+  it('uploadPhoto returns invalid_extension: person added, onPhotoError called, no crash', async () => {
+    mockCreate.mockResolvedValue({ status: 'created', person: MOCK_PERSON } satisfies CreateResult)
+    mockUpload.mockResolvedValue({ status: 'invalid_extension' } satisfies UploadResult)
+
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock')
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+
+    const { user, onSuccess, onPhotoError } = setup()
+    await fillRequired(user)
+
+    const fileInput = document.querySelector('[data-testid="photo-input"]') as HTMLInputElement
+    await act(async () => {
+      Object.defineProperty(fileInput, 'files', {
+        value: [new File([new ArrayBuffer(100)], 'photo.jpg', { type: 'image/jpeg' })],
+        configurable: true,
+      })
+      fireEvent.change(fileInput)
+    })
+
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: 'submit_button' }))
+    })
+
+    await waitFor(() => {
+      expect(mockCreate).toHaveBeenCalledOnce()
+      expect(mockUpdate).not.toHaveBeenCalled()
+      expect(onPhotoError).toHaveBeenCalledOnce()
+      expect(onSuccess).toHaveBeenCalledWith(MOCK_PERSON)
+    })
+
+    vi.restoreAllMocks()
+  })
+
+  it('uploadPhoto throws unexpectedly: person added, onPhotoError called, no page crash', async () => {
+    mockCreate.mockResolvedValue({ status: 'created', person: MOCK_PERSON } satisfies CreateResult)
+    mockUpload.mockRejectedValue(new Error('RSC transport error'))
+
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock')
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+
+    const { user, onSuccess, onPhotoError } = setup()
+    await fillRequired(user)
+
+    const fileInput = document.querySelector('[data-testid="photo-input"]') as HTMLInputElement
+    await act(async () => {
+      Object.defineProperty(fileInput, 'files', {
+        value: [new File([new ArrayBuffer(100)], 'photo.jpg', { type: 'image/jpeg' })],
+        configurable: true,
+      })
+      fireEvent.change(fileInput)
+    })
+
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: 'submit_button' }))
+    })
+
+    await waitFor(() => {
+      expect(mockCreate).toHaveBeenCalledOnce()
+      expect(mockUpdate).not.toHaveBeenCalled()
+      expect(onPhotoError).toHaveBeenCalledOnce()
+      expect(onSuccess).toHaveBeenCalledWith(MOCK_PERSON)
+    })
+
+    vi.restoreAllMocks()
+  })
+
   it('validation_error from server: field_errors keys apply error styling', async () => {
     mockCreate.mockResolvedValue({
       status: 'validation_error',
