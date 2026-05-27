@@ -112,6 +112,7 @@ export function CheckinClient() {
     setRawPhone('')
     setServerResult(null)
     setShowForm(false)
+    setPhotoUploadFailed(false)
     setTimeout(() => inputRef.current?.focus(), 0)
   }
 

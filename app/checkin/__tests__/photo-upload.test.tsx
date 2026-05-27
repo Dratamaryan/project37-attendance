@@ -83,6 +83,13 @@ describe('PhotoUpload — extension-first HEIC rejection', () => {
     expect(onFileSelect).not.toHaveBeenCalled()
   })
 
+  it('image/heic-sequence MIME (Live Photo) + empty name → shows heic_warning', async () => {
+    const { input, onFileSelect } = setup()
+    await uploadFile(input, new File([], '', { type: 'image/heic-sequence' }))
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('photo_heic_warning'))
+    expect(onFileSelect).not.toHaveBeenCalled()
+  })
+
   it('valid JPEG passes all checks and calls onFileSelect (happy-path regression)', async () => {
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock')
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})

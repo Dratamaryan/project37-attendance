@@ -43,7 +43,8 @@ export function PhotoUpload({ previewUrl, consent, onFileSelect, onClear, onCons
     }
 
     // MIME-type HEIC check as a second layer for files with missing/no extension.
-    if (file.type === 'image/heic' || file.type === 'image/heif') {
+    // image/heic-sequence covers Live Photo bursts from iOS Camera.
+    if (file.type === 'image/heic' || file.type === 'image/heif' || file.type === 'image/heic-sequence') {
       reject(t('photo_heic_warning'))
       return
     }
@@ -105,7 +106,7 @@ export function PhotoUpload({ previewUrl, consent, onFileSelect, onClear, onCons
           <input
             ref={inputRef}
             type="file"
-            accept="image/jpeg,image/png,image/webp"
+            accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
             onChange={handleChange}
             className="hidden"
             data-testid="photo-input"

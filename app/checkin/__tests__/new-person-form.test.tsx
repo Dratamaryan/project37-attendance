@@ -361,6 +361,8 @@ describe('NewPersonForm', () => {
       expect(mockUpload).toHaveBeenCalledOnce()
       expect(mockUpdate).toHaveBeenCalledWith(MOCK_PERSON.id, { photo_url: 'people-photos/person-001/photo.jpg' })
       expect(onSuccess).toHaveBeenCalledWith(MOCK_PERSON)
+      // No photo-upload error banner — happy path must be silent
+      expect(screen.queryByRole('alert')).toBeNull()
     })
 
     vi.restoreAllMocks()
@@ -469,6 +471,40 @@ describe('NewPersonForm', () => {
       expect(mockUpdate).not.toHaveBeenCalled()
       expect(onPhotoError).toHaveBeenCalledOnce()
       expect(onSuccess).toHaveBeenCalledWith(MOCK_PERSON)
+    })
+
+    vi.restoreAllMocks()
+  })
+
+  it('uploadPhoto returns too_large: person added, onPhotoError called, toast shown', async () => {
+    mockCreate.mockResolvedValue({ status: 'created', person: MOCK_PERSON } satisfies CreateResult)
+    mockUpload.mockResolvedValue({ status: 'too_large' } satisfies UploadResult)
+
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock')
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+
+    const { user, onSuccess, onPhotoError } = setup()
+    await fillRequired(user)
+
+    const fileInput = document.querySelector('[data-testid="photo-input"]') as HTMLInputElement
+    await act(async () => {
+      Object.defineProperty(fileInput, 'files', {
+        value: [new File([new ArrayBuffer(100)], 'photo.jpg', { type: 'image/jpeg' })],
+        configurable: true,
+      })
+      fireEvent.change(fileInput)
+    })
+
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: 'submit_button' }))
+    })
+
+    await waitFor(() => {
+      expect(mockCreate).toHaveBeenCalledOnce()
+      expect(mockUpdate).not.toHaveBeenCalled()
+      expect(onPhotoError).toHaveBeenCalledOnce()
+      expect(onSuccess).toHaveBeenCalledWith(MOCK_PERSON)
+      expect(screen.getByRole('alert')).toHaveTextContent('error_photo_upload')
     })
 
     vi.restoreAllMocks()
