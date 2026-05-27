@@ -5,9 +5,10 @@ import { formatPhoneForDisplay } from '@/lib/utils/phone'
 
 type Props = {
   normalizedE164: string
+  onAdd: () => void
 }
 
-export function NewPersonTrigger({ normalizedE164 }: Props) {
+export function NewPersonTrigger({ normalizedE164, onAdd }: Props) {
   const t = useTranslations('checkin')
   const display = formatPhoneForDisplay(normalizedE164)
 
@@ -28,7 +29,7 @@ export function NewPersonTrigger({ normalizedE164 }: Props) {
       </div>
       <button
         type="button"
-        onClick={() => {/* Task 9 wires this up */}}
+        onClick={onAdd}
         className="px-4 py-2.5 bg-charcoal text-cream text-sm font-medium rounded-sm hover:bg-ink-2 active:translate-y-px transition-all min-h-[44px]"
       >
         {t('add_new_person')}

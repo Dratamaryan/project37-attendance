@@ -8,6 +8,7 @@ import type { PersonSummary, PhoneNormalizationError } from '@/lib/actions/peopl
 import { PhoneInput } from './phone-input'
 import { PersonCard } from './person-card'
 import { NewPersonTrigger } from './new-person-trigger'
+import { NewPersonForm } from './new-person-form'
 import { RecentPanel } from './recent-panel'
 
 export type RecentItem = {
@@ -57,6 +58,8 @@ export function CheckinClient() {
   const [country, setCountry] = useState<SupportedCountry>(DEFAULT_COUNTRY)
   const [serverResult, setServerResult] = useState<ServerResult | null>(null)
   const [recentItems, setRecentItems] = useState<RecentItem[]>([])
+  const [showForm, setShowForm] = useState(false)
+  const [photoUploadFailed, setPhotoUploadFailed] = useState(false)
 
   const inputRef = useRef<HTMLInputElement>(null)
   // Incremented before each lookup; stale results are discarded when the id no longer matches.
@@ -80,32 +83,55 @@ export function CheckinClient() {
       switch (result.status) {
         case 'found':
           setServerResult({ phase: 'found', person: result.person })
+          setShowForm(false)
           break
         case 'not_found':
           setServerResult({ phase: 'not_found', normalized_e164: result.normalized_e164 })
           break
         case 'invalid_phone':
           setServerResult({ phase: 'invalid_phone', reason: result.reason })
+          setShowForm(false)
           break
         case 'error':
           console.error('[checkin] lookupByPhone error:', result.message)
           setServerResult({ phase: 'error', message: result.message })
+          setShowForm(false)
           break
       }
     })
   }, [debouncedPhone, debouncedFireCount, country])
 
-  function handleCheckIn(person: PersonSummary) {
+  function addToRecent(person: PersonSummary, isNew: boolean) {
     setRecentItems((prev) => {
       const deduped = prev.filter((item) => item.person.id !== person.id)
-      return [{ person, checkedInAt: new Date(), isNew: false }, ...deduped].slice(0, 10)
+      return [{ person, checkedInAt: new Date(), isNew }, ...deduped].slice(0, 10)
     })
+  }
+
+  function resetToLookup() {
     setRawPhone('')
     setServerResult(null)
-    // Re-focus so the volunteer can type the next number without tapping the screen.
-    // setTimeout(0) lets the browser finish its blur/focus cycle first.
-    // If iOS Safari swallows focus here, fall back to requestAnimationFrame.
+    setShowForm(false)
     setTimeout(() => inputRef.current?.focus(), 0)
+  }
+
+  function handleCheckIn(person: PersonSummary) {
+    addToRecent(person, false)
+    resetToLookup()
+  }
+
+  function handleNewPersonSuccess(person: PersonSummary) {
+    addToRecent(person, true)
+    resetToLookup()
+  }
+
+  function handleUseExistingPerson(person: PersonSummary) {
+    addToRecent(person, false)
+    resetToLookup()
+  }
+
+  function handlePhotoError() {
+    setPhotoUploadFailed(true)
   }
 
   function handleRecentItemClick(item: RecentItem) {
@@ -137,6 +163,24 @@ export function CheckinClient() {
     <div className="flex flex-col md:flex-row gap-6">
       {/* ── Left column: input + result ── */}
       <div className="flex-1 min-w-0">
+        {/* Photo upload error banner — persists after form collapses */}
+        {photoUploadFailed && (
+          <div
+            role="alert"
+            className="mb-3 flex items-start justify-between gap-3 text-sm text-[#8B7635] bg-[#FBF6E8] border border-[#F5EFD9] rounded-sm px-4 py-3"
+          >
+            <span>{t('form.error_photo_upload')}</span>
+            <button
+              type="button"
+              onClick={() => setPhotoUploadFailed(false)}
+              className="flex-shrink-0 text-muted hover:text-charcoal"
+              aria-label="Dismiss"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         <div className="bg-white border border-line rounded-[4px] p-6 shadow-[0_4px_6px_-1px_rgba(26,26,26,.06),0_2px_4px_-2px_rgba(26,26,26,.04)]">
           <PhoneInput
             value={rawPhone}
@@ -174,7 +218,21 @@ export function CheckinClient() {
           <PersonCard person={serverResult.person} onCheckIn={handleCheckIn} />
         )}
         {displayPhase === 'not_found' && serverResult?.phase === 'not_found' && (
-          <NewPersonTrigger normalizedE164={serverResult.normalized_e164} />
+          showForm ? (
+            <NewPersonForm
+              normalizedE164={serverResult.normalized_e164}
+              country={country}
+              onSuccess={handleNewPersonSuccess}
+              onUseExisting={handleUseExistingPerson}
+              onPhotoError={handlePhotoError}
+              onCancel={() => setShowForm(false)}
+            />
+          ) : (
+            <NewPersonTrigger
+              normalizedE164={serverResult.normalized_e164}
+              onAdd={() => setShowForm(true)}
+            />
+          )
         )}
       </div>
 
