@@ -23,6 +23,24 @@
     "rolePlaceholder": "— populated in Sprint 0 Task 8",
     "signOut": "Sign out"
   },
+  "checkin": {
+    "title": "Check In",
+    "phone_label": "Phone Number",
+    "phone_placeholder": "e.g. 0812 3456 7890",
+    "country_label": "Country",
+    "lookup_searching": "Searching...",
+    "lookup_found": "Found",
+    "lookup_not_found": "No match found",
+    "lookup_invalid_phone": "Invalid phone number",
+    "lookup_too_short": "Keep typing...",
+    "lookup_error": "Something went wrong. Try again.",
+    "add_new_person": "Add new person",
+    "check_in_button": "Check in",
+    "check_in_disabled_sprint2": "Attendance recording arrives in Sprint 2",
+    "recent_title": "Recent Check-Ins",
+    "recent_empty": "No check-ins yet",
+    "recent_new_badge": "NEW"
+  },
   "auth": {
     "error": {
       "configDrift": {

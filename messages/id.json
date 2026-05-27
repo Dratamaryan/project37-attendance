@@ -23,6 +23,24 @@
     "rolePlaceholder": "— akan diisi di Sprint 0 Tugas 8",
     "signOut": "Keluar"
   },
+  "checkin": {
+    "title": "Daftar Hadir",
+    "phone_label": "Nomor Telepon",
+    "phone_placeholder": "mis. 0812 3456 7890",
+    "country_label": "Negara",
+    "lookup_searching": "Mencari...",
+    "lookup_found": "Ditemukan",
+    "lookup_not_found": "Tidak ditemukan",
+    "lookup_invalid_phone": "Nomor tidak valid",
+    "lookup_too_short": "Lanjutkan mengetik...",
+    "lookup_error": "Terjadi kesalahan. Coba lagi.",
+    "add_new_person": "Tambah orang baru",
+    "check_in_button": "Daftar Hadir",
+    "check_in_disabled_sprint2": "Pencatatan kehadiran tersedia di Sprint 2",
+    "recent_title": "Daftar Hadir Terbaru",
+    "recent_empty": "Belum ada",
+    "recent_new_badge": "BARU"
+  },
   "auth": {
     "error": {
       "configDrift": {
