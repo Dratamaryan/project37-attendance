@@ -12,8 +12,12 @@ import type {
   UpdateResult,
   SoftDeleteResult,
   PersonSummary,
+  ListPeopleInput,
+  ListPeopleResult,
+  PersonListItem,
 } from './people.types'
 import type { SupportedCountry } from '../utils/phone'
+import { impl_getPhotoSignedUrl } from '../storage/photos.impl'
 
 const SUMMARY_FIELDS =
   'id, phone_e164, full_name, nickname, email, birth_date, gender, origin_parish, marital_status, photo_url, photo_publish_consent, created_at'
@@ -370,4 +374,83 @@ export async function impl_setPhotoConsent(
   }, supabase)
 
   return { status: 'updated', person: updated as PersonSummary }
+}
+
+// ── listPeople ────────────────────────────────────────────────────────────────
+
+const LIST_FIELDS =
+  'id, phone_e164, full_name, nickname, origin_parish, photo_url, created_at, updated_at, deleted_at'
+
+// Phone-only pattern: optional leading +, then digits only.
+// Used to decide whether to search phone_e164 vs full_name/nickname.
+const PHONE_SEARCH_RE = /^\+?\d+$/
+
+export async function impl_listPeople(
+  input: ListPeopleInput,
+  supabase: SupabaseClient,
+): Promise<ListPeopleResult> {
+  const { data: authData } = await supabase.auth.getUser()
+  const user = authData.user
+  if (!user) return { status: 'not_authorized' }
+
+  const { data: appUser } = await supabase
+    .from('app_users')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (appUser?.role !== 'admin') return { status: 'not_authorized' }
+
+  // Validate page_size before clamping so callers get an explicit error
+  if ((input.page_size ?? 25) > 100) {
+    return { status: 'error', message: 'page_size max is 100' }
+  }
+
+  const page = Math.max(1, input.page ?? 1)
+  const page_size = Math.max(1, input.page_size ?? 25)
+  const query = input.query?.trim() ?? ''
+  const include_deleted = input.include_deleted ?? false
+  const from = (page - 1) * page_size
+  const to = from + page_size - 1
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let dbQuery: any = supabase
+    .from('people')
+    .select(LIST_FIELDS, { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range(from, to)
+
+  if (!include_deleted) {
+    dbQuery = dbQuery.is('deleted_at', null)
+  }
+
+  if (query) {
+    if (PHONE_SEARCH_RE.test(query)) {
+      dbQuery = dbQuery.ilike('phone_e164', `%${query}%`)
+    } else {
+      dbQuery = dbQuery.or(`full_name.ilike.%${query}%,nickname.ilike.%${query}%`)
+    }
+  }
+
+  const { data: rows, error, count } = await dbQuery
+
+  if (error) {
+    console.error('[listPeople]', error)
+    return { status: 'error', message: 'Query failed' }
+  }
+
+  // Resolve signed URLs for all rows in parallel — avoids N+1 sequential round-trips.
+  // photo_signed_url is null when the row has no photo or the URL cannot be resolved.
+  const people: PersonListItem[] = await Promise.all(
+    (rows ?? []).map(async (row: Record<string, unknown>) => {
+      const urlResult = await impl_getPhotoSignedUrl(row.photo_url as string | null, supabase)
+      const photo_signed_url =
+        urlResult.status === 'signed' || urlResult.status === 'legacy_url'
+          ? urlResult.url
+          : null
+      return { ...row, photo_signed_url } as PersonListItem
+    })
+  )
+
+  return { status: 'ok', people, total: count ?? 0, page, page_size }
 }

@@ -103,3 +103,30 @@ export type SoftDeleteResult =
   | { status: 'not_found' }
   | { status: 'not_authorized'; message: string }
   | { status: 'error';          message: string }
+
+// ── listPeople ────────────────────────────────────────────────────
+
+export type ListPeopleInput = {
+  query?: string           // name / nickname / phone substring; case-insensitive
+  include_deleted?: boolean // default false
+  page?: number            // default 1
+  page_size?: number       // default 25, max 100
+}
+
+export type PersonListItem = {
+  id: string
+  phone_e164: string             // displayed via formatPhoneForDisplay in UI
+  full_name: string
+  nickname: string
+  origin_parish: string | null
+  photo_url: string | null       // raw DB path or legacy GDrive URL
+  photo_signed_url: string | null // pre-resolved server-side (null when no photo or URL error)
+  created_at: string
+  updated_at: string
+  deleted_at: string | null      // null when active; ISO timestamp when soft-deleted
+}
+
+export type ListPeopleResult =
+  | { status: 'ok'; people: PersonListItem[]; total: number; page: number; page_size: number }
+  | { status: 'not_authorized' }
+  | { status: 'error'; message: string }

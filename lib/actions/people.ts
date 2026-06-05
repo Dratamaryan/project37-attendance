@@ -7,6 +7,7 @@ import {
   impl_updatePerson,
   impl_softDeletePerson,
   impl_setPhotoConsent,
+  impl_listPeople,
 } from './people.impl'
 import type {
   LookupResult,
@@ -16,6 +17,8 @@ import type {
   UpdateResult,
   SoftDeleteResult,
   SupportedCountry,
+  ListPeopleInput,
+  ListPeopleResult,
 } from './people.types'
 
 export async function lookupByPhone(
@@ -47,4 +50,9 @@ export async function softDeletePerson(id: string): Promise<SoftDeleteResult> {
 export async function setPhotoConsent(id: string, consent: boolean): Promise<UpdateResult> {
   const supabase = await createClient()
   return impl_setPhotoConsent(id, consent, supabase)
+}
+
+export async function listPeople(input: ListPeopleInput): Promise<ListPeopleResult> {
+  const supabase = await createClient()
+  return impl_listPeople(input, supabase)
 }

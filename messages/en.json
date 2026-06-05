@@ -124,5 +124,27 @@
   },
   "settings": {
     "coming_soon_message": "Settings will be available in Sprint 5."
+  },
+  "admin": {
+    "people": {
+      "title": "Manage People",
+      "search_placeholder": "Search by name, nickname, or phone (use +62... format)",
+      "show_deleted": "Show deleted",
+      "empty_state": "No people found",
+      "empty_state_filtered": "No people match this search",
+      "loading": "Loading...",
+      "error": "Couldn't load people. Please try again.",
+      "row": {
+        "edit": "Edit",
+        "deleted_badge": "Deleted {date}",
+        "no_parish": "—"
+      },
+      "pagination": {
+        "total": "{count} people",
+        "page_of": "Page {current} of {total}",
+        "prev": "Previous",
+        "next": "Next"
+      }
+    }
   }
 }

@@ -124,5 +124,27 @@
   },
   "settings": {
     "coming_soon_message": "Pengaturan akan tersedia di Sprint 5."
+  },
+  "admin": {
+    "people": {
+      "title": "Kelola Anggota",
+      "search_placeholder": "Cari nama, panggilan, atau nomor (gunakan format +62...)",
+      "show_deleted": "Tampilkan yang dihapus",
+      "empty_state": "Tidak ada data",
+      "empty_state_filtered": "Tidak ada yang cocok dengan pencarian ini",
+      "loading": "Memuat...",
+      "error": "Gagal memuat data. Silakan coba lagi.",
+      "row": {
+        "edit": "Edit",
+        "deleted_badge": "Dihapus {date}",
+        "no_parish": "—"
+      },
+      "pagination": {
+        "total": "{count} anggota",
+        "page_of": "Halaman {current} dari {total}",
+        "prev": "Sebelumnya",
+        "next": "Selanjutnya"
+      }
+    }
   }
 }
