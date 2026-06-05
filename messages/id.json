@@ -134,16 +134,79 @@
       "empty_state_filtered": "Tidak ada yang cocok dengan pencarian ini",
       "loading": "Memuat...",
       "error": "Gagal memuat data. Silakan coba lagi.",
-      "row": {
-        "edit": "Edit",
-        "deleted_badge": "Dihapus {date}",
-        "no_parish": "—"
-      },
       "pagination": {
         "total": "{count} anggota",
         "page_of": "Halaman {current} dari {total}",
         "prev": "Sebelumnya",
         "next": "Selanjutnya"
+      },
+      "row": {
+        "edit": "Edit",
+        "edit_deleted": "Lihat",
+        "deleted_badge": "Dihapus {date}",
+        "no_parish": "—"
+      },
+      "edit": {
+        "title": "Edit Anggota",
+        "subtitle_for": "Edit {name}",
+        "phone_locked": "Nomor telepon terkunci. Hubungi admin senior untuk mengubah.",
+        "section": {
+          "personal": "Informasi pribadi",
+          "contact": "Kontak",
+          "community": "Komunitas",
+          "admin_only": "Kolom admin",
+          "admin_only_help": "Hanya terlihat oleh admin",
+          "photo": "Foto & izin"
+        },
+        "kepanitiaan_label": "Peran (kepanitiaan)",
+        "kepanitiaan_placeholder": "Member, Servant, Shepherd, dll.",
+        "tribe_label": "Suku",
+        "tribe_placeholder": "Daniel, Deborah, Eden, dll.",
+        "notes_label": "Catatan (internal)",
+        "notes_placeholder": "Catatan bebas yang hanya terlihat oleh admin",
+        "photo": {
+          "current": "Foto saat ini",
+          "replace": "Ganti foto",
+          "remove": "Hapus foto",
+          "remove_confirm": "Hapus foto ini? Pengaturan izin juga akan dihapus."
+        },
+        "consent": {
+          "label": "Izinkan foto ini digunakan di materi publik",
+          "granted_at": "Izin diberikan {date}",
+          "revoked_at": "Izin dicabut {date}",
+          "version": "Versi kebijakan {version}"
+        },
+        "save_button": "Simpan perubahan",
+        "save_button_pending": "Menyimpan...",
+        "cancel_button": "Batal",
+        "last_updated": "Terakhir diperbarui {date}",
+        "unsaved_changes": "Ada perubahan yang belum disimpan. Buang?",
+        "soft_delete_button": "Hapus anggota",
+        "soft_delete_confirm": {
+          "title": "Hapus anggota ini?",
+          "message": "{name} akan disembunyikan dari daftar hadir dan laporan. Bisa dipulihkan nanti.",
+          "confirm": "Hapus",
+          "cancel": "Batal"
+        },
+        "restore_button": "Pulihkan anggota",
+        "deleted_banner": "Anggota ini dihapus {date}. Pulihkan untuk mengaktifkan kembali.",
+        "success": {
+          "saved": "Perubahan disimpan",
+          "deleted": "Anggota dihapus",
+          "restored": "Anggota dipulihkan",
+          "photo_replaced": "Foto diperbarui",
+          "photo_removed": "Foto dihapus",
+          "consent_granted": "Izin publikasi foto diberikan",
+          "consent_revoked": "Izin publikasi foto dicabut"
+        },
+        "error": {
+          "save_failed": "Gagal menyimpan. Silakan coba lagi.",
+          "delete_failed": "Gagal menghapus. Silakan coba lagi.",
+          "restore_failed": "Gagal memulihkan. Silakan coba lagi.",
+          "photo_failed": "Gagal memperbarui foto. Perubahan lain disimpan.",
+          "not_found": "Anggota tidak ditemukan",
+          "not_found_message": "Anggota ini tidak ada atau telah dihapus."
+        }
       }
     }
   }

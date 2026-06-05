@@ -15,6 +15,9 @@ import type {
   ListPeopleInput,
   ListPeopleResult,
   PersonListItem,
+  PersonFull,
+  GetPersonResult,
+  RestoreResult,
 } from './people.types'
 import type { SupportedCountry } from '../utils/phone'
 import { impl_getPhotoSignedUrl } from '../storage/photos.impl'
@@ -453,4 +456,92 @@ export async function impl_listPeople(
   )
 
   return { status: 'ok', people, total: count ?? 0, page, page_size }
+}
+
+// ── getPersonById ─────────────────────────────────────────────────────────────
+
+const FULL_FIELDS =
+  'id, phone_e164, full_name, nickname, email, birth_place, birth_date, gender, ' +
+  'origin_parish, marital_status, kepanitiaan, tribe, notes, current_city, current_area, ' +
+  'photo_url, photo_publish_consent, photo_consent_at, photo_consent_version, ' +
+  'created_at, updated_at, deleted_at'
+
+export async function impl_getPersonById(
+  id: string,
+  supabase: SupabaseClient,
+): Promise<GetPersonResult> {
+  const { data: authData } = await supabase.auth.getUser()
+  const user = authData.user
+  if (!user) return { status: 'not_authorized' }
+
+  const { data: appUser } = await supabase
+    .from('app_users')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (appUser?.role !== 'admin') return { status: 'not_authorized' }
+
+  // No is('deleted_at', null) filter — edit page must load soft-deleted persons too.
+  const { data, error } = await supabase
+    .from('people')
+    .select(FULL_FIELDS)
+    .eq('id', id)
+    .single()
+
+  if (error) {
+    if (error.code === 'PGRST116') return { status: 'not_found' }
+    console.error('[getPersonById]', error)
+    return { status: 'error', message: 'Failed to fetch person' }
+  }
+
+  return { status: 'ok', person: data as unknown as PersonFull }
+}
+
+// ── restorePerson ─────────────────────────────────────────────────────────────
+
+export async function impl_restorePerson(
+  id: string,
+  supabase: SupabaseClient,
+): Promise<RestoreResult> {
+  const { data: authData } = await supabase.auth.getUser()
+  const user = authData.user
+  if (!user) return { status: 'not_authorized' }
+
+  const { data: appUser } = await supabase
+    .from('app_users')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (appUser?.role !== 'admin') return { status: 'not_authorized' }
+
+  const now = new Date().toISOString()
+
+  // No is('deleted_at', null) filter — idempotent: restoring an already-active
+  // person is a no-op that still returns 'restored'.
+  const { data, error } = await supabase
+    .from('people')
+    .update({ deleted_at: null, updated_at: now })
+    .eq('id', id)
+    .select('id')
+    .single()
+
+  if (error) {
+    if (error.code === 'PGRST116') return { status: 'not_found' }
+    if (error.code === '42501') return { status: 'not_authorized' }
+    console.error('[restorePerson]', error)
+    return { status: 'error', message: 'Failed to restore person' }
+  }
+
+  if (!data) return { status: 'not_found' }
+
+  await logAudit({
+    actorUserId: user.id,
+    action:      AUDIT_ACTIONS.PEOPLE_RESTORE,
+    entityType:  'people',
+    entityId:    id,
+  }, supabase)
+
+  return { status: 'restored' }
 }

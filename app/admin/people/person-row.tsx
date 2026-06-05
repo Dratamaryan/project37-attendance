@@ -102,7 +102,14 @@ export function PersonRow({ person }: Props) {
 
       {/* Actions */}
       <td className="px-4 py-3 whitespace-nowrap text-right text-sm">
-        {!isDeleted && (
+        {isDeleted ? (
+          <Link
+            href={`/admin/people/${person.id}`}
+            className="text-muted hover:text-charcoal transition-colors"
+          >
+            {t('row.edit_deleted')}
+          </Link>
+        ) : (
           <Link
             href={`/admin/people/${person.id}`}
             className="text-gold hover:text-gold-dark font-medium transition-colors"

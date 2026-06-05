@@ -94,8 +94,14 @@ describe('PersonRow', () => {
     expect(link).toHaveAttribute('href', '/admin/people/person-001')
   })
 
-  it('Edit link is absent when row is deleted', () => {
+  it('deleted row shows View link (muted style) instead of Edit link', () => {
     renderRow({ ...BASE_PERSON, deleted_at: '2026-05-01T00:00:00Z' })
-    expect(screen.queryByRole('link', { name: /row\.edit/ })).toBeNull()
+    // Gold Edit link absent for deleted rows
+    expect(screen.queryByRole('link', { name: 'row.edit' })).toBeNull()
+    // Muted View link present
+    const viewLink = screen.getByRole('link', { name: 'row.edit_deleted' })
+    expect(viewLink).toBeInTheDocument()
+    expect(viewLink).toHaveAttribute('href', '/admin/people/person-001')
+    expect(viewLink).toHaveClass('text-muted')
   })
 })

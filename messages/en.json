@@ -134,16 +134,79 @@
       "empty_state_filtered": "No people match this search",
       "loading": "Loading...",
       "error": "Couldn't load people. Please try again.",
-      "row": {
-        "edit": "Edit",
-        "deleted_badge": "Deleted {date}",
-        "no_parish": "—"
-      },
       "pagination": {
         "total": "{count} people",
         "page_of": "Page {current} of {total}",
         "prev": "Previous",
         "next": "Next"
+      },
+      "row": {
+        "edit": "Edit",
+        "edit_deleted": "View",
+        "deleted_badge": "Deleted {date}",
+        "no_parish": "—"
+      },
+      "edit": {
+        "title": "Edit Person",
+        "subtitle_for": "Editing {name}",
+        "phone_locked": "Phone number is locked. Contact a senior admin to change it.",
+        "section": {
+          "personal": "Personal information",
+          "contact": "Contact",
+          "community": "Community",
+          "admin_only": "Admin fields",
+          "admin_only_help": "Visible to admins only",
+          "photo": "Photo & consent"
+        },
+        "kepanitiaan_label": "Role (kepanitiaan)",
+        "kepanitiaan_placeholder": "Member, Servant, Shepherd, etc.",
+        "tribe_label": "Tribe",
+        "tribe_placeholder": "Daniel, Deborah, Eden, etc.",
+        "notes_label": "Notes (internal)",
+        "notes_placeholder": "Free-text notes visible to admins only",
+        "photo": {
+          "current": "Current photo",
+          "replace": "Replace photo",
+          "remove": "Remove photo",
+          "remove_confirm": "Remove this photo? Consent settings will also be cleared."
+        },
+        "consent": {
+          "label": "Allow this photo to be used in public materials",
+          "granted_at": "Consent granted {date}",
+          "revoked_at": "Consent revoked {date}",
+          "version": "Policy version {version}"
+        },
+        "save_button": "Save changes",
+        "save_button_pending": "Saving...",
+        "cancel_button": "Cancel",
+        "last_updated": "Last updated {date}",
+        "unsaved_changes": "You have unsaved changes. Discard them?",
+        "soft_delete_button": "Delete person",
+        "soft_delete_confirm": {
+          "title": "Delete this person?",
+          "message": "{name} will be hidden from check-in and reports. You can restore them later.",
+          "confirm": "Delete",
+          "cancel": "Cancel"
+        },
+        "restore_button": "Restore person",
+        "deleted_banner": "This person was deleted {date}. Restore them to make active again.",
+        "success": {
+          "saved": "Changes saved",
+          "deleted": "Person deleted",
+          "restored": "Person restored",
+          "photo_replaced": "Photo updated",
+          "photo_removed": "Photo removed",
+          "consent_granted": "Photo publishing consent granted",
+          "consent_revoked": "Photo publishing consent revoked"
+        },
+        "error": {
+          "save_failed": "Couldn't save changes. Please try again.",
+          "delete_failed": "Couldn't delete. Please try again.",
+          "restore_failed": "Couldn't restore. Please try again.",
+          "photo_failed": "Couldn't update photo. Other changes were saved.",
+          "not_found": "Person not found",
+          "not_found_message": "This person doesn't exist or has been removed."
+        }
       }
     }
   }

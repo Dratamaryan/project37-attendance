@@ -130,3 +130,47 @@ export type ListPeopleResult =
   | { status: 'ok'; people: PersonListItem[]; total: number; page: number; page_size: number }
   | { status: 'not_authorized' }
   | { status: 'error'; message: string }
+
+// ── getPersonById ─────────────────────────────────────────────────────────────
+
+// Full person row including admin-only fields. Used by the admin edit page.
+// Includes soft-deleted records (deleted_at ≠ null) so the edit page can show
+// the restore banner.
+export type PersonFull = {
+  id: string
+  phone_e164: string
+  full_name: string
+  nickname: string
+  email: string | null
+  birth_place: string | null
+  birth_date: string | null
+  gender: 'male' | 'female' | null
+  origin_parish: string | null
+  marital_status: 'married' | 'single' | null
+  kepanitiaan: string | null
+  tribe: string | null
+  notes: string | null
+  current_city: string | null
+  current_area: string | null
+  photo_url: string | null
+  photo_publish_consent: boolean
+  photo_consent_at: string | null
+  photo_consent_version: string | null
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+}
+
+export type GetPersonResult =
+  | { status: 'ok'; person: PersonFull }
+  | { status: 'not_found' }
+  | { status: 'not_authorized' }
+  | { status: 'error'; message: string }
+
+// ── restorePerson ─────────────────────────────────────────────────────────────
+
+export type RestoreResult =
+  | { status: 'restored' }
+  | { status: 'not_found' }
+  | { status: 'not_authorized' }
+  | { status: 'error'; message: string }
