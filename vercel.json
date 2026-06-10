@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/heartbeat",
       "schedule": "0 23 * * *"
+    },
+    {
+      "path": "/api/cron/materialize-events",
+      "schedule": "30 23 * * *"
     }
   ]
 }
