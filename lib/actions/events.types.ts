@@ -3,7 +3,7 @@
 export type EventInput = {
   name: string
   name_id?: string | null
-  event_type: 'friday_biweekly' | 'sunday_monthly' | 'adhoc' | 'other_recurring'
+  event_type: 'friday_monthly' | 'sunday_monthly' | 'adhoc' | 'other_recurring'
   start_date: string          // YYYY-MM-DD
   start_time: string          // HH:mm or HH:mm:ss
   duration_min?: number       // default 120

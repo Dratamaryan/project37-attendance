@@ -121,7 +121,7 @@ beforeAll(async () => {
       .from('events')
       .insert({
         name: SEED_EVENT1_NAME,
-        event_type: 'friday_biweekly',
+        event_type: 'friday_monthly',
         start_date: '2026-07-10',
         start_time: '18:00:00',
         recurrence_rule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=FR',
@@ -274,7 +274,7 @@ describe('event server actions', () => {
       adminSupabase: serviceAdmin,
       input: {
         name: 'ACT-01 Biweekly Event',
-        event_type: 'friday_biweekly',
+        event_type: 'friday_monthly',
         start_date: '2026-07-10',
         start_time: '18:00:00',
         recurrence_rule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=FR',
@@ -336,7 +336,7 @@ describe('event server actions', () => {
       adminSupabase: serviceAdmin,
       input: {
         name: targetName,
-        event_type: 'friday_biweekly',
+        event_type: 'friday_monthly',
         start_date: '2026-07-10',
         start_time: '18:00:00',
         recurrence_rule: 'GARBAGE',

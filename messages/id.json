@@ -138,7 +138,7 @@
         "inactive": "Tidak aktif"
       },
       "type": {
-        "friday_biweekly": "Jumat dua minggu sekali",
+        "friday_monthly": "Bulanan (Jumat ke-2)",
         "sunday_monthly": "Minggu bulanan",
         "adhoc": "Satu kali",
         "other_recurring": "Berulang lainnya"

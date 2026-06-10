@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { buildRRule } from '@/app/admin/events/_components/RRuleBuilder'
 
-// These strings MUST match the seed data created in T2/T4.
+// These strings MUST match the seed/migrated data.
 // Any change to the output values is a breaking change requiring a data migration.
 describe('buildRRule', () => {
-  it('friday_biweekly → FREQ=WEEKLY;INTERVAL=2;BYDAY=FR', () => {
-    expect(buildRRule('friday_biweekly')).toBe('FREQ=WEEKLY;INTERVAL=2;BYDAY=FR')
+  it('friday_monthly → FREQ=MONTHLY;BYDAY=2FR', () => {
+    expect(buildRRule('friday_monthly')).toBe('FREQ=MONTHLY;BYDAY=2FR')
   })
 
   it('sunday_monthly → FREQ=MONTHLY;BYDAY=1SU', () => {

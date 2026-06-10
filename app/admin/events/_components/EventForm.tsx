@@ -14,7 +14,7 @@ type Props =
 type FieldErrors = Record<string, string>
 
 const EVENT_TYPES = [
-  'friday_biweekly',
+  'friday_monthly',
   'sunday_monthly',
   'adhoc',
   'other_recurring',

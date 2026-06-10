@@ -138,7 +138,7 @@
         "inactive": "Inactive"
       },
       "type": {
-        "friday_biweekly": "Bi-weekly Friday",
+        "friday_monthly": "Monthly (2nd Friday)",
         "sunday_monthly": "Monthly Sunday",
         "adhoc": "One-time",
         "other_recurring": "Other recurring"

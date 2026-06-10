@@ -40,7 +40,7 @@ async function fetchNextInstances(eventIds: string[]): Promise<NextInstanceMap> 
 
 function EventTypeBadge({ type, label }: { type: string; label: string }) {
   const colors: Record<string, string> = {
-    friday_biweekly: 'bg-blue-100 text-blue-700',
+    friday_monthly: 'bg-blue-100 text-blue-700',
     sunday_monthly: 'bg-purple-100 text-purple-700',
     adhoc: 'bg-amber-100 text-amber-700',
     other_recurring: 'bg-teal-100 text-teal-700',

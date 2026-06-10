@@ -50,8 +50,8 @@ vi.mock('../_components/RRuleBuilder', async () => {
 async function fillValidForm(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText(/name_label/i), 'Test Event')
 
-  // Select friday_biweekly radio
-  const radio = screen.getByDisplayValue('friday_biweekly')
+  // Select friday_monthly radio
+  const radio = screen.getByDisplayValue('friday_monthly')
   await user.click(radio)
 
   // Set date and time
@@ -100,7 +100,7 @@ describe('EventForm — create mode', () => {
     render(<EventForm mode="create" />)
 
     await user.type(screen.getByLabelText(/name_label/i), 'My Event')
-    await user.click(screen.getByDisplayValue('friday_biweekly'))
+    await user.click(screen.getByDisplayValue('friday_monthly'))
 
     await act(async () => {
       await user.click(screen.getByRole('button', { name: /submit_create/i }))
@@ -109,7 +109,7 @@ describe('EventForm — create mode', () => {
     expect(screen.getByText('field_error_date')).toBeDefined()
   })
 
-  it('calls createEvent with recurrence_rule=FREQ=WEEKLY;INTERVAL=2;BYDAY=FR for friday_biweekly', async () => {
+  it('calls createEvent with recurrence_rule=FREQ=MONTHLY;BYDAY=2FR for friday_monthly', async () => {
     mockCreateEvent.mockResolvedValue({
       status: 'ok',
       event_id: 'abc',
@@ -127,7 +127,7 @@ describe('EventForm — create mode', () => {
 
     expect(mockCreateEvent).toHaveBeenCalledOnce()
     const callArg = mockCreateEvent.mock.calls[0][0]
-    expect(callArg.recurrence_rule).toBe('FREQ=WEEKLY;INTERVAL=2;BYDAY=FR')
+    expect(callArg.recurrence_rule).toBe('FREQ=MONTHLY;BYDAY=2FR')
     expect(callArg.name).toBe('Test Event')
   })
 

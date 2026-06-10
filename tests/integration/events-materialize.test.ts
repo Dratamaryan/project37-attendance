@@ -64,7 +64,7 @@ beforeAll(async () => {
       .insert({
         name: 'Project Day',
         name_id: 'Project Day',
-        event_type: 'friday_biweekly',
+        event_type: 'friday_monthly',
         start_date: '2026-07-10',
         start_time: '18:00:00',
         duration_min: 120,

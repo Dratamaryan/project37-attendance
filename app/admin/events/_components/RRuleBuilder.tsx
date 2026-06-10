@@ -10,8 +10,8 @@ export function buildRRule(
   rawRRule?: string,
 ): string | null {
   switch (event_type) {
-    case 'friday_biweekly':
-      return 'FREQ=WEEKLY;INTERVAL=2;BYDAY=FR'
+    case 'friday_monthly':
+      return 'FREQ=MONTHLY;BYDAY=2FR'
     case 'sunday_monthly':
       return 'FREQ=MONTHLY;BYDAY=1SU'
     case 'adhoc':

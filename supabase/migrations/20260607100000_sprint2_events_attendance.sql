@@ -8,7 +8,7 @@
 -- § 1  Enums
 -- ============================================================
 
-CREATE TYPE event_type_enum AS ENUM ('friday_biweekly', 'sunday_monthly', 'adhoc', 'other_recurring');
+CREATE TYPE event_type_enum AS ENUM ('friday_monthly', 'sunday_monthly', 'adhoc', 'other_recurring');
 CREATE TYPE instance_status_enum AS ENUM ('scheduled', 'cancelled', 'completed');
 -- NOTE: rsvp_status_enum is deferred to Sprint 4 (event_invitations table).
 
@@ -203,10 +203,10 @@ BEGIN
     duration_min, location, recurrence_rule, created_by
   ) VALUES
     (
-      'Project Day',   'Project Day', 'friday_biweekly',
+      'Project Day',   'Project Day', 'friday_monthly',
       DATE '2026-07-10', TIME '18:00', 120,
       'Hotel Neo Puri Indah',
-      'FREQ=WEEKLY;INTERVAL=2;BYDAY=FR',
+      'FREQ=MONTHLY;BYDAY=2FR',
       admin_id
     ),
     (
