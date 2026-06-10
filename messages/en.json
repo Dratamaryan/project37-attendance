@@ -3,7 +3,8 @@
     "signOut": "Sign out",
     "home": "Home",
     "checkin": "Check In",
-    "people": "People"
+    "people": "People",
+    "events": "Events"
   },
   "metadata": {
     "title": "Absensi Project 37",
@@ -29,6 +30,8 @@
       "checkin_description": "Record attendance for today's event",
       "people_title": "Manage People",
       "people_description": "Search, edit, and manage member records",
+      "events_title": "Manage Events",
+      "events_description": "Create and manage recurring events",
       "settings_title": "Settings",
       "settings_description": "App configuration",
       "coming_soon": "Coming Soon"
@@ -51,6 +54,14 @@
     "recent_title": "Recent Check-Ins",
     "recent_empty": "No check-ins yet",
     "recent_new_badge": "NEW",
+    "event_selector": {
+      "no_events": "No upcoming events scheduled",
+      "no_events_admin_link": "Create event",
+      "starts_in": "Starts in {hours}h",
+      "ended_ago": "Event ended {hours}h ago",
+      "select_event": "Select event",
+      "event_label": "Current event"
+    },
     "form": {
       "title": "Add New Person",
       "change_phone": "← Change phone",

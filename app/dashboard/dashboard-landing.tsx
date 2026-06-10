@@ -53,6 +53,12 @@ export function DashboardLanding({ role, fullName, email }: Props) {
                   description={t('cards.people_description')}
                 />
                 <NavCard
+                  href="/admin/events"
+                  icon="📅"
+                  title={t('cards.events_title')}
+                  description={t('cards.events_description')}
+                />
+                <NavCard
                   href="/admin/settings"
                   icon="⚙️"
                   title={t('cards.settings_title')}

@@ -3,7 +3,8 @@
     "signOut": "Keluar",
     "home": "Beranda",
     "checkin": "Daftar Hadir",
-    "people": "Anggota"
+    "people": "Anggota",
+    "events": "Acara"
   },
   "metadata": {
     "title": "Absensi Project 37",
@@ -29,6 +30,8 @@
       "checkin_description": "Catat kehadiran untuk acara hari ini",
       "people_title": "Kelola Anggota",
       "people_description": "Cari, edit, dan kelola data anggota",
+      "events_title": "Kelola Acara",
+      "events_description": "Buat dan kelola acara berulang",
       "settings_title": "Pengaturan",
       "settings_description": "Konfigurasi aplikasi",
       "coming_soon": "Segera Hadir"
@@ -51,6 +54,14 @@
     "recent_title": "Daftar Hadir Terbaru",
     "recent_empty": "Belum ada",
     "recent_new_badge": "BARU",
+    "event_selector": {
+      "no_events": "Tidak ada acara yang dijadwalkan",
+      "no_events_admin_link": "Buat acara",
+      "starts_in": "Mulai dalam {hours} jam",
+      "ended_ago": "Acara berakhir {hours} jam lalu",
+      "select_event": "Pilih acara",
+      "event_label": "Acara saat ini"
+    },
     "form": {
       "title": "Tambah Orang Baru",
       "change_phone": "← Ubah nomor",

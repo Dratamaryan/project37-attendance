@@ -16,7 +16,12 @@ export function AppNavLinks({ role, variant }: Props) {
   const links = [
     { href: '/dashboard', label: t('home') },
     { href: '/checkin', label: t('checkin') },
-    ...(role === 'admin' ? [{ href: '/admin/people', label: t('people') }] : []),
+    ...(role === 'admin'
+      ? [
+          { href: '/admin/people', label: t('people') },
+          { href: '/admin/events', label: t('events') },
+        ]
+      : []),
   ]
 
   const isActive = (href: string) =>
