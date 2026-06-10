@@ -1,19 +1,22 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 export const AUDIT_ACTIONS = {
-  PEOPLE_CREATE:         'people.create',
-  PEOPLE_UPDATE:         'people.update',
-  PEOPLE_SOFT_DELETE:    'people.soft_delete',
-  PEOPLE_RESTORE:        'people.restore',
-  CONSENT_GRANT:         'consent.grant',
-  CONSENT_REVOKE:        'consent.revoke',
-  CHECKIN_CREATE:        'checkin.create',
-  CHECKIN_CANCEL:        'checkin.cancel',
-  SETTINGS_UPDATE:       'settings.update',
-  PARISH_CREATE:         'parish.create',
-  PARISH_APPROVE:        'parish.approve',
-  PHOTO_UPLOAD:          'photo.upload',
-  PHOTO_DELETE:          'photo.delete',
+  PEOPLE_CREATE:           'people.create',
+  PEOPLE_UPDATE:           'people.update',
+  PEOPLE_SOFT_DELETE:      'people.soft_delete',
+  PEOPLE_RESTORE:          'people.restore',
+  CONSENT_GRANT:           'consent.grant',
+  CONSENT_REVOKE:          'consent.revoke',
+  CHECKIN_CREATE:          'checkin.create',
+  CHECKIN_CANCEL:          'checkin.cancel',
+  SETTINGS_UPDATE:         'settings.update',
+  PARISH_CREATE:           'parish.create',
+  PARISH_APPROVE:          'parish.approve',
+  PHOTO_UPLOAD:            'photo.upload',
+  PHOTO_DELETE:            'photo.delete',
+  EVENT_CREATE:            'event.create',
+  EVENT_UPDATE:            'event.update',
+  EVENT_INSTANCE_CANCEL:   'event_instance.cancel',
 } as const
 
 export type AuditAction = typeof AUDIT_ACTIONS[keyof typeof AUDIT_ACTIONS]

@@ -20,6 +20,11 @@ export default defineConfig(({ mode }) => {
       setupFiles: ['./setupTests.ts'],
       globals: true,
       env,
+      // Integration tests share a single Supabase DB (Docker). Parallel file
+      // execution causes cross-test interference (one file's beforeEach inserts
+      // into event_instances while another file's test queries the same table).
+      // Sequential execution eliminates this; total wall-clock cost is acceptable.
+      fileParallelism: false,
     },
   }
 })

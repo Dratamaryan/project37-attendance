@@ -1,0 +1,58 @@
+'use server'
+
+import { createClient } from '../supabase/server'
+import { createAdminClient } from '../supabase/admin'
+import {
+  impl_createEvent,
+  impl_updateEvent,
+  impl_cancelInstance,
+  impl_listEvents,
+  impl_listInstancesForEvent,
+} from './events.impl'
+import type {
+  EventInput,
+  UpdateEventInput,
+  CreateEventResult,
+  UpdateEventResult,
+  CancelInstanceResult,
+  ListEventsFilters,
+  ListEventsResult,
+  ListInstancesResult,
+} from './events.types'
+
+export async function createEvent(input: EventInput): Promise<CreateEventResult> {
+  const supabase = await createClient()
+  const adminSupabase = createAdminClient()
+  return impl_createEvent({ supabase, adminSupabase, input })
+}
+
+export async function updateEvent(
+  eventId: string,
+  input: UpdateEventInput,
+): Promise<UpdateEventResult> {
+  const supabase = await createClient()
+  const adminSupabase = createAdminClient()
+  return impl_updateEvent({ supabase, adminSupabase, eventId, input })
+}
+
+export async function cancelInstance(
+  instanceId: string,
+  reason?: string,
+): Promise<CancelInstanceResult> {
+  const supabase = await createClient()
+  const adminSupabase = createAdminClient()
+  return impl_cancelInstance({ supabase, adminSupabase, instanceId, reason })
+}
+
+export async function listEvents(filters?: ListEventsFilters): Promise<ListEventsResult> {
+  const supabase = await createClient()
+  return impl_listEvents({ supabase, filters })
+}
+
+export async function listInstancesForEvent(
+  eventId: string,
+  range?: { from: Date; to: Date },
+): Promise<ListInstancesResult> {
+  const supabase = await createClient()
+  return impl_listInstancesForEvent({ supabase, eventId, range })
+}
