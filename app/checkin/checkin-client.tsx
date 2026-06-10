@@ -5,11 +5,13 @@ import { useTranslations } from 'next-intl'
 import { lookupByPhone } from '@/lib/actions/people'
 import { DEFAULT_COUNTRY, type SupportedCountry } from '@/lib/utils/phone'
 import type { PersonSummary, PhoneNormalizationError } from '@/lib/actions/people.types'
+import type { NearestInstanceRow } from '@/lib/actions/events.types'
 import { PhoneInput } from './phone-input'
 import { PersonCard } from './person-card'
 import { NewPersonTrigger } from './new-person-trigger'
 import { NewPersonForm } from './new-person-form'
 import { RecentPanel } from './recent-panel'
+import { EventSelector } from './_components/EventSelector'
 
 export type RecentItem = {
   person: PersonSummary
@@ -50,7 +52,12 @@ function useDebounce<T>(value: T, delayMs: number): [T, number] {
   return [state.value, state.fireCount]
 }
 
-export function CheckinClient() {
+type CheckinClientProps = {
+  instances?: NearestInstanceRow[]
+  isAdmin?: boolean
+}
+
+export function CheckinClient({ instances = [], isAdmin = false }: CheckinClientProps) {
   const t = useTranslations('checkin')
   const [isPending, startTransition] = useTransition()
 
@@ -60,6 +67,11 @@ export function CheckinClient() {
   const [recentItems, setRecentItems] = useState<RecentItem[]>([])
   const [showForm, setShowForm] = useState(false)
   const [photoUploadFailed, setPhotoUploadFailed] = useState(false)
+  // eventInstanceId: tracks the selected event instance for the check-in flow.
+  // T8 will write attendance against this id; T7 is display-only.
+  const [eventInstanceId, setEventInstanceId] = useState<string | null>(
+    instances[0]?.id ?? null,
+  )
 
   const inputRef = useRef<HTMLInputElement>(null)
   // Incremented before each lookup; stale results are discarded when the id no longer matches.
@@ -160,7 +172,15 @@ export function CheckinClient() {
     return 'idle'
   })()
 
+  void eventInstanceId // used by T8 attendance write; suppress unused-var lint
+
   return (
+    <>
+    <EventSelector
+      instances={instances}
+      isAdmin={isAdmin}
+      onInstanceChange={setEventInstanceId}
+    />
     <div className="flex flex-col md:flex-row gap-6">
       {/* ── Left column: input + result ── */}
       <div className="flex-1 min-w-0">
@@ -242,5 +262,6 @@ export function CheckinClient() {
         <RecentPanel items={recentItems} onItemClick={handleRecentItemClick} />
       </div>
     </div>
+    </>
   )
 }

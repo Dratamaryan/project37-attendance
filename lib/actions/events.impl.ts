@@ -17,6 +17,8 @@ import type {
   ListEventsFilters,
   ListEventsResult,
   ListInstancesResult,
+  NearestInstanceRow,
+  ListNearestResult,
 } from './events.types'
 
 const VALID_EVENT_TYPES = ['friday_monthly', 'sunday_monthly', 'adhoc', 'other_recurring']
@@ -342,6 +344,64 @@ export async function impl_listEvents({
   }
 
   return { status: 'ok', events: (data ?? []) as EventRow[] }
+}
+
+// ── listNearestInstances ──────────────────────────────────────────────────────
+
+export async function impl_listNearestInstances({
+  supabase,
+  limit = 5,
+  windowDays = 30,
+}: {
+  supabase: SupabaseClient
+  limit?: number
+  windowDays?: number
+}): Promise<ListNearestResult> {
+  const now = new Date()
+  const from = subDays(now, 1)
+  const to = addDays(now, windowDays)
+
+  // Step 1: Get IDs of active events
+  const { data: activeEvents, error: eventsError } = await supabase
+    .from('events')
+    .select('id')
+    .eq('active', true)
+
+  if (eventsError) {
+    console.error('[listNearestInstances] events query', eventsError)
+    return { status: 'error', message: 'Failed to list instances' }
+  }
+
+  const activeEventIds = (activeEvents ?? []).map((e: { id: string }) => e.id)
+  if (activeEventIds.length === 0) {
+    return { status: 'ok', instances: [] }
+  }
+
+  // Step 2: Get scheduled instances within the time window for active events
+  const { data, error } = await supabase
+    .from('event_instances')
+    .select('id, event_id, scheduled_at, status, event_name_snapshot, event_name_snapshot_id')
+    .eq('status', 'scheduled')
+    .in('event_id', activeEventIds)
+    .gte('scheduled_at', from.toISOString())
+    .lte('scheduled_at', to.toISOString())
+
+  if (error) {
+    console.error('[listNearestInstances] instances query', error)
+    return { status: 'error', message: 'Failed to list instances' }
+  }
+
+  const rows = (data ?? []) as NearestInstanceRow[]
+  const nowMs = now.getTime()
+
+  // Sort nearest-first by absolute time difference from now
+  rows.sort((a, b) => {
+    const aDiff = Math.abs(new Date(a.scheduled_at).getTime() - nowMs)
+    const bDiff = Math.abs(new Date(b.scheduled_at).getTime() - nowMs)
+    return aDiff - bDiff
+  })
+
+  return { status: 'ok', instances: rows.slice(0, limit) }
 }
 
 // ── listInstancesForEvent ─────────────────────────────────────────────────────

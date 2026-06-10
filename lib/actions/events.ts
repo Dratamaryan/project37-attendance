@@ -9,6 +9,7 @@ import {
   impl_cancelInstance,
   impl_listEvents,
   impl_listInstancesForEvent,
+  impl_listNearestInstances,
 } from './events.impl'
 import type {
   EventInput,
@@ -19,6 +20,7 @@ import type {
   ListEventsFilters,
   ListEventsResult,
   ListInstancesResult,
+  ListNearestResult,
 } from './events.types'
 
 export async function createEvent(input: EventInput): Promise<CreateEventResult> {
@@ -52,6 +54,14 @@ export async function cancelInstance(
 export async function listEvents(filters?: ListEventsFilters): Promise<ListEventsResult> {
   const supabase = await createClient()
   return impl_listEvents({ supabase, filters })
+}
+
+export async function listNearestInstances({
+  limit,
+  windowDays,
+}: { limit?: number; windowDays?: number } = {}): Promise<ListNearestResult> {
+  const supabase = await createClient()
+  return impl_listNearestInstances({ supabase, limit, windowDays })
 }
 
 export async function listInstancesForEvent(

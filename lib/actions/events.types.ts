@@ -75,3 +75,18 @@ export type ListEventsResult =
 export type ListInstancesResult =
   | { status: 'ok'; instances: EventInstanceRow[] }
   | { status: 'error'; message: string }
+
+// ── listNearestInstances ───────────────────────────────────────────────────────
+
+export type NearestInstanceRow = {
+  id: string
+  event_id: string
+  scheduled_at: string
+  status: 'scheduled' | 'cancelled' | 'completed'
+  event_name_snapshot: string
+  event_name_snapshot_id: string | null
+}
+
+export type ListNearestResult =
+  | { status: 'ok'; instances: NearestInstanceRow[] }
+  | { status: 'error'; message: string }
