@@ -25,6 +25,9 @@ export default defineConfig(({ mode }) => {
       // into event_instances while another file's test queries the same table).
       // Sequential execution eliminates this; total wall-clock cost is acceptable.
       fileParallelism: false,
+      // E2E Playwright specs live in tests/e2e/ and are run by the user manually —
+      // exclude them from Vitest so 'npm test' doesn't attempt to execute them.
+      exclude: ['**/node_modules/**', '**/tests/e2e/**'],
     },
   }
 })

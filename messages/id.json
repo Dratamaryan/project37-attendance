@@ -126,6 +126,67 @@
     "coming_soon_message": "Pengaturan akan tersedia di Sprint 5."
   },
   "admin": {
+    "events": {
+      "title": "Kelola Acara",
+      "create_button": "Buat acara",
+      "empty_state": "Belum ada acara.",
+      "empty_create": "Buat acara",
+      "loading": "Memuat...",
+      "error": "Gagal memuat acara. Silakan coba lagi.",
+      "badge": {
+        "active": "Aktif",
+        "inactive": "Tidak aktif"
+      },
+      "type": {
+        "friday_biweekly": "Jumat dua minggu sekali",
+        "sunday_monthly": "Minggu bulanan",
+        "adhoc": "Satu kali",
+        "other_recurring": "Berulang lainnya"
+      },
+      "table": {
+        "name": "Nama",
+        "type": "Jenis",
+        "next_instance": "Jadwal berikutnya",
+        "status": "Status",
+        "edit": "Edit"
+      },
+      "next_instance_none": "Tidak ada jadwal",
+      "banner": {
+        "created": "Acara dibuat — {count} sesi dijadwalkan",
+        "updated": "Acara diperbarui",
+        "not_found": "Acara tidak ditemukan."
+      },
+      "form": {
+        "name_label": "Nama acara (EN)",
+        "name_placeholder": "mis. Project Day",
+        "name_id_label": "Nama acara (ID, opsional)",
+        "name_id_placeholder": "mis. Hari Project",
+        "event_type_label": "Jenis acara",
+        "start_date_label": "Tanggal mulai",
+        "start_time_label": "Waktu mulai",
+        "duration_label": "Durasi (menit)",
+        "location_label": "Lokasi",
+        "location_placeholder": "mis. Gereja St. Ignatius",
+        "description_label": "Deskripsi",
+        "description_placeholder": "Opsional",
+        "active_label": "Aktif",
+        "rrule_label": "Aturan pengulangan (RFC 5545)",
+        "rrule_placeholder": "FREQ=WEEKLY;INTERVAL=2;BYDAY=FR",
+        "rrule_help": "Lanjutan: masukkan string RRULE RFC 5545 kustom.",
+        "rrule_preview": "Aturan: {rule}",
+        "submit_create": "Buat acara",
+        "submit_create_pending": "Membuat...",
+        "submit_update": "Simpan perubahan",
+        "submit_update_pending": "Menyimpan...",
+        "cancel": "Batal",
+        "error_banner": "Gagal menyimpan acara. Silakan coba lagi.",
+        "forbidden_banner": "Anda tidak memiliki izin untuk melakukan ini.",
+        "field_error_name": "Nama wajib diisi",
+        "field_error_date": "Tanggal tidak valid",
+        "field_error_time": "Waktu tidak valid",
+        "field_error_type": "Pilih jenis acara"
+      }
+    },
     "people": {
       "title": "Kelola Anggota",
       "search_placeholder": "Cari nama, panggilan, atau nomor (gunakan format +62...)",

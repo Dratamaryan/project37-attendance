@@ -1,5 +1,6 @@
 'use server'
 
+import { revalidatePath } from 'next/cache'
 import { createClient } from '../supabase/server'
 import { createAdminClient } from '../supabase/admin'
 import {
@@ -23,7 +24,9 @@ import type {
 export async function createEvent(input: EventInput): Promise<CreateEventResult> {
   const supabase = await createClient()
   const adminSupabase = createAdminClient()
-  return impl_createEvent({ supabase, adminSupabase, input })
+  const result = await impl_createEvent({ supabase, adminSupabase, input })
+  if (result.status === 'ok') revalidatePath('/admin/events')
+  return result
 }
 
 export async function updateEvent(
@@ -32,7 +35,9 @@ export async function updateEvent(
 ): Promise<UpdateEventResult> {
   const supabase = await createClient()
   const adminSupabase = createAdminClient()
-  return impl_updateEvent({ supabase, adminSupabase, eventId, input })
+  const result = await impl_updateEvent({ supabase, adminSupabase, eventId, input })
+  if (result.status === 'ok') revalidatePath('/admin/events')
+  return result
 }
 
 export async function cancelInstance(

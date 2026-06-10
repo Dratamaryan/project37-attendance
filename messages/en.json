@@ -126,6 +126,67 @@
     "coming_soon_message": "Settings will be available in Sprint 5."
   },
   "admin": {
+    "events": {
+      "title": "Manage Events",
+      "create_button": "Create event",
+      "empty_state": "No events yet.",
+      "empty_create": "Create event",
+      "loading": "Loading...",
+      "error": "Couldn't load events. Please try again.",
+      "badge": {
+        "active": "Active",
+        "inactive": "Inactive"
+      },
+      "type": {
+        "friday_biweekly": "Bi-weekly Friday",
+        "sunday_monthly": "Monthly Sunday",
+        "adhoc": "One-time",
+        "other_recurring": "Other recurring"
+      },
+      "table": {
+        "name": "Name",
+        "type": "Type",
+        "next_instance": "Next instance",
+        "status": "Status",
+        "edit": "Edit"
+      },
+      "next_instance_none": "No upcoming",
+      "banner": {
+        "created": "Event created — {count} instances scheduled",
+        "updated": "Event updated",
+        "not_found": "Event not found."
+      },
+      "form": {
+        "name_label": "Event name (EN)",
+        "name_placeholder": "e.g. Project Day",
+        "name_id_label": "Event name (ID, optional)",
+        "name_id_placeholder": "e.g. Hari Project",
+        "event_type_label": "Event type",
+        "start_date_label": "Start date",
+        "start_time_label": "Start time",
+        "duration_label": "Duration (minutes)",
+        "location_label": "Location",
+        "location_placeholder": "e.g. Gereja St. Ignatius",
+        "description_label": "Description",
+        "description_placeholder": "Optional",
+        "active_label": "Active",
+        "rrule_label": "Recurrence rule (RFC 5545)",
+        "rrule_placeholder": "FREQ=WEEKLY;INTERVAL=2;BYDAY=FR",
+        "rrule_help": "Advanced: enter a custom RFC 5545 RRULE string.",
+        "rrule_preview": "Rule: {rule}",
+        "submit_create": "Create event",
+        "submit_create_pending": "Creating...",
+        "submit_update": "Save changes",
+        "submit_update_pending": "Saving...",
+        "cancel": "Cancel",
+        "error_banner": "Couldn't save event. Please try again.",
+        "forbidden_banner": "You don't have permission to do this.",
+        "field_error_name": "Name is required",
+        "field_error_date": "Invalid date",
+        "field_error_time": "Invalid time",
+        "field_error_type": "Please select an event type"
+      }
+    },
     "people": {
       "title": "Manage People",
       "search_placeholder": "Search by name, nickname, or phone (use +62... format)",
