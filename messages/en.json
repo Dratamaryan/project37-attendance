@@ -50,7 +50,7 @@
     "lookup_error": "Something went wrong. Try again.",
     "add_new_person": "Add new person",
     "check_in_button": "Check in",
-    "check_in_disabled_sprint2": "Attendance recording arrives in Sprint 2",
+    "check_in_button_pending": "Checking in...",
     "recent_title": "Recent Check-Ins",
     "recent_empty": "No check-ins yet",
     "recent_new_badge": "NEW",
@@ -105,6 +105,17 @@
       "error_validation": "Please check the highlighted fields.",
       "error_generic": "Couldn't add this person. Please try again.",
       "error_photo_upload": "Person was added but photo failed to upload. You can retry from admin."
+    },
+    "results": {
+      "success": "{name} checked in at {time}",
+      "already_checked_in": "{name} was already checked in at {time}.",
+      "event_cancelled": "This event has been cancelled. Switch to another event.",
+      "event_inactive": "This event is inactive. Contact an admin.",
+      "person_soft_deleted": "This person has been removed. Contact an admin to restore.",
+      "forbidden": "You don't have permission to check people in. Contact an admin.",
+      "generic_error": "Something went wrong. Please try again.",
+      "no_event_selected": "Select an event to check in.",
+      "dismiss": "Dismiss"
     }
   },
   "auth": {

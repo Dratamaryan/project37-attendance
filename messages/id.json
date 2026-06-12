@@ -50,7 +50,7 @@
     "lookup_error": "Terjadi kesalahan. Coba lagi.",
     "add_new_person": "Tambah orang baru",
     "check_in_button": "Daftar Hadir",
-    "check_in_disabled_sprint2": "Pencatatan kehadiran tersedia di Sprint 2",
+    "check_in_button_pending": "Mencatat...",
     "recent_title": "Daftar Hadir Terbaru",
     "recent_empty": "Belum ada",
     "recent_new_badge": "BARU",
@@ -105,6 +105,17 @@
       "error_validation": "Periksa kembali kolom yang ditandai.",
       "error_generic": "Tidak bisa menambahkan. Silakan coba lagi.",
       "error_photo_upload": "Orang ditambahkan tetapi foto gagal diunggah. Coba lagi dari admin."
+    },
+    "results": {
+      "success": "{name} hadir pukul {time}",
+      "already_checked_in": "{name} sudah tercatat hadir pukul {time}.",
+      "event_cancelled": "Acara ini telah dibatalkan. Pilih acara lain.",
+      "event_inactive": "Acara ini tidak aktif. Hubungi admin.",
+      "person_soft_deleted": "Orang ini telah dihapus. Hubungi admin untuk memulihkan.",
+      "forbidden": "Anda tidak memiliki izin untuk mencatat kehadiran. Hubungi admin.",
+      "generic_error": "Terjadi kesalahan. Silakan coba lagi.",
+      "no_event_selected": "Pilih acara untuk mencatat kehadiran.",
+      "dismiss": "Tutup"
     }
   },
   "auth": {

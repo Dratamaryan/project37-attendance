@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, useTransition } from 'react'
 import { useTranslations } from 'next-intl'
 import { lookupByPhone } from '@/lib/actions/people'
+import { createAttendance } from '@/lib/actions/attendance'
+import { formatJakarta } from '@/lib/events/timezone'
 import { DEFAULT_COUNTRY, type SupportedCountry } from '@/lib/utils/phone'
 import type { PersonSummary, PhoneNormalizationError } from '@/lib/actions/people.types'
 import type { NearestInstanceRow } from '@/lib/actions/events.types'
@@ -29,7 +31,15 @@ type ServerResult =
 
 type DisplayPhase = 'idle' | 'too_short' | 'searching' | ServerResult['phase']
 
+// Feedback banner for createAttendance results. success auto-clears after 5s;
+// warning (already checked in) and error persist until dismissed or next attempt.
+type CheckinFeedback = {
+  kind: 'success' | 'warning' | 'error'
+  message: string
+}
+
 const MIN_DIGITS = 6
+const SUCCESS_FEEDBACK_MS = 5000
 
 /**
  * Delays propagating a value until the user pauses for `delayMs` ms.
@@ -60,6 +70,9 @@ type CheckinClientProps = {
 export function CheckinClient({ instances = [], isAdmin = false }: CheckinClientProps) {
   const t = useTranslations('checkin')
   const [isPending, startTransition] = useTransition()
+  // Separate transition for the attendance write so the lookup's 'searching'
+  // display state doesn't flicker on during check-in.
+  const [checkinPending, startCheckinTransition] = useTransition()
 
   const [rawPhone, setRawPhone] = useState('')
   const [country, setCountry] = useState<SupportedCountry>(DEFAULT_COUNTRY)
@@ -67,8 +80,8 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
   const [recentItems, setRecentItems] = useState<RecentItem[]>([])
   const [showForm, setShowForm] = useState(false)
   const [photoUploadFailed, setPhotoUploadFailed] = useState(false)
-  // eventInstanceId: tracks the selected event instance for the check-in flow.
-  // T8 will write attendance against this id; T7 is display-only.
+  const [feedback, setFeedback] = useState<CheckinFeedback | null>(null)
+  // eventInstanceId: the selected event instance attendance is written against.
   const [eventInstanceId, setEventInstanceId] = useState<string | null>(
     instances[0]?.id ?? null,
   )
@@ -76,6 +89,7 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
   const inputRef = useRef<HTMLInputElement>(null)
   // Incremented before each lookup; stale results are discarded when the id no longer matches.
   const requestIdRef = useRef(0)
+  const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [debouncedPhone, debouncedFireCount] = useDebounce(rawPhone, 300)
 
@@ -128,19 +142,85 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
     setTimeout(() => inputRef.current?.focus(), 0)
   }
 
+  function showFeedback(kind: CheckinFeedback['kind'], message: string) {
+    if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current)
+    setFeedback({ kind, message })
+    if (kind === 'success') {
+      feedbackTimerRef.current = setTimeout(() => setFeedback(null), SUCCESS_FEEDBACK_MS)
+    }
+  }
+
+  /**
+   * Writes attendance via the server action and maps every result discriminant
+   * to user-visible feedback.
+   *
+   * mode 'existing': lookup result card stays visible on non-ok results so the
+   * organizer can act on the message (e.g. switch event and retry).
+   * mode 'new': the person row was just created (or resolved via "use existing"),
+   * so the form must collapse regardless of the attendance outcome — there is no
+   * rollback of createPerson when the attendance write fails (intentional).
+   */
+  function performCheckIn(person: PersonSummary, isNew: boolean, mode: 'existing' | 'new') {
+    if (!eventInstanceId) {
+      showFeedback('error', t('results.no_event_selected'))
+      if (mode === 'new') resetToLookup()
+      return
+    }
+    startCheckinTransition(async () => {
+      const result = await createAttendance({
+        personId: person.id,
+        eventInstanceId,
+      })
+
+      switch (result.status) {
+        case 'ok': {
+          const time = formatJakarta(new Date(result.attendance.checked_in_at), 'HH:mm')
+          showFeedback('success', t('results.success', { name: person.full_name, time }))
+          addToRecent(person, isNew)
+          resetToLookup()
+          return
+        }
+        case 'already_checked_in': {
+          // Do NOT touch the recent panel — the attempt was a duplicate.
+          const time = formatJakarta(new Date(result.existing.checked_in_at), 'HH:mm')
+          showFeedback('warning', t('results.already_checked_in', { name: person.full_name, time }))
+          break
+        }
+        case 'event_cancelled':
+          showFeedback('error', t('results.event_cancelled'))
+          break
+        case 'event_inactive':
+          showFeedback('error', t('results.event_inactive'))
+          break
+        case 'person_soft_deleted':
+          showFeedback('error', t('results.person_soft_deleted'))
+          break
+        case 'forbidden':
+          console.error('[checkin] createAttendance forbidden:', result.message)
+          showFeedback('error', t('results.forbidden'))
+          break
+        default:
+          // instance_not_found / person_not_found / invalid_input / error —
+          // none should occur through normal UI flow; defensive generic message.
+          console.error('[checkin] createAttendance failed:', result)
+          showFeedback('error', t('results.generic_error'))
+          break
+      }
+
+      if (mode === 'new') resetToLookup()
+    })
+  }
+
   function handleCheckIn(person: PersonSummary) {
-    addToRecent(person, false)
-    resetToLookup()
+    performCheckIn(person, false, 'existing')
   }
 
   function handleNewPersonSuccess(person: PersonSummary) {
-    addToRecent(person, true)
-    resetToLookup()
+    performCheckIn(person, true, 'new')
   }
 
   function handleUseExistingPerson(person: PersonSummary) {
-    addToRecent(person, false)
-    resetToLookup()
+    performCheckIn(person, false, 'new')
   }
 
   function handlePhotoError() {
@@ -172,7 +252,11 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
     return 'idle'
   })()
 
-  void eventInstanceId // used by T8 attendance write; suppress unused-var lint
+  const feedbackStyles: Record<CheckinFeedback['kind'], string> = {
+    success: 'text-[#5C8A6B] bg-[#F0F6F1] border-[#D8E8DC]',
+    warning: 'text-[#8B7635] bg-[#FBF6E8] border-[#F5EFD9]',
+    error:   'text-[#A85959] bg-[#FDF5F5] border-[#F5D5D5]',
+  }
 
   return (
     <>
@@ -184,6 +268,25 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
     <div className="flex flex-col md:flex-row gap-6">
       {/* ── Left column: input + result ── */}
       <div className="flex-1 min-w-0">
+        {/* Check-in result banner — success auto-clears, warning/error persist */}
+        {feedback && (
+          <div
+            role={feedback.kind === 'success' ? 'status' : 'alert'}
+            data-testid="checkin-feedback"
+            className={`mb-3 flex items-start justify-between gap-3 text-sm border rounded-sm px-4 py-3 ${feedbackStyles[feedback.kind]}`}
+          >
+            <span>{feedback.message}</span>
+            <button
+              type="button"
+              onClick={() => setFeedback(null)}
+              className="flex-shrink-0 text-muted hover:text-charcoal"
+              aria-label={t('results.dismiss')}
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* Photo upload error banner — persists after form collapses */}
         {photoUploadFailed && (
           <div
@@ -236,7 +339,12 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
 
         {/* Result cards — only shown once the debounce has settled */}
         {displayPhase === 'found' && serverResult?.phase === 'found' && (
-          <PersonCard person={serverResult.person} onCheckIn={handleCheckIn} />
+          <PersonCard
+            person={serverResult.person}
+            onCheckIn={handleCheckIn}
+            checkInPending={checkinPending}
+            checkInDisabled={!eventInstanceId}
+          />
         )}
         {displayPhase === 'not_found' && serverResult?.phase === 'not_found' && (
           showForm ? (
