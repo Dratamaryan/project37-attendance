@@ -3,10 +3,14 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { logAudit, AUDIT_ACTIONS } from '../audit'
+import { impl_getPhotoSignedUrl } from '../storage/photos.impl'
 import type {
   CreateAttendanceInput,
   AttendanceRow,
   CreateAttendanceResult,
+  AttendanceWithPerson,
+  ListRecentAttendanceInput,
+  ListRecentAttendanceResult,
 } from './attendance.types'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -163,4 +167,97 @@ export async function impl_createAttendance({
   }, supabase)
 
   return { status: 'ok', attendance }
+}
+
+// ── listRecentAttendanceForInstance ───────────────────────────────────────────
+
+const RECENT_DEFAULT_LIMIT = 20
+const RECENT_MAX_LIMIT = 50
+
+/**
+ * Returns the most recent attendances for a given event instance, ordered by
+ * checked_in_at DESC. Uses the admin client so soft-deleted people (filtered out
+ * by organizer RLS) are included — Locked Decision T2-11.
+ *
+ * Signed URLs are generated with the user-session client; on failure the field
+ * is null and a warning is logged. Do not log the returned URL (bearer token).
+ */
+export async function impl_listRecentAttendanceForInstance({
+  supabase,
+  adminSupabase,
+  input,
+}: {
+  supabase: SupabaseClient
+  adminSupabase: SupabaseClient
+  input: ListRecentAttendanceInput
+}): Promise<ListRecentAttendanceResult> {
+  if (!UUID_RE.test(input.eventInstanceId)) {
+    return { status: 'invalid_input', field: 'eventInstanceId', message: 'Invalid event instance id' }
+  }
+
+  const limit = Math.max(1, Math.min(input.limit ?? RECENT_DEFAULT_LIMIT, RECENT_MAX_LIMIT))
+
+  // Admin client: organizer RLS filters people WHERE deleted_at IS NULL, so soft-deleted
+  // attendees would be invisible. Admin bypasses RLS to surface them (T2-11 acceptance).
+  const { data, error } = await adminSupabase
+    .from('attendance')
+    .select('id, event_instance_id, checked_in_at, source, people!inner(id, full_name, nickname, photo_url, deleted_at)')
+    .eq('event_instance_id', input.eventInstanceId)
+    .order('checked_in_at', { ascending: false })
+    .limit(limit)
+
+  if (error) {
+    console.error('[listRecentAttendanceForInstance]', error)
+    return { status: 'error', message: 'Failed to fetch recent attendances' }
+  }
+
+  const rows = (data ?? []) as unknown as Array<{
+    id: string
+    event_instance_id: string
+    checked_in_at: string
+    source: string | null
+    people: {
+      id: string
+      full_name: string
+      nickname: string | null
+      photo_url: string | null
+      deleted_at: string | null
+    }
+  }>
+
+  // Generate signed URLs in parallel — one storage round-trip per photo (R2 latent item Sprint 5)
+  const attendances: AttendanceWithPerson[] = await Promise.all(
+    rows.map(async (row) => {
+      let photo_signed_url: string | null = null
+      if (row.people.photo_url) {
+        const urlResult = await impl_getPhotoSignedUrl(row.people.photo_url, supabase)
+        if (urlResult.status === 'signed' || urlResult.status === 'legacy_url') {
+          photo_signed_url = urlResult.url
+        } else {
+          // Log the path, never the URL — signed URL is a bearer token
+          console.warn('[listRecentAttendanceForInstance] signing failed', {
+            path: row.people.photo_url,
+            status: urlResult.status,
+          })
+        }
+      }
+
+      return {
+        id: row.id,
+        event_instance_id: row.event_instance_id,
+        checked_in_at: row.checked_in_at,
+        source: row.source,
+        person: {
+          id: row.people.id,
+          full_name: row.people.full_name,
+          nickname: row.people.nickname,
+          photo_url: row.people.photo_url,
+          photo_signed_url,
+          deleted_at: row.people.deleted_at,
+        },
+      }
+    })
+  )
+
+  return { status: 'ok', attendances }
 }

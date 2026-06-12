@@ -54,6 +54,11 @@
     "recent_title": "Recent Check-Ins",
     "recent_empty": "No check-ins yet",
     "recent_new_badge": "NEW",
+    "recent_panel": {
+      "empty": "No check-ins yet for this event",
+      "loading": "Loading...",
+      "deleted_badge": "(deleted)"
+    },
     "event_selector": {
       "no_events": "No upcoming events scheduled",
       "no_events_admin_link": "Create event",

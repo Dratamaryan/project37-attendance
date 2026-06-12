@@ -54,6 +54,11 @@
     "recent_title": "Daftar Hadir Terbaru",
     "recent_empty": "Belum ada",
     "recent_new_badge": "BARU",
+    "recent_panel": {
+      "empty": "Belum ada kehadiran untuk acara ini",
+      "loading": "Memuat...",
+      "deleted_badge": "(dihapus)"
+    },
     "event_selector": {
       "no_events": "Tidak ada acara yang dijadwalkan",
       "no_events_admin_link": "Buat acara",

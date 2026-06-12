@@ -33,3 +33,28 @@ export type CreateAttendanceResult =
   | { status: 'forbidden'; message: string }
   | { status: 'invalid_input'; field: string; message: string }
   | { status: 'error'; message: string }
+
+export type AttendanceWithPerson = {
+  id: string
+  event_instance_id: string
+  checked_in_at: string   // ISO timestamptz
+  source: string | null
+  person: {
+    id: string
+    full_name: string
+    nickname: string | null
+    photo_url: string | null      // raw storage path or legacy URL
+    photo_signed_url: string | null  // signed 1h URL, or null if no photo / signing failed
+    deleted_at: string | null    // ISO if soft-deleted, else null
+  }
+}
+
+export type ListRecentAttendanceInput = {
+  eventInstanceId: string
+  limit?: number  // default 20, max 50
+}
+
+export type ListRecentAttendanceResult =
+  | { status: 'ok'; attendances: AttendanceWithPerson[] }
+  | { status: 'invalid_input'; field: string; message: string }
+  | { status: 'error'; message: string }

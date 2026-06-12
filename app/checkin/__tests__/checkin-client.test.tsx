@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { CheckinClient } from '../checkin-client'
 import type { LookupResult } from '@/lib/actions/people.types'
 import type { NearestInstanceRow } from '@/lib/actions/events.types'
-import type { CreateAttendanceResult } from '@/lib/actions/attendance.types'
+import type { CreateAttendanceResult, AttendanceWithPerson, ListRecentAttendanceResult } from '@/lib/actions/attendance.types'
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
@@ -31,6 +31,7 @@ vi.mock('@/lib/actions/people', () => ({
 
 vi.mock('@/lib/actions/attendance', () => ({
   createAttendance: vi.fn(),
+  listRecentAttendanceForInstance: vi.fn(),
 }))
 
 vi.mock('@/lib/storage/photos', () => ({
@@ -38,9 +39,10 @@ vi.mock('@/lib/storage/photos', () => ({
 }))
 
 import { lookupByPhone } from '@/lib/actions/people'
-import { createAttendance } from '@/lib/actions/attendance'
+import { createAttendance, listRecentAttendanceForInstance } from '@/lib/actions/attendance'
 const mockLookup = vi.mocked(lookupByPhone)
 const mockCreateAttendance = vi.mocked(createAttendance)
+const mockListRecent = vi.mocked(listRecentAttendanceForInstance)
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -75,6 +77,15 @@ const INSTANCES: NearestInstanceRow[] = [
   },
 ]
 
+const INSTANCE_B: NearestInstanceRow = {
+  id: 'inst-002',
+  event_id: 'event-001',
+  scheduled_at: '2026-06-13T11:00:00Z',
+  status: 'scheduled',
+  event_name_snapshot: 'Test Event Beta',
+  event_name_snapshot_id: null,
+}
+
 // checked_in_at 2026-06-11T05:00:00Z renders as 12:00 Asia/Jakarta
 function okAttendance(personId: string): CreateAttendanceResult {
   return {
@@ -90,6 +101,41 @@ function okAttendance(personId: string): CreateAttendanceResult {
   }
 }
 
+function makeAttendanceWithPerson(
+  overrides: Partial<AttendanceWithPerson> = {},
+): AttendanceWithPerson {
+  return {
+    id: 'att-001',
+    event_instance_id: 'inst-001',
+    checked_in_at: '2026-06-11T05:00:00Z',  // 12:00 Asia/Jakarta
+    source: 'volunteer_checkin',
+    person: {
+      id: FOUND_PERSON.id,
+      full_name: FOUND_PERSON.full_name,
+      nickname: FOUND_PERSON.nickname,
+      photo_url: null,
+      photo_signed_url: null,
+      deleted_at: null,
+    },
+    ...overrides,
+  }
+}
+
+const DELETED_ATTENDANCE: AttendanceWithPerson = {
+  id: 'att-deleted',
+  event_instance_id: 'inst-001',
+  checked_in_at: '2026-06-11T04:00:00Z',
+  source: 'volunteer_checkin',
+  person: {
+    id: 'person-deleted',
+    full_name: 'Jane Deleted',
+    nickname: null,
+    photo_url: null,
+    photo_signed_url: null,
+    deleted_at: '2026-06-10T00:00:00Z',
+  },
+}
+
 const ALREADY_RESULT: CreateAttendanceResult = {
   status: 'already_checked_in',
   existing: {
@@ -100,6 +146,10 @@ const ALREADY_RESULT: CreateAttendanceResult = {
     checked_in_by: 'user-002',
     source: 'volunteer_checkin',
   },
+}
+
+function emptyRecent(): ListRecentAttendanceResult {
+  return { status: 'ok', attendances: [] }
 }
 
 // ── Helper ────────────────────────────────────────────────────────────────────
@@ -116,8 +166,9 @@ function setup(instances: NearestInstanceRow[] = INSTANCES) {
 describe('CheckinClient', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    // Default: attendance write succeeds for whichever person is checked in
+    // Default: attendance write succeeds; recent list is empty
     mockCreateAttendance.mockImplementation(async (input) => okAttendance(input.personId))
+    mockListRecent.mockResolvedValue(emptyRecent())
   })
 
   it('renders phone input with default country ID', () => {
@@ -219,89 +270,25 @@ describe('CheckinClient', () => {
     expect(screen.getByText('add_new_person')).toBeInTheDocument()
   })
 
-  it('check-in button calls createAttendance and adds person to recent panel', async () => {
+  it('check-in button calls createAttendance; recent panel updates via refetch', async () => {
     mockLookup.mockResolvedValue(FOUND_RESULT)
+    // After check-in the refetch returns Budi Santoso
+    mockListRecent
+      .mockResolvedValueOnce(emptyRecent())  // initial mount fetch
+      .mockResolvedValue({ status: 'ok', attendances: [makeAttendanceWithPerson()] })
+
     const { user, input } = setup()
     await user.type(input, '081234567890')
     const checkInBtn = await screen.findByRole('button', { name: 'check_in_button' }, { timeout: 1000 })
     await user.click(checkInBtn)
-    // After check-in: input cleared, PersonCard gone, name only in recent panel
+
+    // After check-in: recent panel shows the refetched person
     const recentPanel = screen.getByTestId('recent-panel')
-    await waitFor(() => expect(within(recentPanel).getByText('Budi Santoso')).toBeInTheDocument(), { timeout: 500 })
+    await waitFor(() => expect(within(recentPanel).getByText('Budi Santoso')).toBeInTheDocument(), { timeout: 1000 })
     expect(mockCreateAttendance).toHaveBeenCalledWith({
       personId: FOUND_PERSON.id,
       eventInstanceId: 'inst-001',
     })
-  })
-
-  it('check-in deduplicates by person id', async () => {
-    mockLookup.mockResolvedValue(FOUND_RESULT)
-    const { user, input } = setup()
-
-    // First check-in
-    await user.type(input, '081234567890')
-    const checkInBtn1 = await screen.findByRole('button', { name: 'check_in_button' }, { timeout: 1000 })
-    await user.click(checkInBtn1)
-
-    // After check-in rawPhone=''. Re-type the same phone: debounce fires (fireCount increments
-    // even for the same settled value) so the effect re-fires and PersonCard appears again.
-    // The mock returns ok both times — dedupe is the recent panel's responsibility.
-    await user.type(input, '081234567890')
-    const checkInBtn2 = await screen.findByRole('button', { name: 'check_in_button' }, { timeout: 1000 })
-    await user.click(checkInBtn2)
-
-    // After second check-in the input clears; Budi Santoso should appear only once in recent panel
-    const recentPanel = screen.getByTestId('recent-panel')
-    await waitFor(() => {
-      const items = within(recentPanel).getAllByText('Budi Santoso')
-      expect(items.length).toBe(1)
-    }, { timeout: 500 })
-  })
-
-  it('recent panel caps at 10 entries', async () => {
-    // 11 iterations × ~350ms debounce each — needs an extended timeout.
-    // Each person gets a distinct phone so that after check-in, typing the new phone
-    // changes debouncedPhone, naturally re-firing the lookup without consuming extra mocks.
-    const people = Array.from({ length: 11 }, (_, i) => ({
-      ...FOUND_PERSON,
-      id: `person-${i}`,
-      phone_e164: `+628123456${i.toString().padStart(3, '0')}`,
-      full_name: `Person ${i}`,
-    }))
-
-    const { user, input } = setup()
-
-    for (const person of people) {
-      mockLookup.mockResolvedValueOnce({ status: 'found', person })
-      // Each person has a unique local-format phone (strip +62, prepend 0)
-      const localPhone = `0${person.phone_e164.slice(3)}`
-      await user.clear(input)
-      await user.type(input, localPhone)
-      const btn = await screen.findByRole('button', { name: 'check_in_button' }, { timeout: 1000 })
-      await user.click(btn)
-      await new Promise((r) => setTimeout(r, 50))
-    }
-
-    // Only 10 items should be in the list (oldest dropped)
-    const recentPanel = screen.getByTestId('recent-panel')
-    const listItems = within(recentPanel).getAllByRole('listitem')
-    expect(listItems.length).toBe(10)
-  }, 20000)
-
-  it('clicking a recent entry re-populates phone input', async () => {
-    mockLookup.mockResolvedValue(FOUND_RESULT)
-    const { user, input } = setup()
-    await user.type(input, '081234567890')
-    const checkInBtn = await screen.findByRole('button', { name: 'check_in_button' }, { timeout: 1000 })
-    await user.click(checkInBtn)
-
-    // Click the recent item button (it contains Budi Santoso's name)
-    const recentPanel = screen.getByTestId('recent-panel')
-    const recentBtn = await within(recentPanel).findByRole('button', { name: /Budi Santoso/i }, { timeout: 500 })
-    await user.click(recentBtn)
-
-    // Phone input should now contain the person's e164 number
-    expect(input.value).toBe(FOUND_PERSON.phone_e164)
   })
 
   it('phone input refocuses after check-in', async () => {
@@ -332,10 +319,14 @@ describe('CheckinClient', () => {
     expect(banner).toHaveTextContent('12:00') // 2026-06-11T05:00:00Z in Asia/Jakarta
   })
 
-  it('CC-02: already_checked_in shows banner with existing time; recent panel NOT updated', async () => {
+  it('CC-02: already_checked_in shows banner with existing time; listRecentAttendanceForInstance NOT called for duplicate', async () => {
     mockLookup.mockResolvedValue(FOUND_RESULT)
     mockCreateAttendance.mockResolvedValue(ALREADY_RESULT)
     const { user, input } = setup()
+
+    // Let the initial mount fetch settle
+    await waitFor(() => expect(mockListRecent).toHaveBeenCalledTimes(1))
+
     await user.type(input, '081234567890')
     const checkInBtn = await screen.findByRole('button', { name: 'check_in_button' }, { timeout: 1000 })
     await user.click(checkInBtn)
@@ -344,8 +335,10 @@ describe('CheckinClient', () => {
     expect(banner).toHaveTextContent('results.already_checked_in')
     expect(banner).toHaveTextContent('11:30') // existing 2026-06-11T04:30:00Z in Asia/Jakarta
 
-    const recentPanel = screen.getByTestId('recent-panel')
-    expect(within(recentPanel).queryByText('Budi Santoso')).not.toBeInTheDocument()
+    // No additional refetch on duplicate — only the initial mount call
+    await act(async () => { await new Promise((r) => setTimeout(r, 100)) })
+    expect(mockListRecent).toHaveBeenCalledTimes(1)
+
     // The PersonCard stays visible so the organizer can act on the message
     expect(screen.getByRole('button', { name: 'check_in_button' })).toBeInTheDocument()
   })
@@ -382,6 +375,11 @@ describe('CheckinClient', () => {
         resolveAttendance = res
       }),
     )
+    // After check-in succeeds, the refetch returns Budi
+    mockListRecent
+      .mockResolvedValueOnce(emptyRecent())
+      .mockResolvedValue({ status: 'ok', attendances: [makeAttendanceWithPerson()] })
+
     const { user, input } = setup()
     await user.type(input, '081234567890')
     const checkInBtn = await screen.findByRole('button', { name: 'check_in_button' }, { timeout: 1000 })
@@ -397,6 +395,105 @@ describe('CheckinClient', () => {
       await new Promise((r) => setTimeout(r, 50))
     })
     const recentPanel = screen.getByTestId('recent-panel')
-    expect(within(recentPanel).getByText('Budi Santoso')).toBeInTheDocument()
+    await waitFor(
+      () => expect(within(recentPanel).getByText('Budi Santoso')).toBeInTheDocument(),
+      { timeout: 1000 },
+    )
+  })
+
+  // ── T9: real recent panel (CC-06..CC-10) ─────────────────────────────────────
+
+  it('CC-06: recent panel renders attendances from prop; rows ordered descending by time', async () => {
+    const att1: AttendanceWithPerson = makeAttendanceWithPerson({
+      id: 'att-first',
+      checked_in_at: '2026-06-11T05:00:00Z',  // 12:00 Jakarta
+      person: { ...makeAttendanceWithPerson().person, id: 'person-001', full_name: 'Budi Santoso' },
+    })
+    const att2: AttendanceWithPerson = makeAttendanceWithPerson({
+      id: 'att-second',
+      checked_in_at: '2026-06-11T04:00:00Z',  // 11:00 Jakarta
+      person: { ...makeAttendanceWithPerson().person, id: 'person-002', full_name: 'Ani Rahayu' },
+    })
+    // First call: two attendances ordered desc (att1 newer, att2 older)
+    mockListRecent.mockResolvedValue({ status: 'ok', attendances: [att1, att2] })
+
+    setup()
+
+    const recentPanel = await screen.findByTestId('recent-panel')
+    await waitFor(() => {
+      expect(within(recentPanel).getByText('Budi Santoso')).toBeInTheDocument()
+      expect(within(recentPanel).getByText('Ani Rahayu')).toBeInTheDocument()
+    }, { timeout: 1000 })
+
+    const items = within(recentPanel).getAllByRole('listitem')
+    expect(items.length).toBe(2)
+    // att1 (newer) appears first
+    expect(items[0]).toHaveTextContent('Budi Santoso')
+    expect(items[1]).toHaveTextContent('Ani Rahayu')
+  })
+
+  it('CC-07: soft-deleted attendee renders with (deleted) badge + muted styling', async () => {
+    mockListRecent.mockResolvedValue({ status: 'ok', attendances: [DELETED_ATTENDANCE] })
+
+    setup()
+
+    const recentPanel = await screen.findByTestId('recent-panel')
+    await waitFor(() => expect(within(recentPanel).getByText('Jane Deleted')).toBeInTheDocument(), { timeout: 1000 })
+
+    const badge = within(recentPanel).getByTestId('deleted-badge')
+    expect(badge).toBeInTheDocument()
+    expect(badge.textContent?.toLowerCase()).toContain('deleted')
+  })
+
+  it('CC-08: empty state renders the empty message', async () => {
+    mockListRecent.mockResolvedValue(emptyRecent())
+
+    setup()
+
+    const recentPanel = await screen.findByTestId('recent-panel')
+    await waitFor(
+      () => expect(within(recentPanel).getByText('recent_panel.empty')).toBeInTheDocument(),
+      { timeout: 1000 },
+    )
+  })
+
+  it('CC-09: successful check-in triggers a refetch', async () => {
+    mockLookup.mockResolvedValue(FOUND_RESULT)
+    const { user, input } = setup()
+
+    // Let the initial mount fetch complete
+    await waitFor(() => expect(mockListRecent).toHaveBeenCalledTimes(1))
+
+    await user.type(input, '081234567890')
+    const checkInBtn = await screen.findByRole('button', { name: 'check_in_button' }, { timeout: 1000 })
+    await user.click(checkInBtn)
+
+    // After ok: one more refetch call
+    await waitFor(() => expect(mockListRecent).toHaveBeenCalledTimes(2), { timeout: 1000 })
+    // Second call uses the same instance id
+    expect(mockListRecent).toHaveBeenLastCalledWith({ eventInstanceId: 'inst-001' })
+  })
+
+  it('CC-10: instance switch triggers a refetch with the new ID', async () => {
+    const twoInstances = [INSTANCES[0], INSTANCE_B]
+    const user = userEvent.setup({ delay: null })
+    render(<CheckinClient instances={twoInstances} />)
+
+    // Initial mount fetches for inst-001
+    await waitFor(() => expect(mockListRecent).toHaveBeenCalledWith({ eventInstanceId: 'inst-001' }), { timeout: 1000 })
+
+    // EventSelector is a custom listbox: click the header button to open, then pick inst-002.
+    const selectorBtn = screen.getByRole('button', { name: 'select_event' })
+    await user.click(selectorBtn)
+
+    // The dropdown shows inst-002's name ('Test Event Beta')
+    const betaOption = await screen.findByRole('option', { name: /Test Event Beta/i })
+    const betaBtn = within(betaOption as HTMLElement).getByRole('button')
+    await user.click(betaBtn)
+
+    await waitFor(
+      () => expect(mockListRecent).toHaveBeenCalledWith({ eventInstanceId: 'inst-002' }),
+      { timeout: 1000 },
+    )
   })
 })

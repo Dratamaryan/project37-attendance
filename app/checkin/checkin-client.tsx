@@ -3,23 +3,18 @@
 import { useState, useEffect, useRef, useTransition } from 'react'
 import { useTranslations } from 'next-intl'
 import { lookupByPhone } from '@/lib/actions/people'
-import { createAttendance } from '@/lib/actions/attendance'
+import { createAttendance, listRecentAttendanceForInstance } from '@/lib/actions/attendance'
 import { formatJakarta } from '@/lib/events/timezone'
 import { DEFAULT_COUNTRY, type SupportedCountry } from '@/lib/utils/phone'
 import type { PersonSummary, PhoneNormalizationError } from '@/lib/actions/people.types'
 import type { NearestInstanceRow } from '@/lib/actions/events.types'
+import type { AttendanceWithPerson } from '@/lib/actions/attendance.types'
 import { PhoneInput } from './phone-input'
 import { PersonCard } from './person-card'
 import { NewPersonTrigger } from './new-person-trigger'
 import { NewPersonForm } from './new-person-form'
 import { RecentPanel } from './recent-panel'
 import { EventSelector } from './_components/EventSelector'
-
-export type RecentItem = {
-  person: PersonSummary
-  checkedInAt: Date
-  isNew: boolean
-}
 
 // The server can return one of four terminal states.
 // idle / too_short / searching are derived from rawPhone + debouncedPhone + isPending.
@@ -73,11 +68,14 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
   // Separate transition for the attendance write so the lookup's 'searching'
   // display state doesn't flicker on during check-in.
   const [checkinPending, startCheckinTransition] = useTransition()
+  // Dedicated transition for the recent-panel refetch so it doesn't compete with
+  // the check-in or lookup transitions.
+  const [attendancesPending, startAttendanceTransition] = useTransition()
 
   const [rawPhone, setRawPhone] = useState('')
   const [country, setCountry] = useState<SupportedCountry>(DEFAULT_COUNTRY)
   const [serverResult, setServerResult] = useState<ServerResult | null>(null)
-  const [recentItems, setRecentItems] = useState<RecentItem[]>([])
+  const [attendances, setAttendances] = useState<AttendanceWithPerson[]>([])
   const [showForm, setShowForm] = useState(false)
   const [photoUploadFailed, setPhotoUploadFailed] = useState(false)
   const [feedback, setFeedback] = useState<CheckinFeedback | null>(null)
@@ -92,6 +90,27 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [debouncedPhone, debouncedFireCount] = useDebounce(rawPhone, 300)
+
+  // Fetch recent attendances for the current instance. Bound to eventInstanceId changes
+  // and called explicitly after a successful check-in. Dedicated transition avoids
+  // competing with lookup or check-in transitions (R3 — no refetch storm).
+  function refetchAttendances(instanceId: string) {
+    startAttendanceTransition(async () => {
+      const result = await listRecentAttendanceForInstance({ eventInstanceId: instanceId })
+      if (result.status === 'ok') setAttendances(result.attendances)
+    })
+  }
+
+  // Refetch on mount and on instance switch. Empty dep array omitted because
+  // eventInstanceId IS a dep — this fires only when it changes, not on every render.
+  useEffect(() => {
+    if (!eventInstanceId) return
+    const id = eventInstanceId
+    startAttendanceTransition(async () => {
+      const result = await listRecentAttendanceForInstance({ eventInstanceId: id })
+      if (result.status === 'ok') setAttendances(result.attendances)
+    })
+  }, [eventInstanceId])
 
   // Effect only fires the async server call — no synchronous setState in the effect body.
   // idle / too_short / searching are all derived from rawPhone + debouncedPhone + isPending
@@ -127,13 +146,6 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
     })
   }, [debouncedPhone, debouncedFireCount, country])
 
-  function addToRecent(person: PersonSummary, isNew: boolean) {
-    setRecentItems((prev) => {
-      const deduped = prev.filter((item) => item.person.id !== person.id)
-      return [{ person, checkedInAt: new Date(), isNew }, ...deduped].slice(0, 10)
-    })
-  }
-
   function resetToLookup() {
     setRawPhone('')
     setServerResult(null)
@@ -166,22 +178,24 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
       if (mode === 'new') resetToLookup()
       return
     }
+    const currentInstanceId = eventInstanceId
     startCheckinTransition(async () => {
       const result = await createAttendance({
         personId: person.id,
-        eventInstanceId,
+        eventInstanceId: currentInstanceId,
       })
 
       switch (result.status) {
         case 'ok': {
           const time = formatJakarta(new Date(result.attendance.checked_in_at), 'HH:mm')
           showFeedback('success', t('results.success', { name: person.full_name, time }))
-          addToRecent(person, isNew)
           resetToLookup()
+          // Refetch the recent panel — single source of truth, no optimistic append.
+          refetchAttendances(currentInstanceId)
           return
         }
         case 'already_checked_in': {
-          // Do NOT touch the recent panel — the attempt was a duplicate.
+          // Do NOT refetch — the attempt was a duplicate; panel is already accurate.
           const time = formatJakarta(new Date(result.existing.checked_in_at), 'HH:mm')
           showFeedback('warning', t('results.already_checked_in', { name: person.full_name, time }))
           break
@@ -225,12 +239,6 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
 
   function handlePhotoError() {
     setPhotoUploadFailed(true)
-  }
-
-  function handleRecentItemClick(item: RecentItem) {
-    setRawPhone(item.person.phone_e164)
-    setCountry(DEFAULT_COUNTRY)
-    inputRef.current?.focus()
   }
 
   function handlePhoneChange(phone: string, c: SupportedCountry) {
@@ -367,7 +375,7 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
 
       {/* ── Right column: recent panel ── */}
       <div className="w-full md:w-80 lg:w-96 flex-shrink-0">
-        <RecentPanel items={recentItems} onItemClick={handleRecentItemClick} />
+        <RecentPanel attendances={attendances} isLoading={attendancesPending} />
       </div>
     </div>
     </>
