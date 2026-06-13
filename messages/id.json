@@ -175,13 +175,75 @@
         "type": "Jenis",
         "next_instance": "Jadwal berikutnya",
         "status": "Status",
-        "edit": "Edit"
+        "edit": "Edit",
+        "view": "Lihat"
       },
       "next_instance_none": "Tidak ada jadwal",
       "banner": {
         "created": "Acara dibuat — {count} sesi dijadwalkan",
         "updated": "Acara diperbarui",
         "not_found": "Acara tidak ditemukan."
+      },
+      "rrule": {
+        "friday_monthly": "Setiap Jumat ke-2",
+        "sunday_monthly": "Setiap Minggu pertama",
+        "adhoc": "Acara satu kali",
+        "other_recurring": "Berulang (aturan kustom)"
+      },
+      "detail": {
+        "breadcrumb": "Acara",
+        "edit_button": "Edit acara",
+        "recurrence_label": "Pengulangan",
+        "recurrence_none": "—",
+        "location_label": "Lokasi",
+        "duration_label": "Durasi",
+        "status": {
+          "active": "Aktif",
+          "inactive": "Tidak aktif"
+        },
+        "group": {
+          "upcoming": "Mendatang",
+          "past": "Selesai",
+          "cancelled": "Dibatalkan",
+          "empty": "Tidak ada"
+        },
+        "instances_error": "Gagal memuat sesi. Silakan coba lagi.",
+        "banner": {
+          "instance_cancelled": "Sesi berhasil dibatalkan.",
+          "already_cancelled": "Sesi sudah dibatalkan sebelumnya."
+        }
+      },
+      "instance": {
+        "breadcrumb_events": "Acara",
+        "cancel_button": "Batalkan sesi",
+        "cancel_dialog": {
+          "title": "Batalkan sesi ini?",
+          "reason_label": "Alasan (opsional)",
+          "reason_placeholder": "Masukkan alasan pembatalan…",
+          "confirm": "Konfirmasi pembatalan",
+          "confirming": "Membatalkan…",
+          "cancel": "Pertahankan sesi",
+          "error": "Gagal membatalkan. Silakan coba lagi.",
+          "error_not_found": "Sesi tidak ditemukan."
+        },
+        "search_placeholder": "Cari nama, panggilan, atau nomor",
+        "search_no_results": "Tidak ada peserta yang cocok",
+        "attendee_count": "{count} peserta",
+        "deleted_badge": "(dihapus)",
+        "table": {
+          "photo": "Foto",
+          "name": "Nama",
+          "phone": "Telepon",
+          "checked_in_at": "Waktu hadir",
+          "checked_in_by": "Dicatat oleh",
+          "empty": "Belum ada kehadiran untuk sesi ini",
+          "error": "Gagal memuat peserta. Silakan coba lagi."
+        },
+        "status": {
+          "scheduled": "Terjadwal",
+          "cancelled": "Dibatalkan",
+          "completed": "Selesai"
+        }
       },
       "form": {
         "name_label": "Nama acara (EN)",

@@ -110,10 +110,13 @@ function makeAttendanceWithPerson(
     event_instance_id: 'inst-001',
     checked_in_at: '2026-06-11T05:00:00Z',  // 12:00 Asia/Jakarta
     source: 'volunteer_checkin',
+    checked_in_by: 'user-001',
+    checked_in_by_email: 'org@test.invalid',
     person: {
       id: FOUND_PERSON.id,
       full_name: FOUND_PERSON.full_name,
       nickname: FOUND_PERSON.nickname,
+      phone_e164: FOUND_PERSON.phone_e164,
       photo_url: null,
       photo_signed_url: null,
       deleted_at: null,
@@ -127,10 +130,13 @@ const DELETED_ATTENDANCE: AttendanceWithPerson = {
   event_instance_id: 'inst-001',
   checked_in_at: '2026-06-11T04:00:00Z',
   source: 'volunteer_checkin',
+  checked_in_by: 'user-001',
+  checked_in_by_email: null,
   person: {
     id: 'person-deleted',
     full_name: 'Jane Deleted',
     nickname: null,
+    phone_e164: '+6281234567890',
     photo_url: null,
     photo_signed_url: null,
     deleted_at: '2026-06-10T00:00:00Z',

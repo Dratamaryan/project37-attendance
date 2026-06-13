@@ -175,13 +175,75 @@
         "type": "Type",
         "next_instance": "Next instance",
         "status": "Status",
-        "edit": "Edit"
+        "edit": "Edit",
+        "view": "View"
       },
       "next_instance_none": "No upcoming",
       "banner": {
         "created": "Event created — {count} instances scheduled",
         "updated": "Event updated",
         "not_found": "Event not found."
+      },
+      "rrule": {
+        "friday_monthly": "2nd Friday of each month",
+        "sunday_monthly": "1st Sunday of each month",
+        "adhoc": "One-time event",
+        "other_recurring": "Recurring (custom rule)"
+      },
+      "detail": {
+        "breadcrumb": "Events",
+        "edit_button": "Edit event",
+        "recurrence_label": "Recurrence",
+        "recurrence_none": "—",
+        "location_label": "Location",
+        "duration_label": "Duration",
+        "status": {
+          "active": "Active",
+          "inactive": "Inactive"
+        },
+        "group": {
+          "upcoming": "Upcoming",
+          "past": "Past",
+          "cancelled": "Cancelled",
+          "empty": "None"
+        },
+        "instances_error": "Couldn't load instances. Please try again.",
+        "banner": {
+          "instance_cancelled": "Instance cancelled successfully.",
+          "already_cancelled": "Instance was already cancelled."
+        }
+      },
+      "instance": {
+        "breadcrumb_events": "Events",
+        "cancel_button": "Cancel instance",
+        "cancel_dialog": {
+          "title": "Cancel this instance?",
+          "reason_label": "Reason (optional)",
+          "reason_placeholder": "Enter a reason for cancellation…",
+          "confirm": "Confirm cancellation",
+          "confirming": "Cancelling…",
+          "cancel": "Keep instance",
+          "error": "Couldn't cancel. Please try again.",
+          "error_not_found": "Instance not found."
+        },
+        "search_placeholder": "Search by name, nickname, or phone",
+        "search_no_results": "No attendees match this search",
+        "attendee_count": "{count} attendees",
+        "deleted_badge": "(deleted)",
+        "table": {
+          "photo": "Photo",
+          "name": "Name",
+          "phone": "Phone",
+          "checked_in_at": "Checked in at",
+          "checked_in_by": "Checked in by",
+          "empty": "No check-ins for this instance",
+          "error": "Couldn't load attendees. Please try again."
+        },
+        "status": {
+          "scheduled": "Scheduled",
+          "cancelled": "Cancelled",
+          "completed": "Completed"
+        }
       },
       "form": {
         "name_label": "Event name (EN)",

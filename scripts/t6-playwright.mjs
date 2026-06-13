@@ -188,16 +188,21 @@ async function main() {
   }
 
   // ── E2E-T6-03: Edit newly-created event ───────────────────────────────────
-  console.log('\nE2E-T6-03: Edit created event')
-  let editedEventHref = ''
+  // D7: row link now goes to /[id] (detail page); Edit button on detail page links to /[id]/edit.
+  console.log('\nE2E-T6-03: Edit created event (via detail page)')
   try {
-    // Find edit link for the test event row
+    // Step 1: Click the "View" link for the test event row → detail page
     const testRow = page.locator('tr').filter({ hasText: TEST_EVENT_NAME })
-    const editLink = testRow.locator('a[href*="/edit"]')
-    editedEventHref = await editLink.getAttribute('href') ?? ''
-    if (!editedEventHref) throw new Error('No edit link found for test event row')
+    const viewLink = testRow.locator('a').first()
+    await viewLink.waitFor({ state: 'visible', timeout: 8_000 })
+    await viewLink.click()
+    await page.waitForURL(/\/admin\/events\/[^/]+$/, { timeout: 10_000 })
 
-    await page.goto(`${PROD_URL}${editedEventHref}`, { waitUntil: 'networkidle' })
+    // Step 2: On detail page, click the "Edit event" button → edit form
+    const editBtn = page.locator('a[href$="/edit"]').first()
+    await editBtn.waitFor({ state: 'visible', timeout: 8_000 })
+    await editBtn.click()
+    await page.waitForURL(/\/edit$/, { timeout: 10_000 })
     await page.waitForFunction(() => document.querySelector('form') !== null, { timeout: 8_000 })
 
     // Rename

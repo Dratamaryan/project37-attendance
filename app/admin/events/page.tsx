@@ -99,13 +99,13 @@ function EventRow({
         </span>
       </td>
 
-      {/* Edit link */}
+      {/* View link — navigates to detail page (D7: edit moved to detail page header) */}
       <td className="px-4 py-3 whitespace-nowrap text-right text-sm">
         <Link
-          href={`/admin/events/${event.id}/edit`}
+          href={`/admin/events/${event.id}`}
           className="text-gold hover:text-gold-dark font-medium transition-colors"
         >
-          {t('table.edit')}
+          {t('table.view')}
         </Link>
       </td>
     </tr>

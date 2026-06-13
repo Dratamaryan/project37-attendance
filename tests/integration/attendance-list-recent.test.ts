@@ -336,6 +336,46 @@ describe('listRecentAttendanceForInstance', () => {
     // photo_signed_url is either a signed URL string or null (graceful failure)
     expect(typeof withPhoto!.person.photo_signed_url === 'string' || withPhoto!.person.photo_signed_url === null).toBe(true)
   })
+
+  it('RECENT-09: limit:500 returns all available rows sorted DESC (D1 — max raised from 50 to 500)', async () => {
+    // instanceB already has personActiveId from RECENT-02; add two more distinct people.
+    const t1 = new Date('2026-09-02T08:00:00Z')
+    const t2 = new Date('2026-09-02T09:00:00Z')
+    await insertAttendance(personWithPhotoId, instanceBId, t1.toISOString())
+    await insertAttendance(personDeletedId,   instanceBId, t2.toISOString())
+
+    const result = await impl_listRecentAttendanceForInstance({
+      supabase: orgSession,
+      adminSupabase: serviceAdmin,
+      input: { eventInstanceId: instanceBId, limit: 500 },
+    })
+    expect(result.status).toBe('ok')
+    if (result.status !== 'ok') return
+
+    // All 3 rows returned (1 from RECENT-02 + 2 new), no artificial 50-row cap
+    expect(result.attendances.length).toBeGreaterThanOrEqual(3)
+
+    // Verify DESC order
+    for (let i = 0; i < result.attendances.length - 1; i++) {
+      expect(result.attendances[i].checked_in_at >= result.attendances[i + 1].checked_in_at).toBe(true)
+    }
+
+    // New fields present on each row (D10)
+    const first = result.attendances[0]
+    expect(typeof first.checked_in_by).toBe('string')
+    expect(first.checked_in_by_email !== undefined).toBe(true)
+    expect(typeof first.person.phone_e164).toBe('string')
+  })
+
+  it('RECENT-10: limit:501 clamped to 500 — no error, returns available rows (D1)', async () => {
+    const result = await impl_listRecentAttendanceForInstance({
+      supabase: orgSession,
+      adminSupabase: serviceAdmin,
+      input: { eventInstanceId: instanceBId, limit: 501 },
+    })
+    // Clamped silently — no invalid_input, no error
+    expect(result.status).toBe('ok')
+  })
 })
 
 // RECENT-08 is enforced structurally: afterAll uses targeted deletes by ID.

@@ -39,10 +39,13 @@ export type AttendanceWithPerson = {
   event_instance_id: string
   checked_in_at: string   // ISO timestamptz
   source: string | null
+  checked_in_by: string   // UUID of the app_user who recorded the check-in
+  checked_in_by_email: string | null  // email of that user (batch-resolved, null if not found)
   person: {
     id: string
     full_name: string
     nickname: string | null
+    phone_e164: string            // E.164 phone number
     photo_url: string | null      // raw storage path or legacy URL
     photo_signed_url: string | null  // signed 1h URL, or null if no photo / signing failed
     deleted_at: string | null    // ISO if soft-deleted, else null
@@ -51,7 +54,7 @@ export type AttendanceWithPerson = {
 
 export type ListRecentAttendanceInput = {
   eventInstanceId: string
-  limit?: number  // default 20, max 50
+  limit?: number  // default 20, max 500 (admin attendee table passes 500; recent panel uses 20)
 }
 
 export type ListRecentAttendanceResult =

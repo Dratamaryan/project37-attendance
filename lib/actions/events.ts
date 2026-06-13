@@ -48,7 +48,9 @@ export async function cancelInstance(
 ): Promise<CancelInstanceResult> {
   const supabase = await createClient()
   const adminSupabase = createAdminClient()
-  return impl_cancelInstance({ supabase, adminSupabase, instanceId, reason })
+  const result = await impl_cancelInstance({ supabase, adminSupabase, instanceId, reason })
+  if (result.status === 'ok') revalidatePath('/admin/events')
+  return result
 }
 
 export async function listEvents(filters?: ListEventsFilters): Promise<ListEventsResult> {

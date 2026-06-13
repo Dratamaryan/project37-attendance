@@ -172,12 +172,18 @@ export async function impl_createAttendance({
 // ── listRecentAttendanceForInstance ───────────────────────────────────────────
 
 const RECENT_DEFAULT_LIMIT = 20
-const RECENT_MAX_LIMIT = 50
+const RECENT_MAX_LIMIT = 500  // raised from 50 (D1): admin attendee table uses limit:500
 
 /**
- * Returns the most recent attendances for a given event instance, ordered by
- * checked_in_at DESC. Uses the admin client so soft-deleted people (filtered out
- * by organizer RLS) are included — Locked Decision T2-11.
+ * Returns attendances for a given event instance, ordered by checked_in_at DESC.
+ * Uses the admin client so soft-deleted people (filtered out by organizer RLS) are
+ * included — Locked Decision T2-11.
+ *
+ * Default limit 20 (recent panel); max 500 (admin attendee table, D1).
+ * limit > 500 is clamped to 500 silently (RECENT-10 behaviour).
+ *
+ * Includes phone_e164, checked_in_by, and checked_in_by_email (D10) for the
+ * admin attendee table. The recent panel simply ignores the extra fields.
  *
  * Signed URLs are generated with the user-session client; on failure the field
  * is null and a warning is logged. Do not log the returned URL (bearer token).
@@ -201,7 +207,7 @@ export async function impl_listRecentAttendanceForInstance({
   // attendees would be invisible. Admin bypasses RLS to surface them (T2-11 acceptance).
   const { data, error } = await adminSupabase
     .from('attendance')
-    .select('id, event_instance_id, checked_in_at, source, people!inner(id, full_name, nickname, photo_url, deleted_at)')
+    .select('id, event_instance_id, checked_in_at, source, checked_in_by, people!inner(id, full_name, nickname, phone_e164, photo_url, deleted_at)')
     .eq('event_instance_id', input.eventInstanceId)
     .order('checked_in_at', { ascending: false })
     .limit(limit)
@@ -216,14 +222,31 @@ export async function impl_listRecentAttendanceForInstance({
     event_instance_id: string
     checked_in_at: string
     source: string | null
+    checked_in_by: string
     people: {
       id: string
       full_name: string
       nickname: string | null
+      phone_e164: string
       photo_url: string | null
       deleted_at: string | null
     }
   }>
+
+  // Batch-resolve checker emails — one extra query for all distinct checked_in_by UUIDs.
+  // Avoids FK join syntax uncertainty; acceptable N=1 extra query per call.
+  const checkerIds = [...new Set(rows.map(r => r.checked_in_by))]
+  const emailMap: Record<string, string> = {}
+  if (checkerIds.length > 0) {
+    const { data: appUsers } = await adminSupabase
+      .from('app_users')
+      .select('id, email')
+      .in('id', checkerIds)
+    for (const u of (appUsers ?? [])) {
+      const user = u as { id: string; email: string }
+      emailMap[user.id] = user.email
+    }
+  }
 
   // Generate signed URLs in parallel — one storage round-trip per photo (R2 latent item Sprint 5)
   const attendances: AttendanceWithPerson[] = await Promise.all(
@@ -247,10 +270,13 @@ export async function impl_listRecentAttendanceForInstance({
         event_instance_id: row.event_instance_id,
         checked_in_at: row.checked_in_at,
         source: row.source,
+        checked_in_by: row.checked_in_by,
+        checked_in_by_email: emailMap[row.checked_in_by] ?? null,
         person: {
           id: row.people.id,
           full_name: row.people.full_name,
           nickname: row.people.nickname,
+          phone_e164: row.people.phone_e164,
           photo_url: row.people.photo_url,
           photo_signed_url,
           deleted_at: row.people.deleted_at,
