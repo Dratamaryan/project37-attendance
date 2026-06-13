@@ -16,6 +16,7 @@ vi.mock('next-intl', () => ({
     if (params) return `${key} ${Object.values(params).join(' ')}`
     return key
   },
+  useLocale: () => 'en',
 }))
 
 vi.mock('next/image', () => ({
@@ -474,25 +475,76 @@ describe('CheckinClient', () => {
     expect(mockListRecent).toHaveBeenLastCalledWith({ eventInstanceId: 'inst-001' })
   })
 
-  it('CC-10: instance switch triggers a refetch with the new ID', async () => {
+  it('CC-10: instance switch triggers refetch AND panel content changes to new instance data', async () => {
+    // Data specific to each instance so we can verify the panel actually re-renders
+    const alphaAtt: AttendanceWithPerson = makeAttendanceWithPerson({
+      id: 'att-alpha',
+      event_instance_id: 'inst-001',
+      person: { ...makeAttendanceWithPerson().person, id: 'person-alpha', full_name: 'Alpha Person' },
+    })
+    const betaAtt: AttendanceWithPerson = makeAttendanceWithPerson({
+      id: 'att-beta',
+      event_instance_id: 'inst-002',
+      person: { ...makeAttendanceWithPerson().person, id: 'person-beta', full_name: 'Beta Person' },
+    })
+
+    // Return different data per instance — the old test only checked call count, not rendered output.
+    // This stronger version verifies the full render path: state update → re-render → panel content.
+    mockListRecent.mockImplementation(async ({ eventInstanceId }) => {
+      if (eventInstanceId === 'inst-001') return { status: 'ok', attendances: [alphaAtt] }
+      if (eventInstanceId === 'inst-002') return { status: 'ok', attendances: [betaAtt] }
+      return emptyRecent()
+    })
+
     const twoInstances = [INSTANCES[0], INSTANCE_B]
     const user = userEvent.setup({ delay: null })
     render(<CheckinClient instances={twoInstances} />)
 
-    // Initial mount fetches for inst-001
-    await waitFor(() => expect(mockListRecent).toHaveBeenCalledWith({ eventInstanceId: 'inst-001' }), { timeout: 1000 })
+    const recentPanel = await screen.findByTestId('recent-panel')
 
-    // EventSelector is a custom listbox: click the header button to open, then pick inst-002.
+    // Initial render shows inst-001 data
+    await waitFor(() => expect(within(recentPanel).getByText('Alpha Person')).toBeInTheDocument(), { timeout: 1000 })
+
+    // Switch to inst-002 via EventSelector custom listbox
     const selectorBtn = screen.getByRole('button', { name: 'select_event' })
     await user.click(selectorBtn)
-
-    // The dropdown shows inst-002's name ('Test Event Beta')
     const betaOption = await screen.findByRole('option', { name: /Test Event Beta/i })
-    const betaBtn = within(betaOption as HTMLElement).getByRole('button')
-    await user.click(betaBtn)
+    await user.click(within(betaOption as HTMLElement).getByRole('button'))
 
+    // Panel must show inst-002 data and NOT inst-001 data
+    await waitFor(() => expect(within(recentPanel).getByText('Beta Person')).toBeInTheDocument(), { timeout: 1000 })
+    expect(within(recentPanel).queryByText('Alpha Person')).not.toBeInTheDocument()
+
+    // Verify the fetch was invoked with the new instance id
+    expect(mockListRecent).toHaveBeenCalledWith({ eventInstanceId: 'inst-002' })
+  })
+
+  it('CC-11: panel heading updates to show selected event name on instance switch', async () => {
+    mockListRecent.mockResolvedValue(emptyRecent())
+
+    const twoInstances = [INSTANCES[0], INSTANCE_B]
+    const user = userEvent.setup({ delay: null })
+    render(<CheckinClient instances={twoInstances} />)
+
+    const recentPanel = await screen.findByTestId('recent-panel')
+
+    // Initial heading includes inst-001's event name
     await waitFor(
-      () => expect(mockListRecent).toHaveBeenCalledWith({ eventInstanceId: 'inst-002' }),
+      () => expect(within(recentPanel).getByTestId('recent-panel-heading'))
+             .toHaveTextContent('Test Event Alpha'),
+      { timeout: 1000 },
+    )
+
+    // Switch to inst-002
+    const selectorBtn = screen.getByRole('button', { name: 'select_event' })
+    await user.click(selectorBtn)
+    const betaOption = await screen.findByRole('option', { name: /Test Event Beta/i })
+    await user.click(within(betaOption as HTMLElement).getByRole('button'))
+
+    // Heading now shows inst-002's name
+    await waitFor(
+      () => expect(within(recentPanel).getByTestId('recent-panel-heading'))
+             .toHaveTextContent('Test Event Beta'),
       { timeout: 1000 },
     )
   })

@@ -7,7 +7,7 @@ import type { AttendanceWithPerson } from '@/lib/actions/attendance.types'
 
 type Props = {
   attendances: AttendanceWithPerson[]
-  isLoading?: boolean
+  eventName?: string | null
 }
 
 function getInitials(name: string): string {
@@ -18,25 +18,21 @@ function getInitials(name: string): string {
     .join('')
 }
 
-export function RecentPanel({ attendances, isLoading = false }: Props) {
+export function RecentPanel({ attendances, eventName }: Props) {
   const t = useTranslations('checkin')
 
   return (
     <div data-testid="recent-panel" className="bg-white border border-line rounded-[4px]">
       <div className="px-5 py-4 border-b border-line flex items-center justify-between">
-        <h4 className="font-heading text-lg font-semibold text-charcoal">
-          {t('recent_title')}
+        <h4 className="font-heading text-lg font-semibold text-charcoal truncate" data-testid="recent-panel-heading">
+          {eventName ? `${t('recent_title')} — ${eventName}` : t('recent_title')}
         </h4>
         {attendances.length > 0 && (
-          <span className="text-xs text-muted tabular-nums">{attendances.length}</span>
+          <span className="text-xs text-muted tabular-nums flex-shrink-0 ml-2">{attendances.length}</span>
         )}
       </div>
 
-      {isLoading ? (
-        <p className="px-5 py-6 text-sm text-muted italic text-center">
-          {t('recent_panel.loading')}
-        </p>
-      ) : attendances.length === 0 ? (
+      {attendances.length === 0 ? (
         <p className="px-5 py-6 text-sm text-muted italic text-center">
           {t('recent_panel.empty')}
         </p>

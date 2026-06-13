@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useTransition } from 'react'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import { lookupByPhone } from '@/lib/actions/people'
 import { createAttendance, listRecentAttendanceForInstance } from '@/lib/actions/attendance'
 import { formatJakarta } from '@/lib/events/timezone'
@@ -64,13 +64,11 @@ type CheckinClientProps = {
 
 export function CheckinClient({ instances = [], isAdmin = false }: CheckinClientProps) {
   const t = useTranslations('checkin')
+  const locale = useLocale()
   const [isPending, startTransition] = useTransition()
   // Separate transition for the attendance write so the lookup's 'searching'
   // display state doesn't flicker on during check-in.
   const [checkinPending, startCheckinTransition] = useTransition()
-  // Dedicated transition for the recent-panel refetch so it doesn't compete with
-  // the check-in or lookup transitions.
-  const [attendancesPending, startAttendanceTransition] = useTransition()
 
   const [rawPhone, setRawPhone] = useState('')
   const [country, setCountry] = useState<SupportedCountry>(DEFAULT_COUNTRY)
@@ -88,28 +86,35 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
   // Incremented before each lookup; stale results are discarded when the id no longer matches.
   const requestIdRef = useRef(0)
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Attendance fetch race-condition guard — prevents stale responses from overwriting newer ones.
+  // Uses a counter rather than AbortController because server actions don't expose a fetch signal.
+  const attendanceFetchIdRef = useRef(0)
 
   const [debouncedPhone, debouncedFireCount] = useDebounce(rawPhone, 300)
 
-  // Fetch recent attendances for the current instance. Bound to eventInstanceId changes
-  // and called explicitly after a successful check-in. Dedicated transition avoids
-  // competing with lookup or check-in transitions (R3 — no refetch storm).
-  function refetchAttendances(instanceId: string) {
-    startAttendanceTransition(async () => {
-      const result = await listRecentAttendanceForInstance({ eventInstanceId: instanceId })
+  // Derive the event name for the current instance (locale-aware).
+  const currentInstance = instances.find((i) => i.id === eventInstanceId) ?? null
+  const eventName = currentInstance
+    ? (locale === 'id' && currentInstance.event_name_snapshot_id
+        ? currentInstance.event_name_snapshot_id
+        : currentInstance.event_name_snapshot)
+    : null
+
+  // Fetch attendances using a direct promise approach. startTransition(async) called from inside
+  // useEffect is unreliable in React 19 — async transitions may be silently dropped when not
+  // initiated from an event handler. Direct .then() with a cancellation ref is robust in all contexts.
+  function doFetchAttendances(instanceId: string) {
+    const myFetch = ++attendanceFetchIdRef.current
+    listRecentAttendanceForInstance({ eventInstanceId: instanceId }).then((result) => {
+      if (attendanceFetchIdRef.current !== myFetch) return
       if (result.status === 'ok') setAttendances(result.attendances)
     })
   }
 
-  // Refetch on mount and on instance switch. Empty dep array omitted because
-  // eventInstanceId IS a dep — this fires only when it changes, not on every render.
+  // Refetch on mount and on instance switch.
   useEffect(() => {
     if (!eventInstanceId) return
-    const id = eventInstanceId
-    startAttendanceTransition(async () => {
-      const result = await listRecentAttendanceForInstance({ eventInstanceId: id })
-      if (result.status === 'ok') setAttendances(result.attendances)
-    })
+    doFetchAttendances(eventInstanceId)
   }, [eventInstanceId])
 
   // Effect only fires the async server call — no synchronous setState in the effect body.
@@ -191,7 +196,7 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
           showFeedback('success', t('results.success', { name: person.full_name, time }))
           resetToLookup()
           // Refetch the recent panel — single source of truth, no optimistic append.
-          refetchAttendances(currentInstanceId)
+          doFetchAttendances(currentInstanceId)
           return
         }
         case 'already_checked_in': {
@@ -375,7 +380,7 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
 
       {/* ── Right column: recent panel ── */}
       <div className="w-full md:w-80 lg:w-96 flex-shrink-0">
-        <RecentPanel attendances={attendances} isLoading={attendancesPending} />
+        <RecentPanel attendances={attendances} eventName={eventName} />
       </div>
     </div>
     </>
