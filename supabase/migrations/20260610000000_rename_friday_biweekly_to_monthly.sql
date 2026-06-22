@@ -21,35 +21,54 @@ COMMIT;
 
 BEGIN;
 
--- Step 2: Update affected events (event_type + recurrence_rule)
-UPDATE events
-SET
-  event_type      = 'friday_monthly',
-  recurrence_rule = 'FREQ=MONTHLY;BYDAY=2FR',
-  updated_at      = now()
-WHERE event_type = 'friday_biweekly';
+-- Steps 2-4: guarded so the migration is idempotent on fresh resets.
+-- On a fresh `supabase db reset`, Sprint 2 already creates event_type_enum
+-- without 'friday_biweekly', so there is nothing to rename. Without this
+-- guard the UPDATE fails with "invalid input value for enum event_type_enum:
+-- 'friday_biweekly'" because PostgreSQL validates the literal at parse time.
+DO $$
+DECLARE
+  v_has_old_value boolean;
+BEGIN
+  SELECT EXISTS (
+    SELECT 1 FROM pg_enum e
+    JOIN pg_type t ON t.oid = e.enumtypid
+    WHERE t.typname = 'event_type_enum' AND e.enumlabel = 'friday_biweekly'
+  ) INTO v_has_old_value;
 
--- Step 3: Delete future scheduled instances so they re-materialise on the
--- correct schedule. Past instances (completed/cancelled) are left intact
--- to preserve any historical attendance records.
-DELETE FROM event_instances
-WHERE event_id IN (
-  SELECT id FROM events WHERE event_type = 'friday_monthly'
-)
-AND status = 'scheduled'
-AND scheduled_at > now();
+  IF NOT v_has_old_value THEN
+    RAISE NOTICE 'rename_friday: friday_biweekly not in enum — steps 2-4 skipped (already migrated or fresh reset)';
+    RETURN;
+  END IF;
 
--- Step 4: Recreate enum without the old value
-ALTER TYPE event_type_enum RENAME TO event_type_enum_old;
-CREATE TYPE event_type_enum AS ENUM (
-  'friday_monthly',
-  'sunday_monthly',
-  'adhoc',
-  'other_recurring'
-);
-ALTER TABLE events
-  ALTER COLUMN event_type TYPE event_type_enum
-  USING event_type::text::event_type_enum;
-DROP TYPE event_type_enum_old;
+  -- Step 2: Update affected events (cast to text to avoid enum literal validation)
+  UPDATE events
+  SET
+    event_type      = 'friday_monthly',
+    recurrence_rule = 'FREQ=MONTHLY;BYDAY=2FR',
+    updated_at      = now()
+  WHERE event_type::text = 'friday_biweekly';
+
+  -- Step 3: Delete future scheduled instances so they re-materialise on the
+  -- correct schedule. Past instances (completed/cancelled) are left intact.
+  DELETE FROM event_instances
+  WHERE event_id IN (
+    SELECT id FROM events WHERE event_type = 'friday_monthly'
+  )
+  AND status = 'scheduled'
+  AND scheduled_at > now();
+
+  -- Step 4: Recreate enum without the old value (DDL via EXECUTE inside DO block)
+  EXECUTE 'ALTER TYPE event_type_enum RENAME TO event_type_enum_old';
+  EXECUTE $q$
+    CREATE TYPE event_type_enum AS ENUM (
+      'friday_monthly', 'sunday_monthly', 'adhoc', 'other_recurring'
+    )
+  $q$;
+  EXECUTE 'ALTER TABLE events ALTER COLUMN event_type TYPE event_type_enum USING event_type::text::event_type_enum';
+  EXECUTE 'DROP TYPE event_type_enum_old';
+
+  RAISE NOTICE 'rename_friday: friday_biweekly → friday_monthly migration complete';
+END $$;
 
 COMMIT;
