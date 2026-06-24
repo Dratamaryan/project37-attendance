@@ -9,7 +9,9 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "seed:demo": "tsx --env-file .env.local seed/demo-data.ts",
+    "verify:demo": "tsx --env-file .env.local seed/verify-demo-data.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",
@@ -37,6 +39,7 @@
     "eslint-config-next": "16.2.6",
     "jsdom": "^29.1.1",
     "tailwindcss": "^4",
+    "tsx": "^4.22.4",
     "typescript": "^5",
     "vitest": "^4.1.7"
   }
