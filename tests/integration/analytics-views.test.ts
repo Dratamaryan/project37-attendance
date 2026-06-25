@@ -71,6 +71,14 @@ let e1Id: string, e2Id: string
 let e1i1Id: string, e1i2Id: string, e1i3Id: string
 let e2i1Id: string, e2i2Id: string
 
+// Pre-fixture baselines for new_vs_returning_monthly (captured in beforeAll after
+// people/events/instances are inserted but BEFORE attendance is inserted).
+// fileParallelism: false guarantees no concurrent file shifts these between capture
+// and assertion.  Delta assertions tolerate any pre-existing global data (demo seed).
+let preJanNew: number = 0
+let preFebNew: number = 0
+let preFebReturning: number = 0
+
 // Organizer auth user for the authenticated security test
 let orgAuthUserId: string
 let orgSession: SupabaseClient
@@ -212,6 +220,21 @@ beforeAll(async () => {
     event_name_snapshot_id: 'AVW Test Minggu',
     status: 'completed', // non-cancelled, zero attendance — tests zero-fill in trend view
   })
+
+  // 4.5. Capture baseline new_vs_returning_monthly counts before inserting fixture
+  //      attendance.  Baseline includes any pre-existing data (e.g. demo seed rows)
+  //      so delta assertions below are immune to global state.
+  {
+    const { data: baseRows } = await svc
+      .from('new_vs_returning_monthly')
+      .select('month, new_count, returning_count')
+      .order('month')
+    const janBase = baseRows?.find(r => String(r.month).startsWith('2026-01'))
+    const febBase = baseRows?.find(r => String(r.month).startsWith('2026-02'))
+    preJanNew      = Number(janBase?.new_count      ?? 0)
+    preFebNew      = Number(febBase?.new_count      ?? 0)
+    preFebReturning = Number(febBase?.returning_count ?? 0)
+  }
 
   // 5. Attendance (idempotent upsert; ignoreDuplicates keeps existing checked_in_at)
   const { error: attErr } = await svc.from('attendance').upsert(
@@ -604,7 +627,10 @@ describe('new_vs_returning_monthly', () => {
     // Filter to Jan 2026 row (month is a timestamp without tz, serialised as ISO string)
     const janRow = data?.find(r => String(r.month).startsWith('2026-01'))
     expect(janRow, 'Jan 2026 row should exist').toBeDefined()
-    expect(Number(janRow!.new_count)).toBe(4)
+    // Delta from pre-fixture baseline: our fixture added exactly 4 new people in Jan
+    // (P1 P2 P3 P4). Baseline absorbs any pre-existing global data (e.g. demo seed).
+    expect(Number(janRow!.new_count)).toBe(preJanNew + 4)
+    // Invariant: returning_count in Jan must be 0 — no attendance in the DB predates Jan 2026.
     expect(Number(janRow!.returning_count)).toBe(0)
   })
 
@@ -618,15 +644,16 @@ describe('new_vs_returning_monthly', () => {
 
     const febRow = data?.find(r => String(r.month).startsWith('2026-02'))
     expect(febRow, 'Feb 2026 row should exist').toBeDefined()
-    expect(Number(febRow!.new_count)).toBe(0)
-    expect(Number(febRow!.returning_count)).toBe(2)
+    // Delta: fixture adds 0 new people in Feb (P1-P4 all debut Jan) and 2 returning (P1, P2).
+    expect(Number(febRow!.new_count)).toBe(preFebNew + 0)
+    expect(Number(febRow!.returning_count)).toBe(preFebReturning + 2)
   })
 
   it('TZ-edge row (2026-01-31T22:00Z = 2026-02-01T05:00+07) lands in Feb not Jan', async () => {
     // If bucketing were done in UTC, this row would be Jan (2026-01-31).
-    // The Feb returning_count=2 (P1+P2) proves Jakarta bucketing is used:
-    //   P2's only Feb check-in is this TZ-edge row — if it were Jan,
-    //   P2 would not appear in Feb and returning_count would be 1 (P1 only).
+    // The fixture adds exactly 2 returning people in Feb (P1+P2): if the TZ-edge row
+    // were bucketed in Jan instead, P2 would have no Feb attendance and the delta
+    // would be 1 (P1 only) — proving Jakarta bucketing is used.
     const { data, error } = await svc
       .from('new_vs_returning_monthly')
       .select('month, returning_count')
@@ -635,16 +662,17 @@ describe('new_vs_returning_monthly', () => {
     expect(error).toBeNull()
 
     const febRow = data?.find(r => String(r.month).startsWith('2026-02'))
-    // returning_count=2 proves P2 is in Feb (via TZ-edge), not just P1
-    expect(Number(febRow!.returning_count)).toBe(2)
+    // Delta +2 proves P2's TZ-edge check-in landed in Feb (Jakarta), not Jan (UTC).
+    expect(Number(febRow!.returning_count)).toBe(preFebReturning + 2)
 
-    // Jan returning_count must be 0 — TZ-edge not accidentally counted in Jan
+    // Jan returning_count invariant: 0 — no data predates Jan 2026 in this DB.
     const janRow = data?.find(r => String(r.month).startsWith('2026-01'))
     expect(Number(janRow!.returning_count)).toBe(0)
   })
 
   it('soft-deleted P4 included: Jan new_count=4 (not 3)', async () => {
-    // If soft-deleted people were incorrectly excluded, Jan new_count would be 3.
+    // If soft-deleted people were incorrectly excluded, the fixture delta would be 3
+    // (P1 P2 P3 only) instead of 4.  Delta form: preJanNew + 4 vs preJanNew + 3.
     const { data, error } = await svc
       .from('new_vs_returning_monthly')
       .select('month, new_count')
@@ -652,7 +680,7 @@ describe('new_vs_returning_monthly', () => {
 
     expect(error).toBeNull()
     const janRow = data?.find(r => String(r.month).startsWith('2026-01'))
-    expect(Number(janRow!.new_count)).toBe(4)
+    expect(Number(janRow!.new_count)).toBe(preJanNew + 4)
   })
 
   it('cancelled P2@E1-I3 excluded: no Mar 2026 row in fixture', async () => {

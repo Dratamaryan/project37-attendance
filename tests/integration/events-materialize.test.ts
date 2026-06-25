@@ -29,6 +29,10 @@ let tribeConnectId: string;
 let createdProjectDay = false;
 let createdTribeConnect = false;
 let invalidRuleEventId: string | null = null;
+// Captured at end of beforeAll: count of active events at test-suite start.
+// Used to make events_processed assertions relative (not absolute) so pre-existing
+// active events — e.g. demo seed events — don't break the assertions.
+let activeEventCount: number = 0;
 
 beforeAll(async () => {
   admin = createClient(url, serviceRoleKey, {
@@ -111,11 +115,22 @@ beforeAll(async () => {
     tribeConnectId = (tc as { id: string }).id;
     createdTribeConnect = true;
   }
+
+  // Capture baseline active-event count AFTER fixture events are in place.
+  // events_processed = activeEvents.length (all active events, not just those
+  // with occurrences), so any pre-existing active events (e.g. demo seed events)
+  // must be accounted for in assertions rather than assumed away.
+  const { count } = await admin
+    .from('events')
+    .select('id', { count: 'exact', head: true })
+    .eq('active', true);
+  activeEventCount = count ?? 0;
 }, 30_000);
 
 afterAll(async () => {
-  // Cleanup in FK-safe order: instances first (cascade), then events, then admin user
-  await admin.from('event_instances').delete().not('id', 'is', null);
+  // Scoped to fixture event IDs only — a global delete would cascade-wipe attendance
+  // including demo seed rows (attendance.event_instance_id ON DELETE CASCADE).
+  await admin.from('event_instances').delete().in('event_id', [projectDayId, tribeConnectId]);
   if (invalidRuleEventId) {
     await admin.from('events').delete().eq('id', invalidRuleEventId);
   }
@@ -125,11 +140,14 @@ afterAll(async () => {
 }, 30_000);
 
 afterEach(async () => {
-  // Truncate all event_instances and restore mutable state after each test
-  await admin.from('event_instances').delete().not('id', 'is', null);
+  // Scoped to fixture event IDs only — never a global delete.
+  // A global event_instances delete cascades to attendance (ON DELETE CASCADE),
+  // silently destroying demo seed rows and any other test data in the shared DB.
+  await admin.from('event_instances').delete().in('event_id', [projectDayId, tribeConnectId]);
   await admin.from('app_settings').update({ materialization_horizon_mo: 12 }).eq('id', 1);
   await admin.from('events').update({ active: true }).eq('id', projectDayId);
   if (invalidRuleEventId) {
+    // Deleting the event cascades to its instances (events → event_instances CASCADE).
     await admin.from('events').delete().eq('id', invalidRuleEventId);
     invalidRuleEventId = null;
   }
@@ -138,14 +156,17 @@ afterEach(async () => {
 describe('materializeEvents integration', () => {
   it('MAT-01: first run on empty event_instances → 38 inserted, 0 pruned, 0 errors', async () => {
     const result = await materializeEvents({ supabase: admin, now: NOW });
-    expect(result.events_processed).toBe(2);
+    expect(result.events_processed).toBe(activeEventCount);
     expect(result.instances_inserted).toBe(38);
     expect(result.instances_pruned).toBe(0);
     expect(result.events_with_errors).toEqual([]);
 
+    // Scope to fixture event IDs — pre-existing instances (e.g. demo seed) must not
+    // inflate the count.
     const { count } = await admin
       .from('event_instances')
-      .select('*', { count: 'exact', head: true });
+      .select('*', { count: 'exact', head: true })
+      .in('event_id', [projectDayId, tribeConnectId]);
     expect(count).toBe(38);
   });
 
@@ -157,20 +178,22 @@ describe('materializeEvents integration', () => {
 
     const { count } = await admin
       .from('event_instances')
-      .select('*', { count: 'exact', head: true });
+      .select('*', { count: 'exact', head: true })
+      .in('event_id', [projectDayId, tribeConnectId]);
     expect(count).toBe(38);
   });
 
   it('MAT-03: inactive Project Day — only Tribe Connect materialises (12 rows, events_processed=1)', async () => {
     await admin.from('events').update({ active: false }).eq('id', projectDayId);
     const result = await materializeEvents({ supabase: admin, now: NOW });
-    expect(result.events_processed).toBe(1);
+    expect(result.events_processed).toBe(activeEventCount - 1);
     expect(result.instances_inserted).toBe(12);
     expect(result.events_with_errors).toEqual([]);
 
     const { count } = await admin
       .from('event_instances')
-      .select('*', { count: 'exact', head: true });
+      .select('*', { count: 'exact', head: true })
+      .in('event_id', [projectDayId, tribeConnectId]);
     expect(count).toBe(12);
   });
 
@@ -257,10 +280,13 @@ describe('materializeEvents integration', () => {
     expect(result.instances_pruned).toBeGreaterThan(0);
 
     // Scheduled rows remaining: 13 (Project Day 6mo) + 6 (Tribe Connect 6mo) = 19
+    // Scoped to fixture event IDs — demo instances (Jan-Jun 2026, status='scheduled')
+    // pre-date the horizon and survive prune, so a global count would be wrong.
     const { count: scheduledCount } = await admin
       .from('event_instances')
       .select('*', { count: 'exact', head: true })
-      .eq('status', 'scheduled');
+      .eq('status', 'scheduled')
+      .in('event_id', [projectDayId, tribeConnectId]);
     expect(scheduledCount).toBe(19);
 
     // Cancelled and completed rows survived the prune
@@ -289,7 +315,7 @@ describe('materializeEvents integration', () => {
     invalidRuleEventId = (badEvent as { id: string }).id;
 
     const result = await materializeEvents({ supabase: admin, now: NOW });
-    expect(result.events_processed).toBe(3);
+    expect(result.events_processed).toBe(activeEventCount + 1);
     expect(result.instances_inserted).toBe(38);
     expect(result.events_with_errors).toHaveLength(1);
     expect(result.events_with_errors[0].reason).toBe('invalid_rrule');
