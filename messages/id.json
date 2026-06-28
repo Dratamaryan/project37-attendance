@@ -4,7 +4,8 @@
     "home": "Beranda",
     "checkin": "Daftar Hadir",
     "people": "Anggota",
-    "events": "Acara"
+    "events": "Acara",
+    "analytics": "Analitik"
   },
   "metadata": {
     "title": "Absensi Project 37",
@@ -153,6 +154,52 @@
     "coming_soon_message": "Pengaturan akan tersedia di Sprint 5."
   },
   "admin": {
+    "analytics": {
+      "title": "Analitik",
+      "filter": {
+        "label": "Filter",
+        "from": "Dari",
+        "to": "Sampai",
+        "event_type": "Jenis acara",
+        "event_type_all": "Semua jenis",
+        "event_type_friday_monthly": "Bulanan (Jumat ke-2)",
+        "event_type_sunday_monthly": "Minggu bulanan",
+        "event_type_adhoc": "Satu kali",
+        "event_type_other_recurring": "Berulang lainnya",
+        "parish": "Paroki",
+        "parish_all": "Semua paroki",
+        "clear": "Hapus filter"
+      },
+      "kpi": {
+        "total_checkins": "Total Kehadiran",
+        "distinct_people": "Anggota Hadir",
+        "distinct_events": "Acara",
+        "distinct_instances": "Sesi"
+      },
+      "chart": {
+        "trend_title": "Tren Kehadiran",
+        "trend_note": "Grafik ini mencerminkan semua paroki",
+        "trend_y": "Peserta",
+        "parish_title": "Distribusi Paroki",
+        "parish_note": "Grafik ini mencerminkan data anggota sepanjang waktu",
+        "nvr_title": "Anggota Baru vs Kembali",
+        "nvr_note": "Grafik ini mencerminkan semua paroki dan jenis acara",
+        "nvr_new": "Baru",
+        "nvr_returning": "Kembali"
+      },
+      "table": {
+        "top_title": "Anggota Paling Aktif",
+        "top_note": "Mencerminkan kehadiran sepanjang waktu untuk semua jenis acara",
+        "col_name": "Nama",
+        "col_parish": "Paroki",
+        "col_total": "Kehadiran",
+        "col_events": "Acara",
+        "col_last": "Terakhir hadir",
+        "parish_none": "—"
+      },
+      "empty": "Tidak ada data untuk rentang filter ini",
+      "error": "Gagal memuat data"
+    },
     "events": {
       "title": "Kelola Acara",
       "create_button": "Buat acara",

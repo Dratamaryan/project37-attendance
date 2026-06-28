@@ -4,7 +4,8 @@
     "home": "Home",
     "checkin": "Check In",
     "people": "People",
-    "events": "Events"
+    "events": "Events",
+    "analytics": "Analytics"
   },
   "metadata": {
     "title": "Absensi Project 37",
@@ -153,6 +154,52 @@
     "coming_soon_message": "Settings will be available in Sprint 5."
   },
   "admin": {
+    "analytics": {
+      "title": "Analytics",
+      "filter": {
+        "label": "Filters",
+        "from": "From",
+        "to": "To",
+        "event_type": "Event type",
+        "event_type_all": "All types",
+        "event_type_friday_monthly": "Monthly (2nd Friday)",
+        "event_type_sunday_monthly": "Monthly Sunday",
+        "event_type_adhoc": "One-time",
+        "event_type_other_recurring": "Other recurring",
+        "parish": "Parish",
+        "parish_all": "All parishes",
+        "clear": "Clear filters"
+      },
+      "kpi": {
+        "total_checkins": "Total Check-ins",
+        "distinct_people": "People Attended",
+        "distinct_events": "Events",
+        "distinct_instances": "Instances"
+      },
+      "chart": {
+        "trend_title": "Attendance Trend",
+        "trend_note": "This chart reflects all parishes",
+        "trend_y": "Attendees",
+        "parish_title": "Parish Breakdown",
+        "parish_note": "This chart reflects all-time roster data",
+        "nvr_title": "New vs Returning",
+        "nvr_note": "This chart reflects all parishes and event types",
+        "nvr_new": "New",
+        "nvr_returning": "Returning"
+      },
+      "table": {
+        "top_title": "Top Attendees",
+        "top_note": "Reflects all-time attendance across all event types",
+        "col_name": "Name",
+        "col_parish": "Parish",
+        "col_total": "Check-ins",
+        "col_events": "Events",
+        "col_last": "Last seen",
+        "parish_none": "—"
+      },
+      "empty": "No data for this filter range",
+      "error": "Could not load data"
+    },
     "events": {
       "title": "Manage Events",
       "create_button": "Create event",

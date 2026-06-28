@@ -20,6 +20,7 @@ export function AppNavLinks({ role, variant }: Props) {
       ? [
           { href: '/admin/people', label: t('people') },
           { href: '/admin/events', label: t('events') },
+          { href: '/admin/analytics', label: t('analytics') },
         ]
       : []),
   ]
