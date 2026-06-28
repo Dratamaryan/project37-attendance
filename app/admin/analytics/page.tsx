@@ -1,5 +1,4 @@
 import { getTranslations } from 'next-intl/server'
-import dynamic from 'next/dynamic'
 import { parseAnalyticsFilters } from '@/lib/actions/analytics.types'
 import {
   getKpiSummary,
@@ -10,37 +9,8 @@ import {
 } from '@/lib/actions/analytics'
 import { KpiCards } from './_components/KpiCards'
 import { AnalyticsFiltersControls } from './_components/AnalyticsFiltersControls'
+import { AnalyticsCharts } from './_components/AnalyticsCharts'
 import { TopAttendeesTable } from './_components/TopAttendeesTable'
-
-const AttendanceTrendChart = dynamic(
-  () => import('./_components/AttendanceTrendChart'),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="bg-cream-2 border border-line rounded-sm animate-pulse" style={{ height: 280 }} />
-    ),
-  },
-)
-
-const ParishBreakdownChart = dynamic(
-  () => import('./_components/ParishBreakdownChart'),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="bg-cream-2 border border-line rounded-sm animate-pulse" style={{ height: 200 }} />
-    ),
-  },
-)
-
-const NewVsReturningChart = dynamic(
-  () => import('./_components/NewVsReturningChart'),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="bg-cream-2 border border-line rounded-sm animate-pulse" style={{ height: 280 }} />
-    ),
-  },
-)
 
 type Props = {
   searchParams: Promise<Record<string, string | string[] | undefined>>
@@ -61,14 +31,14 @@ export default async function AdminAnalyticsPage({ searchParams }: Props) {
       getTopAttendees(filters, 10),
     ])
 
-  const kpi         = kpiResult.status === 'ok'         ? kpiResult.data         : null
-  const trend       = trendResult.status === 'ok'       ? trendResult.data       : null
-  const parish      = parishResult.status === 'ok'      ? parishResult.data      : null
+  const kpi         = kpiResult.status === 'ok'    ? kpiResult.data    : null
+  const trend       = trendResult.status === 'ok'  ? trendResult.data  : null
+  const parish      = parishResult.status === 'ok' ? parishResult.data : null
   const parishOptions = parishOptionsResult.status === 'ok'
     ? parishOptionsResult.data.map(r => r.parish)
     : []
-  const nvr         = nvrResult.status === 'ok'         ? nvrResult.data         : null
-  const top         = topResult.status === 'ok'         ? topResult.data         : null
+  const nvr         = nvrResult.status === 'ok'    ? nvrResult.data    : null
+  const top         = topResult.status === 'ok'    ? topResult.data    : null
 
   return (
     <main className="px-4 md:px-6 py-8">
@@ -87,47 +57,27 @@ export default async function AdminAnalyticsPage({ searchParams }: Props) {
           hasError={kpiResult.status === 'error'}
         />
 
-        <section>
-          <h2 className="font-heading text-xl font-semibold text-charcoal mb-1">
-            {t('chart.trend_title')}
-          </h2>
-          <p className="text-xs text-muted mb-4">{t('chart.trend_note')}</p>
-          <AttendanceTrendChart
-            data={trend}
-            labelY={t('chart.trend_y')}
-            emptyMessage={t('empty')}
-            errorMessage={t('error')}
-            hasError={trendResult.status === 'error'}
-          />
-        </section>
-
-        <section>
-          <h2 className="font-heading text-xl font-semibold text-charcoal mb-1">
-            {t('chart.parish_title')}
-          </h2>
-          <p className="text-xs text-muted mb-4">{t('chart.parish_note')}</p>
-          <ParishBreakdownChart
-            data={parish}
-            emptyMessage={t('empty')}
-            errorMessage={t('error')}
-            hasError={parishResult.status === 'error'}
-          />
-        </section>
-
-        <section>
-          <h2 className="font-heading text-xl font-semibold text-charcoal mb-1">
-            {t('chart.nvr_title')}
-          </h2>
-          <p className="text-xs text-muted mb-4">{t('chart.nvr_note')}</p>
-          <NewVsReturningChart
-            data={nvr}
-            labelNew={t('chart.nvr_new')}
-            labelReturning={t('chart.nvr_returning')}
-            emptyMessage={t('empty')}
-            errorMessage={t('error')}
-            hasError={nvrResult.status === 'error'}
-          />
-        </section>
+        <AnalyticsCharts
+          trend={trend}
+          trendHasError={trendResult.status === 'error'}
+          parish={parish}
+          parishHasError={parishResult.status === 'error'}
+          nvr={nvr}
+          nvrHasError={nvrResult.status === 'error'}
+          labels={{
+            trendTitle:   t('chart.trend_title'),
+            trendNote:    t('chart.trend_note'),
+            trendY:       t('chart.trend_y'),
+            parishTitle:  t('chart.parish_title'),
+            parishNote:   t('chart.parish_note'),
+            nvrTitle:     t('chart.nvr_title'),
+            nvrNote:      t('chart.nvr_note'),
+            nvrNew:       t('chart.nvr_new'),
+            nvrReturning: t('chart.nvr_returning'),
+            empty:        t('empty'),
+            error:        t('error'),
+          }}
+        />
 
         <section>
           <h2 className="font-heading text-xl font-semibold text-charcoal mb-1">
