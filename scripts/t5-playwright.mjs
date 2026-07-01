@@ -295,34 +295,52 @@ async function main() {
       await page.goto(`${PROD_URL}/admin/analytics`, { waitUntil: 'networkidle', timeout: NAV_TIMEOUT })
       await page.waitForTimeout(SETTLE)
 
-      // Read baseline KPI
+      // Read baseline KPI (unfiltered; includes all demo + any manual-test data)
       const baseVal = await page.locator('[data-testid="kpi-total-checkins"]').textContent()
 
-      // Set from date
-      await page.fill('[data-testid="filter-from"]', '2026-01-01')
-      await page.fill('[data-testid="filter-to"]', '2026-12-31')
+      // Step 1 — set 'from' and wait for URL + RSC to fully settle before
+      // touching 'to'.  Rapid double-fill races the RSC re-render: the second
+      // fill's update() would read stale currentFilters={} and write only
+      // ?to=… to the URL, dropping the from= param.
+      await page.fill('[data-testid="filter-from"]', '2026-04-01')
       await page.waitForFunction(
         () => window.location.search.includes('from='),
+        { timeout: 8000 }
+      ).catch(() => {})
+      await page.waitForTimeout(2000)  // let RSC re-render deliver currentFilters={from}
+
+      // Step 2 — 'to' fill now merges into currentFilters that already has from=
+      await page.fill('[data-testid="filter-to"]', '2026-06-30')
+      await page.waitForFunction(
+        () => window.location.search.includes('to=') && window.location.search.includes('from='),
         { timeout: 8000 }
       ).catch(() => {})
       await page.waitForTimeout(SETTLE)
 
       const urlAfter = page.url()
-      if (urlAfter.includes('from=2026-01-01')) {
+      if (urlAfter.includes('from=2026-04-01')) {
         pass('T5-A6a', `URL contains from= param: ${urlAfter.split('?')[1]}`)
       } else {
         fail('T5-A6a', `URL missing from= param: ${urlAfter}`)
       }
-      if (urlAfter.includes('to=2026-12-31')) {
+      if (urlAfter.includes('to=2026-06-30')) {
         pass('T5-A6b', 'URL contains to= param')
       } else {
         fail('T5-A6b', `URL missing to= param: ${urlAfter}`)
       }
 
-      // Wait for new KPI to render
+      // Strengthen A6c: assert the KPI actually dropped, not just re-rendered.
+      // Q2-2026 (3 months) is a subset of the 12-month demo window, so the
+      // filtered total must be strictly less than the unfiltered baseline.
       await page.waitForTimeout(SETTLE)
       const filteredVal = await page.locator('[data-testid="kpi-total-checkins"]').textContent()
-      pass('T5-A6c', `KPI re-rendered after date filter (baseline: ${baseVal?.trim()}, filtered: ${filteredVal?.trim()})`)
+      const filteredNum = parseInt(filteredVal?.trim() ?? '999', 10)
+      const baseNum     = parseInt(baseVal?.trim()     ?? '0',   10)
+      if (!isNaN(filteredNum) && filteredNum < baseNum) {
+        pass('T5-A6c', `KPI dropped after date filter: ${filteredNum} < ${baseNum} (from=2026-04-01&to=2026-06-30)`)
+      } else {
+        fail('T5-A6c', `Expected KPI < ${baseNum} after date filter, got: "${filteredVal?.trim()}"`)
+      }
 
       await ctx.close()
     }
