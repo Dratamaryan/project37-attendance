@@ -19,6 +19,7 @@ export const AUDIT_ACTIONS = {
   EVENT_INSTANCE_CANCEL:   'event_instance.cancel',
   ATTENDANCE_CREATE:       'attendance.create',
   EXPORT_CREATE:           'export.create',
+  IMPORT_DRY_RUN:          'import.dry_run',
 } as const
 
 export type AuditAction = typeof AUDIT_ACTIONS[keyof typeof AUDIT_ACTIONS]
