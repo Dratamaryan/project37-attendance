@@ -25,7 +25,8 @@
     "react-dom": "19.2.4",
     "recharts": "^3.9.0",
     "rrule": "^2.8.1",
-    "server-only": "^0.0.1"
+    "server-only": "^0.0.1",
+    "xlsx": "file:vendor/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

@@ -110,6 +110,14 @@ export function AnalyticsFiltersControls({ currentFilters, parishOptions }: Prop
           {t('filter.clear')}
         </button>
       )}
+
+      <a
+        href={`/api/admin/export/attendance${buildSearchParams(currentFilters) ? `?${buildSearchParams(currentFilters)}` : ''}`}
+        data-testid="export-link"
+        className="text-sm font-medium text-cream bg-gold hover:bg-gold-dark transition-colors rounded-sm px-3 py-1.5 ml-auto"
+      >
+        {t('filter.export')}
+      </a>
     </div>
   )
 }

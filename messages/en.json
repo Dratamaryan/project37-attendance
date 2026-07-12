@@ -168,7 +168,8 @@
         "event_type_other_recurring": "Other recurring",
         "parish": "Parish",
         "parish_all": "All parishes",
-        "clear": "Clear filters"
+        "clear": "Clear filters",
+        "export": "Export to Excel"
       },
       "kpi": {
         "total_checkins": "Total Check-ins",

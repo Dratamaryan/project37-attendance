@@ -18,6 +18,7 @@ export const AUDIT_ACTIONS = {
   EVENT_UPDATE:            'event.update',
   EVENT_INSTANCE_CANCEL:   'event_instance.cancel',
   ATTENDANCE_CREATE:       'attendance.create',
+  EXPORT_CREATE:           'export.create',
 } as const
 
 export type AuditAction = typeof AUDIT_ACTIONS[keyof typeof AUDIT_ACTIONS]

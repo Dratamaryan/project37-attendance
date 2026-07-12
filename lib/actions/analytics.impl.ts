@@ -41,7 +41,7 @@ function nextDay(dateStr: string): string {
  * '(Unknown)' → IS NULL; all other values → exact equality.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function applyRawParishFilter<Q extends { is: any; eq: any }>(query: Q, parish: string): Q {
+export function applyRawParishFilter<Q extends { is: any; eq: any }>(query: Q, parish: string): Q {
   if (parish === '(Unknown)') {
     return query.is('origin_parish', null)
   }

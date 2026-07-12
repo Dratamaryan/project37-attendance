@@ -168,7 +168,8 @@
         "event_type_other_recurring": "Berulang lainnya",
         "parish": "Paroki",
         "parish_all": "Semua paroki",
-        "clear": "Hapus filter"
+        "clear": "Hapus filter",
+        "export": "Ekspor ke Excel"
       },
       "kpi": {
         "total_checkins": "Total Kehadiran",
