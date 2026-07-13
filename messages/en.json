@@ -5,7 +5,8 @@
     "checkin": "Check In",
     "people": "People",
     "events": "Events",
-    "analytics": "Analytics"
+    "analytics": "Analytics",
+    "import": "Import"
   },
   "metadata": {
     "title": "Absensi Project 37",
@@ -405,6 +406,53 @@
           "not_found": "Person not found",
           "not_found_message": "This person doesn't exist or has been removed."
         }
+      }
+    },
+    "import": {
+      "title": "Import People",
+      "subtitle": "Upload the roster file to preview and commit new records.",
+      "file_label": "Choose a CSV or Excel file",
+      "file_hint": "Max 5MB. .csv or .xlsx",
+      "upload_button": "Preview import",
+      "upload_button_pending": "Parsing...",
+      "commit_button": "Confirm import",
+      "commit_button_pending": "Importing...",
+      "start_over_button": "Start over",
+      "download_errors_button": "Download error report (CSV)",
+      "error": {
+        "parse_failed": "Couldn't read this file. Please check the format and try again.",
+        "sheet_not_found": "Couldn't find the expected sheet in this file.",
+        "missing_required_columns": "This file is missing one or more required columns.",
+        "upload_failed": "Something went wrong. Please try again.",
+        "file_too_large": "File is too large. Max size is 5MB.",
+        "invalid_extension": "Only .csv and .xlsx files are supported.",
+        "no_file": "Please choose a file first."
+      },
+      "preview": {
+        "title": "Preview",
+        "total_rows": "{count} rows found",
+        "counts": {
+          "new": "New",
+          "dup_in_db": "Already in database",
+          "dup_in_file": "Duplicate in file",
+          "dup_soft_deleted": "Previously deleted",
+          "error": "Errors"
+        },
+        "table": {
+          "row": "Row",
+          "phone": "Phone",
+          "name": "Name",
+          "class": "Class",
+          "reason": "Reason"
+        }
+      },
+      "result": {
+        "title": "Import complete",
+        "attempted": "Attempted",
+        "inserted": "Inserted",
+        "raced": "Raced (inserted by someone else first)",
+        "skipped_dup": "Skipped (duplicate)",
+        "skipped_error": "Skipped (error)"
       }
     }
   }

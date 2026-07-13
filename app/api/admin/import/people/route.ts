@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { validateUpload, MAX_FILE_BYTES } from '@/lib/import/validate'
 import { runImportDryRun } from '@/lib/import/dry-run.impl'
+import { runImportCommit } from '@/lib/import/commit.impl'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -11,12 +12,12 @@ export const dynamic = 'force-dynamic'
  * POST /api/admin/import/people
  *
  * Admin-only, multipart, 5MiB cap. `mode` form field is a discriminator —
- * this route implements `mode=dry_run` only (T7). `mode=commit` is T8's seam;
- * anything other than exactly 'dry_run' is rejected so future callers must be
- * explicit rather than relying on a silent default.
- *
- * Dry-run writes NOTHING to `people` — the only DB write is one
- * `import.dry_run` audit row (see lib/import/dry-run.impl.ts).
+ * `dry_run` (T7) writes NOTHING to `people`, only one `import.dry_run` audit
+ * row. `commit` (T8) re-parses and re-classifies the re-uploaded file
+ * statelessly (never trusts a dry-run result the client sends back), inserts
+ * only rows classified `new`, and writes one `import.commit` audit row.
+ * Anything other than exactly 'dry_run'/'commit' is rejected so callers must
+ * be explicit rather than relying on a silent default.
  */
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -48,9 +49,9 @@ export async function POST(req: NextRequest) {
   const formData = await req.formData()
 
   const mode = formData.get('mode')
-  if (mode !== 'dry_run') {
+  if (mode !== 'dry_run' && mode !== 'commit') {
     return NextResponse.json(
-      { error: 'unsupported_mode', message: `Only 'dry_run' is implemented. Received: ${String(mode)}` },
+      { error: 'unsupported_mode', message: `Only 'dry_run' or 'commit' is implemented. Received: ${String(mode)}` },
       { status: 400 },
     )
   }
@@ -74,16 +75,17 @@ export async function POST(req: NextRequest) {
   const ipAddress = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null
   const userAgent = req.headers.get('user-agent')
 
-  const outcome = await runImportDryRun(
-    {
-      fileBuffer,
-      filename: file.name,
-      actorUserId: claimsResult.claims.sub,
-      ipAddress,
-      userAgent,
-    },
-    supabase,
-  )
+  const runInput = {
+    fileBuffer,
+    filename: file.name,
+    actorUserId: claimsResult.claims.sub,
+    ipAddress,
+    userAgent,
+  }
+
+  const outcome = mode === 'dry_run'
+    ? await runImportDryRun(runInput, supabase)
+    : await runImportCommit(runInput, supabase)
 
   if (!outcome.ok) {
     return NextResponse.json(outcome, { status: 400 })

@@ -20,6 +20,7 @@ export const AUDIT_ACTIONS = {
   ATTENDANCE_CREATE:       'attendance.create',
   EXPORT_CREATE:           'export.create',
   IMPORT_DRY_RUN:          'import.dry_run',
+  IMPORT_COMMIT:           'import.commit',
 } as const
 
 export type AuditAction = typeof AUDIT_ACTIONS[keyof typeof AUDIT_ACTIONS]

@@ -5,7 +5,8 @@
     "checkin": "Daftar Hadir",
     "people": "Anggota",
     "events": "Acara",
-    "analytics": "Analitik"
+    "analytics": "Analitik",
+    "import": "Impor"
   },
   "metadata": {
     "title": "Absensi Project 37",
@@ -405,6 +406,53 @@
           "not_found": "Anggota tidak ditemukan",
           "not_found_message": "Anggota ini tidak ada atau telah dihapus."
         }
+      }
+    },
+    "import": {
+      "title": "Impor Anggota",
+      "subtitle": "Unggah berkas roster untuk pratinjau dan simpan data baru.",
+      "file_label": "Pilih berkas CSV atau Excel",
+      "file_hint": "Maks 5MB. .csv atau .xlsx",
+      "upload_button": "Pratinjau impor",
+      "upload_button_pending": "Memproses...",
+      "commit_button": "Konfirmasi impor",
+      "commit_button_pending": "Mengimpor...",
+      "start_over_button": "Mulai ulang",
+      "download_errors_button": "Unduh laporan error (CSV)",
+      "error": {
+        "parse_failed": "Berkas tidak dapat dibaca. Periksa formatnya dan coba lagi.",
+        "sheet_not_found": "Sheet yang diharapkan tidak ditemukan dalam berkas ini.",
+        "missing_required_columns": "Berkas ini kehilangan satu atau lebih kolom wajib.",
+        "upload_failed": "Terjadi kesalahan. Silakan coba lagi.",
+        "file_too_large": "Berkas terlalu besar. Ukuran maksimal 5MB.",
+        "invalid_extension": "Hanya berkas .csv dan .xlsx yang didukung.",
+        "no_file": "Silakan pilih berkas terlebih dahulu."
+      },
+      "preview": {
+        "title": "Pratinjau",
+        "total_rows": "{count} baris ditemukan",
+        "counts": {
+          "new": "Baru",
+          "dup_in_db": "Sudah ada di database",
+          "dup_in_file": "Duplikat dalam berkas",
+          "dup_soft_deleted": "Pernah dihapus",
+          "error": "Error"
+        },
+        "table": {
+          "row": "Baris",
+          "phone": "Telepon",
+          "name": "Nama",
+          "class": "Kelas",
+          "reason": "Alasan"
+        }
+      },
+      "result": {
+        "title": "Impor selesai",
+        "attempted": "Dicoba",
+        "inserted": "Berhasil disimpan",
+        "raced": "Terlewat (sudah disimpan orang lain lebih dulu)",
+        "skipped_dup": "Dilewati (duplikat)",
+        "skipped_error": "Dilewati (error)"
       }
     }
   }
