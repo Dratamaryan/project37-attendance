@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "resolveJsonModule": true,
+    "outDir": "./.build",
+    "rootDir": "..",
+    "lib": ["ES2020"]
+  },
+  "include": ["repair-roster-birthdates.ts", "lib/repair-rules.ts", "../lib/utils/phone.ts"],
+  "exclude": ["**/__tests__/**"]
+}

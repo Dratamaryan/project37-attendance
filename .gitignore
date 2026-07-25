@@ -8,6 +8,9 @@ node_modules/
 out/
 build/
 
+# T2 roster-repair script build output (compiled via scripts/tsconfig.repair.json)
+scripts/.build/
+
 # Environment - NEVER commit these
 .env
 .env.local

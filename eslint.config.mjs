@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Transient CommonJS build output for the T2 roster-repair script
+    // (compiled via scripts/tsconfig.repair.json, never committed).
+    "scripts/.build/**",
   ]),
 ]);
 
