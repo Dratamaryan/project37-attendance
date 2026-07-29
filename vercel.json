@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/materialize-events",
       "schedule": "30 23 * * *"
+    },
+    {
+      "path": "/api/cron/birthday-digest",
+      "schedule": "0 0 * * *"
     }
   ]
 }
