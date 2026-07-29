@@ -55,13 +55,14 @@ async function main() {
     type: 'magiclink',
   })
   if (verifyErr) throw verifyErr
+  if (!verifyData.session) throw new Error('verifyOtp succeeded but returned no session')
 
   const supabase = createClient(SUPABASE_URL!, ANON_KEY!, {
     auth: { autoRefreshToken: false, persistSession: false },
   })
   const { error: setSessionErr } = await supabase.auth.setSession({
-    access_token: verifyData.session!.access_token,
-    refresh_token: verifyData.session!.refresh_token,
+    access_token: verifyData.session.access_token,
+    refresh_token: verifyData.session.refresh_token,
   })
   if (setSessionErr) throw setSessionErr
 

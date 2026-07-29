@@ -70,6 +70,7 @@ async function getAdminSession() {
     type: 'magiclink',
   })
   if (verifyErr) throw verifyErr
+  if (!verifyData.session) throw new Error('verifyOtp succeeded but returned no session')
   return verifyData.session
 }
 
