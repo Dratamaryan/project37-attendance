@@ -19,12 +19,35 @@ export interface IcsEventInput {
   sequence: number;
   /** When the .ics was generated. Defaults to now(); injectable for deterministic tests. */
   dtstamp?: Date;
+  /**
+   * Sending account address (T9 starting position — see plan). When provided
+   * together with attendeeEmail, emits ORGANIZER/ATTENDEE so clients that
+   * require them (Outlook/Exchange) render METHOD:REQUEST as an actual
+   * Accept/Decline invitation rather than a passive calendar add. Omit both to
+   * keep the T7 shape (no ORGANIZER/ATTENDEE) for callers that don't need it.
+   */
+  organizerEmail?: string;
+  /** Recipient's address — makes the .ics per-recipient, not shared, once set. */
+  attendeeEmail?: string;
+  /** Recipient's display name for the ATTENDEE CN param. */
+  attendeeName?: string;
 }
 
 const ICS_UID_DOMAIN = 'project37-attendance.vercel.app';
 const PRODID = '-//Project 37//Attendance ICS//EN';
 const FOLD_LIMIT_OCTETS = 75;
 const JAKARTA_LOCAL_FORMAT = "yyyyMMdd'T'HHmmss";
+
+/**
+ * CN is a display hint, not data with semantic import. COMMA/SEMICOLON/COLON/
+ * DQUOTE would break unquoted RFC 5545 param-value syntax (§3.2), and quoted-
+ * string support for embedded semicolons is inconsistent across real .ics
+ * parsers. Strip rather than escape or quote — losing punctuation from a
+ * display name is a cosmetic degradation, not a correctness bug.
+ */
+function sanitizeParamValue(value: string): string {
+  return value.replace(/[,;:"]/g, '');
+}
 
 /**
  * Escapes COMMA, SEMICOLON, BACKSLASH, and NEWLINE per RFC 5545 §3.3.11.
@@ -120,6 +143,14 @@ export function generateIcs(input: IcsEventInput): string {
 
   if (input.location) {
     lines.push(`LOCATION:${escapeText(input.location)}`);
+  }
+
+  if (input.organizerEmail) {
+    lines.push(`ORGANIZER;CN=Project 37:mailto:${input.organizerEmail}`);
+  }
+  if (input.attendeeEmail) {
+    const cn = input.attendeeName ? sanitizeParamValue(input.attendeeName) : input.attendeeEmail;
+    lines.push(`ATTENDEE;CN=${cn};RSVP=TRUE:mailto:${input.attendeeEmail}`);
   }
 
   lines.push(`SEQUENCE:${input.sequence}`, 'END:VEVENT', 'END:VCALENDAR');

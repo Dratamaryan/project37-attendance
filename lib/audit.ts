@@ -21,6 +21,8 @@ export const AUDIT_ACTIONS = {
   EXPORT_CREATE:           'export.create',
   IMPORT_DRY_RUN:          'import.dry_run',
   IMPORT_COMMIT:           'import.commit',
+  EVENT_INVITE_SEND:       'event_invite.send',
+  EVENT_INVITE_RESEND:     'event_invite.resend',
 } as const
 
 export type AuditAction = typeof AUDIT_ACTIONS[keyof typeof AUDIT_ACTIONS]

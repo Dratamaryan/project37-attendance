@@ -173,3 +173,66 @@ describe('generateIcs — SEQUENCE (resend-updates-not-duplicates)', () => {
     expect(secondEvent.sequence).toBe(1);
   });
 });
+
+describe('generateIcs — ORGANIZER/ATTENDEE (T9, additive/backward-compatible)', () => {
+  it('ICS-14 omits ORGANIZER/ATTENDEE entirely when neither is provided (T7 shape unchanged)', () => {
+    const output = generateIcs(BASE_INPUT);
+    expect(output).not.toContain('ORGANIZER');
+    expect(output).not.toContain('ATTENDEE');
+  });
+
+  it('ICS-15 emits ORGANIZER and ATTENDEE with CN + mailto when both are provided', () => {
+    const output = generateIcs({
+      ...BASE_INPUT,
+      organizerEmail: 'project37.events@gmail.com',
+      attendeeEmail: 'jane@example.com',
+      attendeeName: 'Jane Doe',
+    });
+    expect(output).toContain('ORGANIZER;CN=Project 37:mailto:project37.events@gmail.com');
+    expect(output).toContain('ATTENDEE;CN=Jane Doe;RSVP=TRUE:mailto:jane@example.com');
+  });
+
+  it('ICS-16 round-trip parse recovers ORGANIZER and ATTENDEE with correct params', () => {
+    const output = generateIcs({
+      ...BASE_INPUT,
+      organizerEmail: 'project37.events@gmail.com',
+      attendeeEmail: 'jane@example.com',
+      attendeeName: 'Jane Doe',
+    });
+    const event = parseVEvent(output);
+
+    // node-ical types organizer/attendee loosely (string | object) — narrow at the test boundary.
+    const organizer = event.organizer as unknown as { val: string; params: { CN: string } };
+    const attendee = event.attendee as unknown as { val: string; params: { CN: string; RSVP: boolean } };
+
+    expect(organizer.val).toBe('mailto:project37.events@gmail.com');
+    expect(organizer.params.CN).toBe('Project 37');
+    expect(attendee.val).toBe('mailto:jane@example.com');
+    expect(attendee.params.CN).toBe('Jane Doe');
+    expect(attendee.params.RSVP).toBe(true);
+  });
+
+  it('ICS-17 falls back to the raw attendeeEmail as CN when attendeeName is omitted', () => {
+    const output = generateIcs({
+      ...BASE_INPUT,
+      organizerEmail: 'project37.events@gmail.com',
+      attendeeEmail: 'jane@example.com',
+    });
+    expect(output).toContain('ATTENDEE;CN=jane@example.com;RSVP=TRUE:mailto:jane@example.com');
+  });
+
+  it('ICS-18 strips comma/semicolon from attendeeName within the CN param (display-only, not escaped/quoted)', () => {
+    const output = generateIcs({
+      ...BASE_INPUT,
+      organizerEmail: 'project37.events@gmail.com',
+      attendeeEmail: 'jane@example.com',
+      attendeeName: 'Doe, Jane; Jr.',
+    });
+    // Backslash-escaping (TEXT value syntax) and unescaped raw punctuation both
+    // produce invalid/ambiguous param-value syntax here (RFC 5545 §3.2) — and
+    // quoted-string support for embedded semicolons is inconsistent across
+    // real .ics parsers (confirmed against node-ical directly). Stripping is
+    // the simple, unambiguous choice for what is only ever a display hint.
+    expect(output).toContain('ATTENDEE;CN=Doe Jane Jr.;RSVP=TRUE:mailto:jane@example.com');
+  });
+});
