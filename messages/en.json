@@ -260,7 +260,8 @@
         "banner": {
           "instance_cancelled": "Instance cancelled successfully.",
           "already_cancelled": "Instance was already cancelled."
-        }
+        },
+        "invite_link": "Invite"
       },
       "instance": {
         "breadcrumb_events": "Events",
@@ -292,6 +293,61 @@
           "scheduled": "Scheduled",
           "cancelled": "Cancelled",
           "completed": "Completed"
+        }
+      },
+      "invite": {
+        "breadcrumb": "Invite",
+        "title": "Send invites",
+        "not_authorized": "You don't have permission to view this page.",
+        "filter": {
+          "title": "Filters",
+          "tribe_label": "Tribe",
+          "tribe_all": "All tribes",
+          "kepanitiaan_label": "Kepanitiaan",
+          "kepanitiaan_all": "All kepanitiaan",
+          "recency_label": "Attended within (days)",
+          "recency_placeholder": "e.g. 90",
+          "min_attendance_label": "Minimum attendance count",
+          "min_attendance_placeholder": "e.g. 3",
+          "preview_button": "Preview recipients",
+          "previewing": "Previewing…",
+          "error": "Couldn't resolve recipients. Please try again."
+        },
+        "preview": {
+          "summary": "{hasEmail} with email, {noEmail} without email",
+          "empty": "Preview recipients to see who will be invited."
+        },
+        "no_email": {
+          "title": "No email on file ({count})",
+          "subtitle": "Follow up manually — copy this list to WhatsApp.",
+          "empty": "Everyone in this filter has an email on file.",
+          "copy_button": "Copy list",
+          "copied": "Copied!",
+          "table": {
+            "name": "Name",
+            "phone": "Phone"
+          }
+        },
+        "send": {
+          "button": "Send invites",
+          "sending": "Sending…",
+          "result": "Sent {sent}, failed {failed}, skipped {skipped} already sent.",
+          "remaining": "{remaining} recipients remain — click Send invites again to continue.",
+          "forbidden": "You don't have permission to send invites.",
+          "error": "Couldn't send invites. Please try again."
+        },
+        "recipients": {
+          "title": "Recipients with email ({count})",
+          "table": {
+            "name": "Name",
+            "email": "Email",
+            "action": "Action"
+          },
+          "resend_button": "Resend",
+          "resending": "Resending…",
+          "resend_ok": "Resent (v{sequence})",
+          "resend_failed": "Resend failed: {message}",
+          "resend_not_found": "Not invited yet — send invites first."
         }
       },
       "form": {

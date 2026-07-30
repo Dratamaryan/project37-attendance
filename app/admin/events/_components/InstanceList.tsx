@@ -65,6 +65,7 @@ function InstanceRowItem({
   eventId: string
   displayName: string
 }) {
+  const t = useTranslations('admin.events.detail')
   const dateStr = formatJakarta(new Date(instance.scheduled_at), 'PPP p')
 
   return (
@@ -81,6 +82,19 @@ function InstanceRowItem({
         <StatusBadge status={instance.status} />
       </td>
       <td className="px-4 py-3 text-sm text-muted">{displayName}</td>
+      <td className="px-4 py-3 whitespace-nowrap">
+        {/* Admin-only by construction: this row only renders on
+            /admin/events/[id], which is itself admin-gated (D14) — an
+            organizer never sees this link. The invite page also gates itself
+            independently (defense in depth). */}
+        <Link
+          href={`/admin/events/${eventId}/instances/${instance.id}/invite`}
+          data-testid={`invite-link-${instance.id}`}
+          className="text-sm font-medium text-gold hover:text-gold-dark transition-colors"
+        >
+          {t('invite_link')}
+        </Link>
+      </td>
     </tr>
   )
 }

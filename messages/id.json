@@ -260,7 +260,8 @@
         "banner": {
           "instance_cancelled": "Sesi berhasil dibatalkan.",
           "already_cancelled": "Sesi sudah dibatalkan sebelumnya."
-        }
+        },
+        "invite_link": "Undang"
       },
       "instance": {
         "breadcrumb_events": "Acara",
@@ -292,6 +293,61 @@
           "scheduled": "Terjadwal",
           "cancelled": "Dibatalkan",
           "completed": "Selesai"
+        }
+      },
+      "invite": {
+        "breadcrumb": "Undang",
+        "title": "Kirim undangan",
+        "not_authorized": "Anda tidak memiliki izin untuk melihat halaman ini.",
+        "filter": {
+          "title": "Filter",
+          "tribe_label": "Suku",
+          "tribe_all": "Semua suku",
+          "kepanitiaan_label": "Kepanitiaan",
+          "kepanitiaan_all": "Semua kepanitiaan",
+          "recency_label": "Hadir dalam (hari)",
+          "recency_placeholder": "mis. 90",
+          "min_attendance_label": "Jumlah kehadiran minimum",
+          "min_attendance_placeholder": "mis. 3",
+          "preview_button": "Pratinjau penerima",
+          "previewing": "Memuat pratinjau…",
+          "error": "Gagal memuat penerima. Silakan coba lagi."
+        },
+        "preview": {
+          "summary": "{hasEmail} dengan email, {noEmail} tanpa email",
+          "empty": "Pratinjau penerima untuk melihat siapa yang akan diundang."
+        },
+        "no_email": {
+          "title": "Tidak ada email ({count})",
+          "subtitle": "Tindak lanjuti secara manual — salin daftar ini ke WhatsApp.",
+          "empty": "Semua orang dalam filter ini memiliki email.",
+          "copy_button": "Salin daftar",
+          "copied": "Tersalin!",
+          "table": {
+            "name": "Nama",
+            "phone": "Telepon"
+          }
+        },
+        "send": {
+          "button": "Kirim undangan",
+          "sending": "Mengirim…",
+          "result": "Terkirim {sent}, gagal {failed}, dilewati {skipped} karena sudah terkirim.",
+          "remaining": "{remaining} penerima tersisa — klik Kirim undangan lagi untuk melanjutkan.",
+          "forbidden": "Anda tidak memiliki izin untuk mengirim undangan.",
+          "error": "Gagal mengirim undangan. Silakan coba lagi."
+        },
+        "recipients": {
+          "title": "Penerima dengan email ({count})",
+          "table": {
+            "name": "Nama",
+            "email": "Email",
+            "action": "Aksi"
+          },
+          "resend_button": "Kirim ulang",
+          "resending": "Mengirim ulang…",
+          "resend_ok": "Terkirim ulang (v{sequence})",
+          "resend_failed": "Gagal kirim ulang: {message}",
+          "resend_not_found": "Belum diundang — kirim undangan terlebih dahulu."
         }
       },
       "form": {

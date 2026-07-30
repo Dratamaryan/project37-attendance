@@ -1,15 +1,14 @@
 'use server'
 
-// Route segment config is officially documented on page.tsx/layout.tsx/
-// route.ts files (Vercel Route Segment Config docs) — a Server Action module
-// on its own isn't a documented target for `maxDuration`. Exporting it here is
-// defensive (harmless if Next.js ignores it), but is NOT a substitute for the
-// real requirement: T10's page at
-// app/admin/events/[id]/instances/[instanceId]/invite/page.tsx — the page that
-// actually calls sendInvites() — MUST also export `maxDuration = 300`. Flagged
-// explicitly rather than assumed; confirm in T10's own build/deploy check.
-export const maxDuration = 300
-
+// T9 exported `maxDuration = 300` here defensively, flagging it as unconfirmed
+// (Vercel's Route Segment Config docs only document this export on
+// page.tsx/layout.tsx/route.ts, not a 'use server' action module). T10 found
+// it's worse than unconfirmed: once a Client Component (InvitePanel) imports
+// these actions, Next.js must bundle this module for the client, and its
+// "use server" files may only export async functions" rule rejects the
+// non-function export outright — `next build` fails. Removed. The governing
+// export is on the page that actually invokes sendInvites():
+// app/admin/events/[id]/instances/[instanceId]/invite/page.tsx.
 import { createClient } from '../supabase/server'
 import { getDefaultEmailTransport } from '@/lib/email/transport'
 import { impl_resolveRecipients, impl_sendInvites, impl_resendInvite } from './invites.impl'
