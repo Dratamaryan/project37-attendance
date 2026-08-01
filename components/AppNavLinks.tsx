@@ -16,13 +16,22 @@ export function AppNavLinks({ role, variant }: Props) {
   const links = [
     { href: '/dashboard', label: t('home') },
     { href: '/checkin', label: t('checkin') },
-    ...(role === 'admin' ? [{ href: '/admin', label: t('admin') }] : []),
+    ...(role === 'admin'
+      ? [
+          { href: '/admin/analytics', label: t('analytics') },
+          { href: '/admin', label: t('admin') },
+        ]
+      : []),
   ]
 
-  const isActive = (href: string) =>
-    href === '/dashboard'
-      ? pathname === '/dashboard'
-      : pathname.startsWith(href)
+  // '/admin' and '/admin/analytics' both match on an analytics subpath —
+  // pick the longest (most specific) match so only one link is ever active.
+  const activeHref = links
+    .map(link => link.href)
+    .filter(href => (href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(href)))
+    .sort((a, b) => b.length - a.length)[0]
+
+  const isActive = (href: string) => href === activeHref
 
   if (variant === 'topbar') {
     return (

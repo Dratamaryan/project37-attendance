@@ -123,10 +123,18 @@ async function main() {
       await adminLink.waitFor({ state: 'visible', timeout: 10_000 })
 
       const topbarLinkCount = await topbarNav.locator('a').count()
-      if (topbarLinkCount === 3) {
-        pass('E2E-T4-01', 'Topbar shows exactly 3 links (Home, Check In, Admin) for admin')
+      if (topbarLinkCount === 4) {
+        pass('E2E-T4-01', 'Topbar shows exactly 4 links (Home, Check In, Analytics, Admin) for admin')
       } else {
-        fail('E2E-T4-01', `Expected 3 topbar links, found ${topbarLinkCount}`)
+        fail('E2E-T4-01', `Expected 4 topbar links, found ${topbarLinkCount}`)
+      }
+
+      const analyticsLink = topbarNav.getByText('Analytics', { exact: true })
+      const analyticsVisible = await analyticsLink.isVisible().catch(() => false)
+      if (analyticsVisible) {
+        pass('E2E-T4-01b', 'Topbar Analytics entry present alongside Admin')
+      } else {
+        fail('E2E-T4-01b', 'Topbar Analytics entry missing')
       }
 
       await adminLink.click()
@@ -190,10 +198,11 @@ async function main() {
       await page.goto(`${PROD_URL}/dashboard`, { waitUntil: 'networkidle' })
       const topbarNav = page.locator('nav[aria-label="Main navigation"]')
       const adminLinkCount = await topbarNav.getByText('Admin', { exact: true }).count()
-      if (adminLinkCount === 0) {
-        pass('E2E-T4-05', 'Organizer topbar has no "Admin" entry')
+      const analyticsLinkCount = await topbarNav.getByText('Analytics', { exact: true }).count()
+      if (adminLinkCount === 0 && analyticsLinkCount === 0) {
+        pass('E2E-T4-05', 'Organizer topbar has no "Admin" or "Analytics" entry')
       } else {
-        fail('E2E-T4-05', 'Organizer topbar unexpectedly shows "Admin"')
+        fail('E2E-T4-05', `Organizer topbar unexpectedly shows admin=${adminLinkCount} analytics=${analyticsLinkCount}`)
       }
     } catch (err) {
       fail('E2E-T4-04/05', 'Non-admin block check failed', err)
@@ -216,10 +225,10 @@ async function main() {
       await adminTab.waitFor({ state: 'visible', timeout: 10_000 })
 
       const bottomLinkCount = await bottomNav.locator('a').count()
-      if (bottomLinkCount === 3) {
-        pass('E2E-T4-06', 'Bottom-tab bar shows exactly 3 tabs for admin at 380px')
+      if (bottomLinkCount === 4) {
+        pass('E2E-T4-06', 'Bottom-tab bar shows exactly 4 tabs for admin at 380px')
       } else {
-        fail('E2E-T4-06', `Expected 3 bottom-tab links, found ${bottomLinkCount}`)
+        fail('E2E-T4-06', `Expected 4 bottom-tab links, found ${bottomLinkCount}`)
       }
 
       await adminTab.click()
