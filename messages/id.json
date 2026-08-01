@@ -3,10 +3,7 @@
     "signOut": "Keluar",
     "home": "Beranda",
     "checkin": "Daftar Hadir",
-    "people": "Anggota",
-    "events": "Acara",
-    "analytics": "Analitik",
-    "import": "Impor"
+    "admin": "Admin"
   },
   "metadata": {
     "title": "Absensi Project 37",
@@ -34,9 +31,8 @@
       "people_description": "Cari, edit, dan kelola data anggota",
       "events_title": "Kelola Acara",
       "events_description": "Buat dan kelola acara berulang",
-      "settings_title": "Pengaturan",
-      "settings_description": "Konfigurasi aplikasi",
-      "coming_soon": "Segera Hadir"
+      "admin_title": "Admin",
+      "admin_description": "Anggota, acara, analitik, dan alat impor"
     }
   },
   "checkin": {
@@ -155,6 +151,19 @@
     "coming_soon_message": "Pengaturan akan tersedia di Sprint 5."
   },
   "admin": {
+    "hub": {
+      "title": "Admin",
+      "cards": {
+        "people_title": "Kelola Anggota",
+        "people_description": "Cari, edit, dan kelola data anggota",
+        "events_title": "Kelola Acara",
+        "events_description": "Buat dan kelola acara berulang",
+        "analytics_title": "Analitik",
+        "analytics_description": "Tren kehadiran, anggota paling aktif, dan ekspor data",
+        "import_title": "Impor Anggota",
+        "import_description": "Unggah berkas roster untuk menambah anggota baru"
+      }
+    },
     "analytics": {
       "title": "Analitik",
       "filter": {

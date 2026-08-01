@@ -40,21 +40,22 @@ describe('DashboardLanding', () => {
     expect(screen.queryByText('cards.people_title')).not.toBeInTheDocument()
   })
 
-  it('does NOT render Settings card for organizer', () => {
+  it('does NOT render Admin card for organizer', () => {
     render(<DashboardLanding role="organizer" fullName="Test User" email="test@example.com" />)
-    expect(screen.queryByText('cards.settings_title')).not.toBeInTheDocument()
+    expect(screen.queryByText('cards.admin_title')).not.toBeInTheDocument()
   })
 
   it('renders all three cards for admin role', () => {
     render(<DashboardLanding role="admin" fullName="Admin User" email="admin@example.com" />)
     expect(screen.getByText('cards.checkin_title')).toBeInTheDocument()
     expect(screen.getByText('cards.people_title')).toBeInTheDocument()
-    expect(screen.getByText('cards.settings_title')).toBeInTheDocument()
+    expect(screen.getByText('cards.admin_title')).toBeInTheDocument()
   })
 
-  it('Settings card shows "Coming Soon" badge', () => {
+  it('Admin card links to /admin', () => {
     render(<DashboardLanding role="admin" fullName="Admin User" email="admin@example.com" />)
-    expect(screen.getByText('cards.coming_soon')).toBeInTheDocument()
+    const link = screen.getByText('cards.admin_title').closest('a')
+    expect(link).toHaveAttribute('href', '/admin')
   })
 
   it('greeting uses full_name when present', () => {

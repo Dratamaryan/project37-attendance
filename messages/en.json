@@ -3,10 +3,7 @@
     "signOut": "Sign out",
     "home": "Home",
     "checkin": "Check In",
-    "people": "People",
-    "events": "Events",
-    "analytics": "Analytics",
-    "import": "Import"
+    "admin": "Admin"
   },
   "metadata": {
     "title": "Absensi Project 37",
@@ -34,9 +31,8 @@
       "people_description": "Search, edit, and manage member records",
       "events_title": "Manage Events",
       "events_description": "Create and manage recurring events",
-      "settings_title": "Settings",
-      "settings_description": "App configuration",
-      "coming_soon": "Coming Soon"
+      "admin_title": "Admin",
+      "admin_description": "People, events, analytics, and import tools"
     }
   },
   "checkin": {
@@ -155,6 +151,19 @@
     "coming_soon_message": "Settings will be available in Sprint 5."
   },
   "admin": {
+    "hub": {
+      "title": "Admin",
+      "cards": {
+        "people_title": "Manage People",
+        "people_description": "Search, edit, and manage member records",
+        "events_title": "Manage Events",
+        "events_description": "Create and manage recurring events",
+        "analytics_title": "Analytics",
+        "analytics_description": "Attendance trends, top attendees, and exports",
+        "import_title": "Import People",
+        "import_description": "Upload a roster file to add new members"
+      }
+    },
     "analytics": {
       "title": "Analytics",
       "filter": {
