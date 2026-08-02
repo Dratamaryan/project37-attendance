@@ -4,6 +4,7 @@ import { NotAuthorized } from '@/app/admin/_components/not-authorized'
 import { PersonNotFound } from '@/app/admin/people/_components/person-not-found'
 import { getPersonById } from '@/lib/actions/people'
 import { getPhotoSignedUrl } from '@/lib/storage/photos'
+import { requireActiveAdmin } from '@/lib/auth/require-admin'
 import { EditPersonForm } from './edit-person-form'
 
 type Props = {
@@ -14,19 +15,10 @@ export default async function AdminPersonEditPage({ params }: Props) {
   const { id } = await params
 
   const supabase = await createClient()
-  const { data } = await supabase.auth.getClaims()
+  const authResult = await requireActiveAdmin(supabase)
 
-  if (!data) redirect('/login')
-
-  const { data: appUser } = await supabase
-    .from('app_users')
-    .select('role')
-    .eq('id', data.claims.sub)
-    .single()
-
-  if (appUser?.role !== 'admin') {
-    return <NotAuthorized />
-  }
+  if (authResult.status === 'unauthenticated') redirect('/login')
+  if (authResult.status === 'denied') return <NotAuthorized />
 
   const result = await getPersonById(id)
 

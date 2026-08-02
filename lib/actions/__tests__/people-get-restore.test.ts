@@ -79,8 +79,9 @@ const FULL_PERSON = {
   deleted_at:            null,
 }
 
-const ADMIN_ROLE = { data: { role: 'admin' }, error: null }
-const NON_ADMIN_ROLE = { data: { role: 'organizer' }, error: null }
+const ADMIN_ROLE = { data: { role: 'admin', active: true }, error: null }
+const NON_ADMIN_ROLE = { data: { role: 'organizer', active: true }, error: null }
+const DEACTIVATED_ADMIN_ROLE = { data: { role: 'admin', active: false }, error: null }
 
 // ── impl_getPersonById ────────────────────────────────────────────────────────
 
@@ -110,6 +111,12 @@ describe('impl_getPersonById', () => {
 
   it('returns not_authorized when caller is not admin', async () => {
     const supabase = makeMockSupabase([NON_ADMIN_ROLE])
+    const result = await impl_getPersonById('person-001', supabase)
+    expect(result.status).toBe('not_authorized')
+  })
+
+  it('returns not_authorized when caller is an admin but active=false (deactivated)', async () => {
+    const supabase = makeMockSupabase([DEACTIVATED_ADMIN_ROLE])
     const result = await impl_getPersonById('person-001', supabase)
     expect(result.status).toBe('not_authorized')
   })
@@ -151,6 +158,12 @@ describe('impl_restorePerson', () => {
 
   it('returns not_authorized when caller is not admin', async () => {
     const supabase = makeMockSupabase([NON_ADMIN_ROLE])
+    const result = await impl_restorePerson('person-001', supabase)
+    expect(result.status).toBe('not_authorized')
+  })
+
+  it('returns not_authorized when caller is an admin but active=false (deactivated)', async () => {
+    const supabase = makeMockSupabase([DEACTIVATED_ADMIN_ROLE])
     const result = await impl_restorePerson('person-001', supabase)
     expect(result.status).toBe('not_authorized')
   })

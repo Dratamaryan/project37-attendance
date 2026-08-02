@@ -2,22 +2,14 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
 import { NotAuthorized } from '@/app/admin/_components/not-authorized'
+import { requireActiveAdmin } from '@/lib/auth/require-admin'
 
 export default async function SettingsPage() {
   const supabase = await createClient()
-  const { data } = await supabase.auth.getClaims()
+  const authResult = await requireActiveAdmin(supabase)
 
-  if (!data) redirect('/login')
-
-  const { data: appUser } = await supabase
-    .from('app_users')
-    .select('role')
-    .eq('id', data.claims.sub)
-    .single()
-
-  if (appUser?.role !== 'admin') {
-    return <NotAuthorized />
-  }
+  if (authResult.status === 'unauthenticated') redirect('/login')
+  if (authResult.status === 'denied') return <NotAuthorized />
 
   const t = await getTranslations('settings')
 

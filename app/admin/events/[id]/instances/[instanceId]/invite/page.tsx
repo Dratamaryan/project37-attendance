@@ -12,6 +12,7 @@ import { redirect } from 'next/navigation'
 import { subDays, addDays } from 'date-fns'
 import { listEvents, listInstancesForEvent } from '@/lib/actions/events'
 import { NotAuthorized } from '@/app/admin/_components/not-authorized'
+import { requireActiveAdmin } from '@/lib/auth/require-admin'
 import { formatJakarta } from '@/lib/events/timezone'
 import { displayInstanceName } from '@/lib/events/display'
 import Link from 'next/link'
@@ -28,14 +29,9 @@ export default async function AdminInviteRecipientsPage({ params }: Props) {
   // this page must gate itself independently. This is the tier-3 guard: it
   // must hold even if a future change loosens the layout's role gate.
   const supabase = await createClient()
-  const { data } = await supabase.auth.getClaims()
-  if (!data) redirect('/login')
-  const { data: appUser } = await supabase
-    .from('app_users')
-    .select('role')
-    .eq('id', data.claims.sub)
-    .single()
-  if (appUser?.role !== 'admin') return <NotAuthorized />
+  const authResult = await requireActiveAdmin(supabase)
+  if (authResult.status === 'unauthenticated') redirect('/login')
+  if (authResult.status === 'denied') return <NotAuthorized />
 
   const t      = await getTranslations('admin.events.invite')
   const locale = await getLocale()

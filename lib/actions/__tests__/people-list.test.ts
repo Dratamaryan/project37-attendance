@@ -64,15 +64,17 @@ type MockSetup = {
 function makeSupabase({
   userId = ACTOR_ID as string | null,
   role = 'admin',
+  active = true,
   queryResult = { data: [MOCK_PERSON], error: null, count: 1 },
 }: {
   userId?: string | null
   role?: string | null
+  active?: boolean
   queryResult?: { data: unknown; error: unknown; count: number | null }
 } = {}): MockSetup {
   const roleBuilder = makeSingleBuilder(
     role !== null
-      ? { data: { role }, error: null }
+      ? { data: { role, active }, error: null }
       : { data: null, error: { code: 'PGRST116' } }
   )
   const peopleBuilder = makePaginatedBuilder(queryResult)
@@ -161,6 +163,12 @@ describe('impl_listPeople', () => {
 
   it('returns not_authorized when caller is not admin', async () => {
     const { supabase } = makeSupabase({ role: 'organizer' })
+    const result = await impl_listPeople({}, supabase as unknown as SupabaseClient)
+    expect(result.status).toBe('not_authorized')
+  })
+
+  it('returns not_authorized when caller is an admin but active=false (deactivated)', async () => {
+    const { supabase } = makeSupabase({ role: 'admin', active: false })
     const result = await impl_listPeople({}, supabase as unknown as SupabaseClient)
     expect(result.status).toBe('not_authorized')
   })

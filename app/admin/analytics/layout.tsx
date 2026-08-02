@@ -1,23 +1,15 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { type ReactNode } from 'react'
+import { requireActiveAdmin } from '@/lib/auth/require-admin'
 
 // Admin-only guard — AppTopbar + bottom-tab nav are inherited from /admin/layout.tsx.
 export default async function AdminAnalyticsLayout({ children }: { children: ReactNode }) {
   const supabase = await createClient()
-  const { data } = await supabase.auth.getClaims()
+  const authResult = await requireActiveAdmin(supabase)
 
-  if (!data) redirect('/login')
-
-  const { data: appUser } = await supabase
-    .from('app_users')
-    .select('role')
-    .eq('id', data.claims.sub)
-    .single()
-
-  if (appUser?.role !== 'admin') {
-    redirect('/dashboard')
-  }
+  if (authResult.status === 'unauthenticated') redirect('/login')
+  if (authResult.status === 'denied') redirect('/dashboard')
 
   return <>{children}</>
 }

@@ -398,11 +398,11 @@ export async function impl_listPeople(
 
   const { data: appUser } = await supabase
     .from('app_users')
-    .select('role')
+    .select('role, active')
     .eq('id', user.id)
     .single()
 
-  if (appUser?.role !== 'admin') return { status: 'not_authorized' }
+  if (appUser?.role !== 'admin' || appUser?.active !== true) return { status: 'not_authorized' }
 
   // Validate page_size before clamping so callers get an explicit error
   if ((input.page_size ?? 25) > 100) {
@@ -476,11 +476,11 @@ export async function impl_getPersonById(
 
   const { data: appUser } = await supabase
     .from('app_users')
-    .select('role')
+    .select('role, active')
     .eq('id', user.id)
     .single()
 
-  if (appUser?.role !== 'admin') return { status: 'not_authorized' }
+  if (appUser?.role !== 'admin' || appUser?.active !== true) return { status: 'not_authorized' }
 
   // No is('deleted_at', null) filter — edit page must load soft-deleted persons too.
   const { data, error } = await supabase
@@ -510,11 +510,11 @@ export async function impl_restorePerson(
 
   const { data: appUser } = await supabase
     .from('app_users')
-    .select('role')
+    .select('role, active')
     .eq('id', user.id)
     .single()
 
-  if (appUser?.role !== 'admin') return { status: 'not_authorized' }
+  if (appUser?.role !== 'admin' || appUser?.active !== true) return { status: 'not_authorized' }
 
   const now = new Date().toISOString()
 

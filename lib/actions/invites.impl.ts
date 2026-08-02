@@ -10,6 +10,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { generateIcs } from '@/lib/events/ics'
 import { renderInviteEmail } from '@/lib/email/template'
 import type { EmailTransport, SendEmailResult } from '@/lib/email/transport'
+import { requireActiveAdmin } from '@/lib/auth/require-admin'
 import { logAudit, AUDIT_ACTIONS } from '../audit'
 import type {
   RecipientFilter,
@@ -51,15 +52,14 @@ type AdminGuardResult =
   | { ok: false; result: { status: 'forbidden'; message: string } | { status: 'error'; message: string } }
 
 async function assertAdmin(supabase: SupabaseClient): Promise<AdminGuardResult> {
-  const { data: claims } = await supabase.auth.getClaims()
-  if (!claims) return { ok: false, result: { status: 'error', message: 'Not authenticated' } }
-  const actorId = claims.claims.sub
-
-  const { data: appUser } = await supabase.from('app_users').select('role').eq('id', actorId).single()
-  if (appUser?.role !== 'admin') {
+  const result = await requireActiveAdmin(supabase)
+  if (result.status === 'unauthenticated') {
+    return { ok: false, result: { status: 'error', message: 'Not authenticated' } }
+  }
+  if (result.status === 'denied') {
     return { ok: false, result: { status: 'forbidden', message: 'Admin only' } }
   }
-  return { ok: true, actorId }
+  return { ok: true, actorId: result.actorId }
 }
 
 // ── recipient resolution (F/2 filters, F/4 two-list split) ────────────────────

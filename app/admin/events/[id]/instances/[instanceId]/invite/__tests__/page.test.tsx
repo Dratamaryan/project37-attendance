@@ -43,6 +43,7 @@ vi.mock('@/lib/actions/events', () => ({
 }))
 
 let mockRole: string | null = null
+let mockActive = true
 vi.mock('@/lib/supabase/server', () => ({
   createClient: async () => ({
     auth: {
@@ -51,7 +52,7 @@ vi.mock('@/lib/supabase/server', () => ({
     from: () => ({
       select: () => ({
         eq: () => ({
-          single: async () => ({ data: { role: mockRole } }),
+          single: async () => ({ data: { role: mockRole, active: mockActive } }),
         }),
       }),
     }),
@@ -63,6 +64,7 @@ const params = Promise.resolve({ id: 'event-1', instanceId: 'inst-1' })
 describe('AdminInviteRecipientsPage — admin guard (independent of the layout gate)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockActive = true
   })
 
   it('blocks an organizer with NotAuthorized, on this page alone', async () => {
@@ -74,6 +76,17 @@ describe('AdminInviteRecipientsPage — admin guard (independent of the layout g
     expect(screen.getByText('title')).toBeInTheDocument()
     expect(screen.queryByTestId('invite-panel')).not.toBeInTheDocument()
     // Guard short-circuits before any recipient data is ever fetched.
+    expect(mockListEvents).not.toHaveBeenCalled()
+  })
+
+  it('blocks a deactivated admin with NotAuthorized, on this page alone', async () => {
+    mockRole = 'admin'
+    mockActive = false
+    const element = await AdminInviteRecipientsPage({ params })
+    render(element)
+
+    expect(screen.getByText('title')).toBeInTheDocument()
+    expect(screen.queryByTestId('invite-panel')).not.toBeInTheDocument()
     expect(mockListEvents).not.toHaveBeenCalled()
   })
 

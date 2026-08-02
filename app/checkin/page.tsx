@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
 import { listNearestInstances } from '@/lib/actions/events'
+import { requireActiveAdmin } from '@/lib/auth/require-admin'
 import { CheckinClient } from './checkin-client'
 
 export default async function CheckinPage() {
@@ -10,17 +11,13 @@ export default async function CheckinPage() {
 
   if (!data) redirect('/login')
 
-  const [t, { data: appUser }, nearestResult] = await Promise.all([
+  const [t, authResult, nearestResult] = await Promise.all([
     getTranslations('checkin'),
-    supabase
-      .from('app_users')
-      .select('role')
-      .eq('id', data.claims.sub)
-      .single(),
+    requireActiveAdmin(supabase),
     listNearestInstances({ limit: 5 }),
   ])
 
-  const isAdmin = (appUser as { role: string } | null)?.role === 'admin'
+  const isAdmin = authResult.status === 'ok'
   const instances = nearestResult.status === 'ok' ? nearestResult.instances : []
 
   return (

@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { subDays, addDays } from 'date-fns'
 import { listEvents, listInstancesForEvent } from '@/lib/actions/events'
 import { NotAuthorized } from '@/app/admin/_components/not-authorized'
+import { requireActiveAdmin } from '@/lib/auth/require-admin'
 import { EventDetailHeader } from '../_components/EventDetailHeader'
 import { InstanceList } from '../_components/InstanceList'
 
@@ -18,14 +19,9 @@ export default async function AdminEventDetailPage({ params, searchParams }: Pro
 
   // Admin-only: events layout allows organizers for list/create/edit; detail is admin-only (D14)
   const supabase = await createClient()
-  const { data } = await supabase.auth.getClaims()
-  if (!data) redirect('/login')
-  const { data: appUser } = await supabase
-    .from('app_users')
-    .select('role')
-    .eq('id', data.claims.sub)
-    .single()
-  if (appUser?.role !== 'admin') return <NotAuthorized />
+  const authResult = await requireActiveAdmin(supabase)
+  if (authResult.status === 'unauthenticated') redirect('/login')
+  if (authResult.status === 'denied') return <NotAuthorized />
 
   const t      = await getTranslations('admin.events.detail')
   const locale = await getLocale()

@@ -21,6 +21,7 @@ vi.mock('next/navigation', () => ({
 }))
 
 let mockRole: string | null = null
+let mockActive = true
 vi.mock('@/lib/supabase/server', () => ({
   createClient: async () => ({
     auth: {
@@ -29,7 +30,7 @@ vi.mock('@/lib/supabase/server', () => ({
     from: () => ({
       select: () => ({
         eq: () => ({
-          single: async () => ({ data: { role: mockRole } }),
+          single: async () => ({ data: { role: mockRole, active: mockActive } }),
         }),
       }),
     }),
@@ -39,10 +40,21 @@ vi.mock('@/lib/supabase/server', () => ({
 describe('AdminHubPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockActive = true
   })
 
   it('blocks a non-admin with NotAuthorized', async () => {
     mockRole = 'organizer'
+    const element = await AdminHubPage()
+    render(element)
+
+    expect(screen.getByText('title')).toBeInTheDocument()
+    expect(screen.queryByText('cards.people_title')).not.toBeInTheDocument()
+  })
+
+  it('blocks a deactivated admin with NotAuthorized', async () => {
+    mockRole = 'admin'
+    mockActive = false
     const element = await AdminHubPage()
     render(element)
 

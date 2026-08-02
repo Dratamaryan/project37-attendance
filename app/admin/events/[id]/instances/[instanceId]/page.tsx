@@ -5,6 +5,7 @@ import { subDays, addDays } from 'date-fns'
 import { listEvents, listInstancesForEvent } from '@/lib/actions/events'
 import { listRecentAttendanceForInstance } from '@/lib/actions/attendance'
 import { NotAuthorized } from '@/app/admin/_components/not-authorized'
+import { requireActiveAdmin } from '@/lib/auth/require-admin'
 import { formatJakarta } from '@/lib/events/timezone'
 import { displayInstanceName } from '@/lib/events/display'
 import Link from 'next/link'
@@ -39,14 +40,9 @@ export default async function AdminInstanceDetailPage({ params }: Props) {
 
   // Admin-only check (D14)
   const supabase = await createClient()
-  const { data } = await supabase.auth.getClaims()
-  if (!data) redirect('/login')
-  const { data: appUser } = await supabase
-    .from('app_users')
-    .select('role')
-    .eq('id', data.claims.sub)
-    .single()
-  if (appUser?.role !== 'admin') return <NotAuthorized />
+  const authResult = await requireActiveAdmin(supabase)
+  if (authResult.status === 'unauthenticated') redirect('/login')
+  if (authResult.status === 'denied') return <NotAuthorized />
 
   const t      = await getTranslations('admin.events.instance')
   const locale = await getLocale()
