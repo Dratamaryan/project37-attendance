@@ -24,6 +24,23 @@ if (!url || !anonKey || !serviceRoleKey) {
   )
 }
 
+// This suite creates and deletes real auth.users + app_users rows. It must
+// only ever run against local Docker — never prod. .env.local can resolve to
+// prod on some machines/setups, and vitest.config.ts's .env.test.local
+// override is a config-layer safety net, not a guarantee; this is a second,
+// file-level check. (2026-06-25 incident: this suite ran against prod at
+// least 5 times and orphaned real app_users rows — see
+// docs/sprint-5-task-6-verify.md.)
+const PROD_PROJECT_REF = 'bftifxgdcmisasgvobuf'
+if (url.includes(PROD_PROJECT_REF)) {
+  throw new Error(
+    `[events-actions.test.ts] NEXT_PUBLIC_SUPABASE_URL resolves to the PRODUCTION project ` +
+      `(${PROD_PROJECT_REF}). This suite creates/deletes real auth users and must run against ` +
+      `local Docker only. Refusing to run — check .env.test.local is present and takes ` +
+      `precedence over .env.local.`,
+  )
+}
+
 // Distinct from existing tests (099 = sprint2-rls, 098 = materialize)
 const FAKE_ADMIN_ID = '00000000-0000-0000-0000-000000000097'
 
@@ -180,13 +197,35 @@ afterAll(async () => {
       .in('created_by', [adminUserId, organizerUserId].filter(Boolean))
   }
   await serviceAdmin.from('app_users').delete().eq('id', FAKE_ADMIN_ID)
+
+  // audit_log.actor_user_id -> app_users(id) is a NO ACTION FK: every
+  // impl_createEvent/updateEvent/cancelInstance call in this suite writes an
+  // audit_log row, which then blocks the app_users delete below unless those
+  // rows are cleared first. These rows are this test run's own fixture data
+  // (fresh per run, never real history), so deleting them here is scoped
+  // cleanup, not touching real audit history.
+  if (adminUserId || organizerUserId) {
+    const { error: auditErr } = await serviceAdmin
+      .from('audit_log')
+      .delete()
+      .in('actor_user_id', [adminUserId, organizerUserId].filter(Boolean))
+    if (auditErr) throw new Error(`[teardown] audit_log delete (test actors) failed: ${auditErr.message}`)
+  }
+
+  // Each pair must fully succeed or throw — a silently-failed app_users delete
+  // followed by a successful auth deleteUser() orphans the app_users row with
+  // no backing auth identity (the exact shape of the 2026-06-25 incident).
   if (adminUserId) {
-    await serviceAdmin.from('app_users').delete().eq('id', adminUserId)
-    await serviceAdmin.auth.admin.deleteUser(adminUserId)
+    const { error: appUsersErr } = await serviceAdmin.from('app_users').delete().eq('id', adminUserId)
+    if (appUsersErr) throw new Error(`[teardown] app_users delete (admin) failed: ${appUsersErr.message}`)
+    const { error: authErr } = await serviceAdmin.auth.admin.deleteUser(adminUserId)
+    if (authErr) throw new Error(`[teardown] auth.admin.deleteUser (admin) failed: ${authErr.message}`)
   }
   if (organizerUserId) {
-    await serviceAdmin.from('app_users').delete().eq('id', organizerUserId)
-    await serviceAdmin.auth.admin.deleteUser(organizerUserId)
+    const { error: appUsersErr } = await serviceAdmin.from('app_users').delete().eq('id', organizerUserId)
+    if (appUsersErr) throw new Error(`[teardown] app_users delete (organizer) failed: ${appUsersErr.message}`)
+    const { error: authErr } = await serviceAdmin.auth.admin.deleteUser(organizerUserId)
+    if (authErr) throw new Error(`[teardown] auth.admin.deleteUser (organizer) failed: ${authErr.message}`)
   }
 }, 30_000)
 
