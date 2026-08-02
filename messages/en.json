@@ -162,7 +162,9 @@
         "analytics_title": "Analytics",
         "analytics_description": "Attendance trends, top attendees, and exports",
         "import_title": "Import People",
-        "import_description": "Upload a roster file to add new members"
+        "import_description": "Upload a roster file to add new members",
+        "users_title": "Users",
+        "users_description": "Invite organizers and manage admin access"
       }
     },
     "analytics": {
@@ -519,6 +521,48 @@
         "raced": "Raced (inserted by someone else first)",
         "skipped_dup": "Skipped (duplicate)",
         "skipped_error": "Skipped (error)"
+      }
+    },
+    "users": {
+      "title": "Users",
+      "subtitle": "Invite organizers, assign roles, and manage access.",
+      "load_error": "Couldn't load users. Please try again.",
+      "invite": {
+        "title": "Invite an organizer",
+        "email_placeholder": "organizer@example.com",
+        "button": "Send invite",
+        "button_pending": "Sending...",
+        "success": "Invite sent.",
+        "success_repaired": "Invite completed for an existing account.",
+        "error": {
+          "not_authorized": "You don't have permission to do that.",
+          "invalid_input": "Please enter a valid email address.",
+          "already_exists": "This email is already a {role}.",
+          "partial_failure": "The account was created but role setup failed. Try inviting this email again to finish.",
+          "generic": "Something went wrong. Please try again."
+        }
+      },
+      "table": {
+        "email": "Email",
+        "role": "Role",
+        "status": "Status",
+        "actions": "Actions",
+        "you": "(you)",
+        "role_admin": "Admin",
+        "role_organizer": "Organizer",
+        "active": "Active",
+        "inactive": "Inactive",
+        "make_admin": "Make admin",
+        "make_organizer": "Make organizer",
+        "deactivate": "Deactivate",
+        "reactivate": "Reactivate"
+      },
+      "row": {
+        "error": {
+          "last_admin": "Can't do that — this is the last active admin.",
+          "self_deactivate": "You can't deactivate your own account.",
+          "generic": "Something went wrong. Please try again."
+        }
       }
     }
   }

@@ -23,6 +23,10 @@ export const AUDIT_ACTIONS = {
   IMPORT_COMMIT:           'import.commit',
   EVENT_INVITE_SEND:       'event_invite.send',
   EVENT_INVITE_RESEND:     'event_invite.resend',
+  APP_USER_INVITE:         'app_user.invite',
+  APP_USER_ROLE_CHANGE:    'app_user.role_change',
+  APP_USER_DEACTIVATE:     'app_user.deactivate',
+  APP_USER_REACTIVATE:     'app_user.reactivate',
 } as const
 
 export type AuditAction = typeof AUDIT_ACTIONS[keyof typeof AUDIT_ACTIONS]

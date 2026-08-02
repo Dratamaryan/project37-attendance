@@ -162,7 +162,9 @@
         "analytics_title": "Analitik",
         "analytics_description": "Tren kehadiran, anggota paling aktif, dan ekspor data",
         "import_title": "Impor Anggota",
-        "import_description": "Unggah berkas roster untuk menambah anggota baru"
+        "import_description": "Unggah berkas roster untuk menambah anggota baru",
+        "users_title": "Pengguna",
+        "users_description": "Undang organizer dan kelola akses admin"
       }
     },
     "analytics": {
@@ -519,6 +521,48 @@
         "raced": "Terlewat (sudah disimpan orang lain lebih dulu)",
         "skipped_dup": "Dilewati (duplikat)",
         "skipped_error": "Dilewati (error)"
+      }
+    },
+    "users": {
+      "title": "Pengguna",
+      "subtitle": "Undang organizer, atur peran, dan kelola akses.",
+      "load_error": "Gagal memuat pengguna. Silakan coba lagi.",
+      "invite": {
+        "title": "Undang organizer",
+        "email_placeholder": "organizer@contoh.com",
+        "button": "Kirim undangan",
+        "button_pending": "Mengirim...",
+        "success": "Undangan terkirim.",
+        "success_repaired": "Undangan diselesaikan untuk akun yang sudah ada.",
+        "error": {
+          "not_authorized": "Anda tidak memiliki izin untuk melakukan ini.",
+          "invalid_input": "Silakan masukkan alamat email yang valid.",
+          "already_exists": "Email ini sudah menjadi {role}.",
+          "partial_failure": "Akun berhasil dibuat tetapi pengaturan peran gagal. Coba undang email ini lagi untuk menyelesaikannya.",
+          "generic": "Terjadi kesalahan. Silakan coba lagi."
+        }
+      },
+      "table": {
+        "email": "Email",
+        "role": "Peran",
+        "status": "Status",
+        "actions": "Tindakan",
+        "you": "(Anda)",
+        "role_admin": "Admin",
+        "role_organizer": "Organizer",
+        "active": "Aktif",
+        "inactive": "Nonaktif",
+        "make_admin": "Jadikan admin",
+        "make_organizer": "Jadikan organizer",
+        "deactivate": "Nonaktifkan",
+        "reactivate": "Aktifkan kembali"
+      },
+      "row": {
+        "error": {
+          "last_admin": "Tidak bisa — ini adalah admin aktif terakhir.",
+          "self_deactivate": "Anda tidak dapat menonaktifkan akun Anda sendiri.",
+          "generic": "Terjadi kesalahan. Silakan coba lagi."
+        }
       }
     }
   }
