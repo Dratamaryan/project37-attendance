@@ -8,6 +8,7 @@ import {
 } from '@/lib/events/attendance-summary'
 import { sendTelegramMessage, type SendTelegramMessageResult } from '@/lib/telegram/client'
 import { resolveChatId } from '@/lib/telegram/chat-id'
+import { claimCronSlot, resolveCronClaim } from '@/lib/cron/idempotent-claim'
 
 // See birthday-digest.impl.ts's identical comment for the full rationale —
 // lib/telegram/token.ts imports `server-only`, which throws outside a real
@@ -21,10 +22,11 @@ async function defaultGetToken(): Promise<string> {
 export const ATTENDANCE_SUMMARY_SOURCE = 'attendance-summary'
 
 export type AttendanceSummaryResult =
-  | { status: 'skipped_already_sent'; ict_date: string }
-  | { status: 'empty'; ict_date: string }
-  | { status: 'sent'; ict_date: string; count: number; message_id: number }
-  | { status: 'send_failed'; ict_date: string; count: number; reason: string }
+  | { status: 'skipped_already_sent'; ict_date: string; flipped_count: number }
+  | { status: 'skipped_concurrent'; ict_date: string; flipped_count: number }
+  | { status: 'empty'; ict_date: string; flipped_count: number }
+  | { status: 'sent'; ict_date: string; count: number; message_id: number; flipped_count: number }
+  | { status: 'send_failed'; ict_date: string; count: number; reason: string; flipped_count: number }
 
 export type AttendanceSummaryInput = {
   /** MUST be the admin (service-role) client — attendance_summary is
@@ -43,8 +45,41 @@ export type AttendanceSummaryInput = {
 }
 
 type AppSettingsChatIdRow = { telegram_admin_chat_id: string | null }
-type SystemHealthPayload = { source?: string; ict_date?: string }
-type SystemHealthCheckRow = { table_row_counts: SystemHealthPayload | null }
+
+/**
+ * Flips event_instances that have actually occurred (scheduled_at < now, the
+ * injected clock — never a parallel "day" computation) from 'scheduled' to
+ * 'completed'. Never touches 'cancelled' (excluded structurally by the
+ * status='scheduled' predicate, not just by convention). Idempotent — a second
+ * call with the same or later `now` only matches rows still 'scheduled'.
+ *
+ * Deliberately `scheduled_at < now`, NOT the summary's [startUtc, endUtc) day
+ * window: the window answers "which day am I reporting", the flip answers
+ * "what has actually occurred by the moment I'm running" — these differ on a
+ * manual/off-schedule fire (e.g. a mid-day live-verify or a future T8 manual
+ * trigger), where `< endUtc` would prematurely complete an event still hours
+ * away. `< now` is correct regardless of fire time; anything not yet flipped
+ * by an early fire is picked up by that night's natural 23:30 ICT run.
+ *
+ * Called unconditionally, before the send-idempotency claim, on every
+ * invocation — the day's events occurred regardless of whether the digest
+ * send succeeds or whether this invocation wins the claim race. Decoupling
+ * this from claim-acquisition means it never depends on winning the send race.
+ */
+export async function flipCompletedInstances(supabase: SupabaseClient, now: Date): Promise<number> {
+  const { data, error } = await supabase
+    .from('event_instances')
+    .update({ status: 'completed' })
+    .eq('status', 'scheduled')
+    .lt('scheduled_at', now.toISOString())
+    .select('id')
+
+  if (error) {
+    throw new Error(`Failed to flip completed instances: ${error.message}`)
+  }
+
+  return (data ?? []).length
+}
 
 /**
  * Attendance summary cron body — DB reads/writes + Telegram send, called with
@@ -53,15 +88,10 @@ type SystemHealthCheckRow = { table_row_counts: SystemHealthPayload | null }
  * grouped by event instance (cancelled instances are annotated, not hidden —
  * see attendance-summary.ts's instanceLabel).
  *
- * Idempotency note: identical shape and identical accepted gap to
- * birthday-digest.impl.ts's runBirthdayDigest — the read-then-write check
- * closes the sequential re-fire case but NOT a concurrent double-invoke (two
- * overlapping invocations can both read "nothing sent yet" before either
- * writes, producing two Telegram sends). Accepted for Sprint 4 for the same
- * reason: worst case is a duplicate message, not corruption. Real fix is a DB
- * partial unique index on system_health(source, ict_date), deferred to land
- * with the Sprint 5 `table_row_counts` → `payload` rename (D/7), which now
- * explicitly covers both crons.
+ * Idempotency: claim-first against system_health(source, ict_date) via
+ * lib/cron/idempotent-claim.ts (Sprint 5 T5) — identical mechanism and
+ * identical accepted residual to birthday-digest.impl.ts's runBirthdayDigest;
+ * see that file's comment and docs/sprint-5-task-5-verify.md.
  */
 export async function runAttendanceSummary(input: AttendanceSummaryInput): Promise<AttendanceSummaryResult> {
   const {
@@ -71,27 +101,18 @@ export async function runAttendanceSummary(input: AttendanceSummaryInput): Promi
     getToken = defaultGetToken,
   } = input
 
+  const flippedCount = await flipCompletedInstances(supabase, now)
+
   const { ictDate, startUtc, endUtc } = computeIctDayBounds(now)
 
-  const { data: recentHealth, error: healthReadErr } = await supabase
-    .from('system_health')
-    .select('table_row_counts')
-    .eq('status', 'ok')
-    .gte('checked_at', startUtc.toISOString())
-    .lt('checked_at', endUtc.toISOString())
-
-  if (healthReadErr) {
-    throw new Error(`Failed to read system_health: ${healthReadErr.message}`)
+  const claim = await claimCronSlot({ supabase, source: ATTENDANCE_SUMMARY_SOURCE, ictDate, now })
+  if (claim.outcome === 'already_done') {
+    return { status: 'skipped_already_sent', ict_date: ictDate, flipped_count: flippedCount }
   }
-
-  const alreadySent = ((recentHealth ?? []) as SystemHealthCheckRow[]).some(
-    (row) =>
-      row.table_row_counts?.source === ATTENDANCE_SUMMARY_SOURCE &&
-      row.table_row_counts?.ict_date === ictDate,
-  )
-  if (alreadySent) {
-    return { status: 'skipped_already_sent', ict_date: ictDate }
+  if (claim.outcome === 'concurrent') {
+    return { status: 'skipped_concurrent', ict_date: ictDate, flipped_count: flippedCount }
   }
+  const { claimId } = claim
 
   const { data: rawRows, error: attendanceErr } = await supabase
     .from('attendance_summary')
@@ -109,17 +130,14 @@ export async function runAttendanceSummary(input: AttendanceSummaryInput): Promi
   const rows = (rawRows ?? []) as AttendanceRow[]
 
   if (rows.length === 0) {
-    // Non-fatal: the empty-day outcome is already decided even if this write
-    // fails — same reasoning as birthday-digest's empty-day write.
-    const { error: writeErr } = await supabase.from('system_health').insert({
-      checked_at: now.toISOString(),
-      table_row_counts: { source: ATTENDANCE_SUMMARY_SOURCE, ict_date: ictDate, count: 0 },
+    await resolveCronClaim({
+      supabase,
+      claimId,
       status: 'ok',
+      now,
+      payload: { source: ATTENDANCE_SUMMARY_SOURCE, ict_date: ictDate, count: 0 },
     })
-    if (writeErr) {
-      console.warn('[attendance-summary] system_health write failed:', writeErr.message)
-    }
-    return { status: 'empty', ict_date: ictDate }
+    return { status: 'empty', ict_date: ictDate, flipped_count: flippedCount }
   }
 
   const instances = groupAttendanceByInstance(rows)
@@ -151,34 +169,29 @@ export async function runAttendanceSummary(input: AttendanceSummaryInput): Promi
 
   if (!sendResult.ok) {
     const reason = sendResult.reason === 'http_error' ? sendResult.description : sendResult.message
-    const { error: writeErr } = await supabase.from('system_health').insert({
-      checked_at: now.toISOString(),
-      table_row_counts: { source: ATTENDANCE_SUMMARY_SOURCE, ict_date: ictDate, count },
+    await resolveCronClaim({
+      supabase,
+      claimId,
       status: 'degraded',
+      now,
       notes: `attendance-summary send failed: ${reason}`,
+      payload: { source: ATTENDANCE_SUMMARY_SOURCE, ict_date: ictDate, count },
     })
-    if (writeErr) {
-      console.warn('[attendance-summary] system_health write failed:', writeErr.message)
-    }
-    return { status: 'send_failed', ict_date: ictDate, count, reason }
+    return { status: 'send_failed', ict_date: ictDate, count, reason, flipped_count: flippedCount }
   }
 
-  // Non-fatal: the send already succeeded — a write failure here means the
-  // next invocation's idempotency check won't see it and may re-send, not
-  // that this run failed.
-  const { error: writeErr } = await supabase.from('system_health').insert({
-    checked_at: now.toISOString(),
-    table_row_counts: {
+  await resolveCronClaim({
+    supabase,
+    claimId,
+    status: 'ok',
+    now,
+    payload: {
       source: ATTENDANCE_SUMMARY_SOURCE,
       ict_date: ictDate,
       count,
       message_id: sendResult.messageId,
     },
-    status: 'ok',
   })
-  if (writeErr) {
-    console.warn('[attendance-summary] system_health write failed:', writeErr.message)
-  }
 
-  return { status: 'sent', ict_date: ictDate, count, message_id: sendResult.messageId }
+  return { status: 'sent', ict_date: ictDate, count, message_id: sendResult.messageId, flipped_count: flippedCount }
 }

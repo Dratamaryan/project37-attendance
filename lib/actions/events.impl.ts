@@ -273,7 +273,7 @@ export async function impl_cancelInstance({
     .from('event_instances')
     .update(updatePayload)
     .eq('id', instanceId)
-    .neq('status', 'cancelled')
+    .eq('status', 'scheduled')
     .select('id')
 
   if (updateError) {
@@ -308,8 +308,13 @@ export async function impl_cancelInstance({
   if (inst.status === 'cancelled') {
     return { status: 'already_cancelled' }
   }
+  if (inst.status !== 'scheduled') {
+    // 'completed' (or any other non-scheduled, non-cancelled state) — a state/
+    // business-rule denial, distinct from an RLS/permission denial below.
+    return { status: 'not_cancellable', current_status: inst.status }
+  }
 
-  // Found with non-cancelled status but UPDATE returned 0 rows → RLS blocked organizer
+  // Found scheduled but UPDATE returned 0 rows → RLS blocked organizer
   return { status: 'forbidden', message: 'Permission denied' }
 }
 

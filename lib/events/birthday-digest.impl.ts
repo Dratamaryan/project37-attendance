@@ -1,10 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { addHours } from 'date-fns'
 
-import { formatJakarta, toJakartaInstant } from '@/lib/events/timezone'
+import { formatJakarta } from '@/lib/events/timezone'
 import { selectBirthdaysToday, formatBirthdayDigest, type PersonRow } from '@/lib/events/birthday-digest'
 import { sendTelegramMessage, type SendTelegramMessageResult } from '@/lib/telegram/client'
 import { resolveChatId } from '@/lib/telegram/chat-id'
+import { claimCronSlot, resolveCronClaim } from '@/lib/cron/idempotent-claim'
 
 // lib/telegram/token.ts imports the `server-only` package, which throws on import
 // outside a real server context — including under Vitest's Node resolution (same
@@ -22,6 +22,7 @@ export const BIRTHDAY_DIGEST_SOURCE = 'birthday-digest'
 
 export type BirthdayDigestResult =
   | { status: 'skipped_already_sent'; ict_date: string }
+  | { status: 'skipped_concurrent'; ict_date: string }
   | { status: 'empty'; ict_date: string }
   | { status: 'sent'; ict_date: string; count: number; message_id: number }
   | { status: 'send_failed'; ict_date: string; count: number; reason: string }
@@ -41,22 +42,17 @@ export type BirthdayDigestInput = {
 }
 
 type AppSettingsChatIdRow = { telegram_admin_chat_id: string | null }
-type SystemHealthPayload = { source?: string; ict_date?: string }
-type SystemHealthCheckRow = { table_row_counts: SystemHealthPayload | null }
 
 /**
  * Birthday digest cron body — DB reads/writes + Telegram send, called with `now`
  * captured once by the route handler (never a second `new Date()` here, per D/3).
  *
- * Idempotency note: the read-then-write check below closes the sequential
- * re-fire case (a later invocation sees the prior `ok` row and skips) but NOT
- * a concurrent double-invoke — two overlapping invocations can both read
- * "nothing sent yet" before either writes, producing two Telegram sends.
- * Accepted for Sprint 4: worst case is a duplicate (ugly, not harmful — no
- * wrong-person greeting, no data corruption), and the real fix is a DB-level
- * partial unique index on system_health(source, ict_date), which wants
- * typed columns and belongs with the D/7 `table_row_counts` → `payload`
- * rename already deferred to Sprint 5. See docs/sprint-4-task-5-verify.md.
+ * Idempotency: claim-first against system_health(source, ict_date) via
+ * lib/cron/idempotent-claim.ts (Sprint 5 T5) — see that file for the full
+ * outcome-state-machine rationale (concurrent double-invoke, already-sent skip,
+ * degraded/stale-pending reattempt) and the one accepted residual (a crash between
+ * a successful send and the resolveCronClaim write can still cause a duplicate on a
+ * later retry — see docs/sprint-5-task-5-verify.md).
  */
 export async function runBirthdayDigest(input: BirthdayDigestInput): Promise<BirthdayDigestResult> {
   const {
@@ -67,28 +63,15 @@ export async function runBirthdayDigest(input: BirthdayDigestInput): Promise<Bir
   } = input
 
   const todayICT = formatJakarta(now, 'yyyy-MM-dd')
-  const dayStartUtc = toJakartaInstant(todayICT, '00:00')
-  const dayEndUtc = addHours(dayStartUtc, 24)
 
-  const { data: recentHealth, error: healthReadErr } = await supabase
-    .from('system_health')
-    .select('table_row_counts')
-    .eq('status', 'ok')
-    .gte('checked_at', dayStartUtc.toISOString())
-    .lt('checked_at', dayEndUtc.toISOString())
-
-  if (healthReadErr) {
-    throw new Error(`Failed to read system_health: ${healthReadErr.message}`)
-  }
-
-  const alreadySent = ((recentHealth ?? []) as SystemHealthCheckRow[]).some(
-    (row) =>
-      row.table_row_counts?.source === BIRTHDAY_DIGEST_SOURCE &&
-      row.table_row_counts?.ict_date === todayICT,
-  )
-  if (alreadySent) {
+  const claim = await claimCronSlot({ supabase, source: BIRTHDAY_DIGEST_SOURCE, ictDate: todayICT, now })
+  if (claim.outcome === 'already_done') {
     return { status: 'skipped_already_sent', ict_date: todayICT }
   }
+  if (claim.outcome === 'concurrent') {
+    return { status: 'skipped_concurrent', ict_date: todayICT }
+  }
+  const { claimId } = claim
 
   const { data: rawPeople, error: peopleErr } = await supabase
     .from('people')
@@ -103,16 +86,13 @@ export async function runBirthdayDigest(input: BirthdayDigestInput): Promise<Bir
   const birthdayPeople = selectBirthdaysToday((rawPeople ?? []) as PersonRow[], todayICT)
 
   if (birthdayPeople.length === 0) {
-    // Non-fatal: the empty-day outcome is already decided even if this write fails —
-    // same reasoning as materializeEvents' observability write (materialize.impl.ts).
-    const { error: writeErr } = await supabase.from('system_health').insert({
-      checked_at: now.toISOString(),
-      table_row_counts: { source: BIRTHDAY_DIGEST_SOURCE, ict_date: todayICT, count: 0 },
+    await resolveCronClaim({
+      supabase,
+      claimId,
       status: 'ok',
+      now,
+      payload: { source: BIRTHDAY_DIGEST_SOURCE, ict_date: todayICT, count: 0 },
     })
-    if (writeErr) {
-      console.warn('[birthday-digest] system_health write failed:', writeErr.message)
-    }
     return { status: 'empty', ict_date: todayICT }
   }
 
@@ -142,37 +122,29 @@ export async function runBirthdayDigest(input: BirthdayDigestInput): Promise<Bir
 
   if (!sendResult.ok) {
     const reason = sendResult.reason === 'http_error' ? sendResult.description : sendResult.message
-    const { error: writeErr } = await supabase.from('system_health').insert({
-      checked_at: now.toISOString(),
-      table_row_counts: {
-        source: BIRTHDAY_DIGEST_SOURCE,
-        ict_date: todayICT,
-        count: birthdayPeople.length,
-      },
+    await resolveCronClaim({
+      supabase,
+      claimId,
       status: 'degraded',
+      now,
       notes: `birthday-digest send failed: ${reason}`,
+      payload: { source: BIRTHDAY_DIGEST_SOURCE, ict_date: todayICT, count: birthdayPeople.length },
     })
-    if (writeErr) {
-      console.warn('[birthday-digest] system_health write failed:', writeErr.message)
-    }
     return { status: 'send_failed', ict_date: todayICT, count: birthdayPeople.length, reason }
   }
 
-  // Non-fatal: the send already succeeded — a write failure here means the next
-  // invocation's idempotency check won't see it and may re-send, not that this run failed.
-  const { error: writeErr } = await supabase.from('system_health').insert({
-    checked_at: now.toISOString(),
-    table_row_counts: {
+  await resolveCronClaim({
+    supabase,
+    claimId,
+    status: 'ok',
+    now,
+    payload: {
       source: BIRTHDAY_DIGEST_SOURCE,
       ict_date: todayICT,
       count: birthdayPeople.length,
       message_id: sendResult.messageId,
     },
-    status: 'ok',
   })
-  if (writeErr) {
-    console.warn('[birthday-digest] system_health write failed:', writeErr.message)
-  }
 
   return {
     status: 'sent',

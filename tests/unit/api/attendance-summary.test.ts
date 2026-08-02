@@ -57,7 +57,7 @@ describe('GET /api/cron/attendance-summary', () => {
 
   it('AUTH-04: correct Bearer, empty day → impl invoked, 200 with result shape', async () => {
     process.env.CRON_SECRET = 'test-secret';
-    vi.mocked(runAttendanceSummary).mockResolvedValue({ status: 'empty', ict_date: '2026-07-29' });
+    vi.mocked(runAttendanceSummary).mockResolvedValue({ status: 'empty', ict_date: '2026-07-29', flipped_count: 0 });
     const res = await GET(makeRequest({ authorization: 'Bearer test-secret' }));
     expect(res.status).toBe(200);
     const body = (await res.json()) as Record<string, unknown>;
@@ -67,7 +67,7 @@ describe('GET /api/cron/attendance-summary', () => {
 
   it('no check-ins today → still 200, no throw', async () => {
     process.env.CRON_SECRET = 'test-secret';
-    vi.mocked(runAttendanceSummary).mockResolvedValue({ status: 'empty', ict_date: '2026-07-29' });
+    vi.mocked(runAttendanceSummary).mockResolvedValue({ status: 'empty', ict_date: '2026-07-29', flipped_count: 0 });
     const res = await GET(makeRequest({ authorization: 'Bearer test-secret' }));
     expect(res.status).toBe(200);
   });
@@ -79,6 +79,7 @@ describe('GET /api/cron/attendance-summary', () => {
       ict_date: '2026-07-29',
       count: 12,
       reason: 'network_error',
+      flipped_count: 0,
     });
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const res = await GET(makeRequest({ authorization: 'Bearer test-secret' }));

@@ -60,6 +60,7 @@ export type CancelInstanceResult =
   | { status: 'ok'; instance_id: string }
   | { status: 'not_found' }
   | { status: 'already_cancelled' }
+  | { status: 'not_cancellable'; current_status: string }
   | { status: 'forbidden'; message: string }
   | { status: 'error'; message: string }
 

@@ -547,6 +547,44 @@ describe('event server actions', () => {
     expect(auditAfter ?? 0).toBe(auditBefore ?? 0)
   })
 
+  it('ACT-14: cancelInstance on a completed instance as ADMIN → not_cancellable (state denial, not RLS denial); row unchanged by row-count proof, no audit row', async () => {
+    // Admin has full RLS grant (event_instances_admin_all is FOR ALL) — this proves
+    // the app-level status guard itself, not RLS, is what blocks a completed instance.
+    await serviceAdmin.from('event_instances').update({ status: 'completed' }).eq('id', seedInstanceId)
+
+    const { count: auditBefore } = await serviceAdmin
+      .from('audit_log')
+      .select('*', { count: 'exact', head: true })
+      .eq('entity_type', 'event_instance')
+      .eq('entity_id', seedInstanceId)
+      .eq('action', 'event_instance.cancel')
+
+    const result = await impl_cancelInstance({
+      supabase: adminSession,
+      adminSupabase: serviceAdmin,
+      instanceId: seedInstanceId,
+    })
+
+    expect(result).toEqual({ status: 'not_cancellable', current_status: 'completed' })
+
+    // Row-count proof, not absence-of-error: re-fetch via admin client and confirm
+    // the UPDATE touched zero rows — status is still 'completed', not 'cancelled'.
+    const { data: inst } = await serviceAdmin
+      .from('event_instances')
+      .select('status')
+      .eq('id', seedInstanceId)
+      .single()
+    expect((inst as { status: string } | null)?.status).toBe('completed')
+
+    const { count: auditAfter } = await serviceAdmin
+      .from('audit_log')
+      .select('*', { count: 'exact', head: true })
+      .eq('entity_type', 'event_instance')
+      .eq('entity_id', seedInstanceId)
+      .eq('action', 'event_instance.cancel')
+    expect(auditAfter ?? 0).toBe(auditBefore ?? 0)
+  })
+
   // ── listEvents ────────────────────────────────────────────────────────────
 
   it('ACT-11: listEvents as organizer → ≥ 2 active events; active=false filter excludes active seed events', async () => {
