@@ -253,7 +253,9 @@
         "users_title": "Pengguna",
         "users_description": "Undang organizer dan kelola akses admin",
         "settings_title": "Pengaturan",
-        "settings_description": "Konfigurasi aplikasi, status Telegram, dan kurasi paroki"
+        "settings_description": "Konfigurasi aplikasi, status Telegram, dan kurasi paroki",
+        "audit_log_title": "Log Audit",
+        "audit_log_description": "Jejak hanya-baca dan bisa difilter untuk setiap perubahan data anggota dan pengaturan"
       }
     },
     "analytics": {
@@ -652,6 +654,76 @@
           "self_deactivate": "Anda tidak dapat menonaktifkan akun Anda sendiri.",
           "generic": "Terjadi kesalahan. Silakan coba lagi."
         }
+      }
+    },
+    "audit_log": {
+      "title": "Log Audit",
+      "subtitle": "Jejak hanya-baca untuk setiap perubahan data anggota, pengaturan, dan tindakan admin.",
+      "default_window_note": "Menampilkan 30 hari terakhir secara default — perluas rentang tanggal untuk melihat lebih banyak.",
+      "loading": "Memuat...",
+      "error": "Gagal memuat log audit. Silakan coba lagi.",
+      "empty_state": "Tidak ada entri log audit.",
+      "empty_state_filtered": "Tidak ada entri yang cocok dengan filter ini.",
+      "filters": {
+        "actor_label": "Pelaku",
+        "actor_all": "Semua pelaku",
+        "action_label": "Tindakan",
+        "action_all": "Semua tindakan",
+        "entity_type_label": "Jenis entitas",
+        "entity_type_placeholder": "misalnya people, app_settings",
+        "from_label": "Dari",
+        "to_label": "Sampai"
+      },
+      "table": {
+        "time": "Waktu",
+        "actor": "Pelaku",
+        "action": "Tindakan",
+        "entity": "Entitas",
+        "details": "Detail"
+      },
+      "actor": {
+        "system": "Sistem",
+        "unknown": "Tidak diketahui ({id})"
+      },
+      "details": {
+        "show": "Tampilkan detail",
+        "hide": "Sembunyikan detail",
+        "none": "Tidak ada detail tercatat"
+      },
+      "pagination": {
+        "total": "{count} entri",
+        "prev": "Sebelumnya",
+        "next": "Berikutnya"
+      },
+      "actions": {
+        "PEOPLE_CREATE": "Orang ditambahkan",
+        "PEOPLE_UPDATE": "Orang diperbarui",
+        "PEOPLE_SOFT_DELETE": "Orang dihapus",
+        "PEOPLE_RESTORE": "Orang dipulihkan",
+        "CONSENT_GRANT": "Persetujuan diberikan",
+        "CONSENT_REVOKE": "Persetujuan dicabut",
+        "CHECKIN_CREATE": "Check-in dicatat",
+        "CHECKIN_CANCEL": "Check-in dibatalkan",
+        "SETTINGS_UPDATE": "Pengaturan diperbarui",
+        "PARISH_CREATE": "Paroki diajukan",
+        "PARISH_APPROVE": "Paroki disetujui",
+        "PHOTO_UPLOAD": "Foto diunggah",
+        "PHOTO_DELETE": "Foto dihapus",
+        "EVENT_CREATE": "Acara dibuat",
+        "EVENT_UPDATE": "Acara diperbarui",
+        "EVENT_INSTANCE_CANCEL": "Instansi acara dibatalkan",
+        "ATTENDANCE_CREATE": "Kehadiran dicatat",
+        "EXPORT_CREATE": "Ekspor dibuat",
+        "IMPORT_DRY_RUN": "Uji coba impor",
+        "IMPORT_COMMIT": "Impor disimpan",
+        "EVENT_INVITE_SEND": "Undangan dikirim",
+        "EVENT_INVITE_RESEND": "Undangan dikirim ulang",
+        "APP_USER_INVITE": "Pengguna diundang",
+        "APP_USER_ROLE_CHANGE": "Peran pengguna diubah",
+        "APP_USER_DEACTIVATE": "Pengguna dinonaktifkan",
+        "APP_USER_REACTIVATE": "Pengguna diaktifkan kembali",
+        "BIRTHDAY_DIGEST_MANUAL_TRIGGER": "Digest ulang tahun dijalankan manual",
+        "ATTENDANCE_SUMMARY_MANUAL_TRIGGER": "Ringkasan kehadiran dijalankan manual"
       }
     }
   }

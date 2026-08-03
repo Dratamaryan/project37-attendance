@@ -253,7 +253,9 @@
         "users_title": "Users",
         "users_description": "Invite organizers and manage admin access",
         "settings_title": "Settings",
-        "settings_description": "App configuration, Telegram status, and parish curation"
+        "settings_description": "App configuration, Telegram status, and parish curation",
+        "audit_log_title": "Audit Log",
+        "audit_log_description": "Filterable, read-only trail of every change to member data and settings"
       }
     },
     "analytics": {
@@ -652,6 +654,76 @@
           "self_deactivate": "You can't deactivate your own account.",
           "generic": "Something went wrong. Please try again."
         }
+      }
+    },
+    "audit_log": {
+      "title": "Audit Log",
+      "subtitle": "A read-only trail of every change to member data, settings, and admin actions.",
+      "default_window_note": "Showing the last 30 days by default — widen the date range to see more.",
+      "loading": "Loading...",
+      "error": "Couldn't load the audit log. Please try again.",
+      "empty_state": "No audit log entries found.",
+      "empty_state_filtered": "No entries match these filters.",
+      "filters": {
+        "actor_label": "Actor",
+        "actor_all": "All actors",
+        "action_label": "Action",
+        "action_all": "All actions",
+        "entity_type_label": "Entity type",
+        "entity_type_placeholder": "e.g. people, app_settings",
+        "from_label": "From",
+        "to_label": "To"
+      },
+      "table": {
+        "time": "Time",
+        "actor": "Actor",
+        "action": "Action",
+        "entity": "Entity",
+        "details": "Details"
+      },
+      "actor": {
+        "system": "System",
+        "unknown": "Unknown ({id})"
+      },
+      "details": {
+        "show": "Show details",
+        "hide": "Hide details",
+        "none": "No details recorded"
+      },
+      "pagination": {
+        "total": "{count} entries",
+        "prev": "Previous",
+        "next": "Next"
+      },
+      "actions": {
+        "PEOPLE_CREATE": "Person created",
+        "PEOPLE_UPDATE": "Person updated",
+        "PEOPLE_SOFT_DELETE": "Person deleted",
+        "PEOPLE_RESTORE": "Person restored",
+        "CONSENT_GRANT": "Consent granted",
+        "CONSENT_REVOKE": "Consent revoked",
+        "CHECKIN_CREATE": "Check-in recorded",
+        "CHECKIN_CANCEL": "Check-in cancelled",
+        "SETTINGS_UPDATE": "Settings updated",
+        "PARISH_CREATE": "Parish submitted",
+        "PARISH_APPROVE": "Parish approved",
+        "PHOTO_UPLOAD": "Photo uploaded",
+        "PHOTO_DELETE": "Photo deleted",
+        "EVENT_CREATE": "Event created",
+        "EVENT_UPDATE": "Event updated",
+        "EVENT_INSTANCE_CANCEL": "Event instance cancelled",
+        "ATTENDANCE_CREATE": "Attendance recorded",
+        "EXPORT_CREATE": "Export generated",
+        "IMPORT_DRY_RUN": "Import dry-run",
+        "IMPORT_COMMIT": "Import committed",
+        "EVENT_INVITE_SEND": "Invite sent",
+        "EVENT_INVITE_RESEND": "Invite resent",
+        "APP_USER_INVITE": "User invited",
+        "APP_USER_ROLE_CHANGE": "User role changed",
+        "APP_USER_DEACTIVATE": "User deactivated",
+        "APP_USER_REACTIVATE": "User reactivated",
+        "BIRTHDAY_DIGEST_MANUAL_TRIGGER": "Birthday digest run manually",
+        "ATTENDANCE_SUMMARY_MANUAL_TRIGGER": "Attendance summary run manually"
       }
     }
   }
