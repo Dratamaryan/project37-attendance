@@ -5,9 +5,11 @@ import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { updateSettings, getHorizonImpact } from '@/lib/actions/settings'
 import { approveParish } from '@/lib/actions/parishes-admin'
+import { runBirthdayDigestNow, runAttendanceSummaryNow } from '@/lib/actions/digest-triggers'
 import { resolveChatId } from '@/lib/telegram/chat-id'
 import type { AppSettingsRow, UpdateSettingsInput } from '@/lib/actions/settings.types'
 import type { ParishSearchResult } from '@/lib/actions/parishes.types'
+import type { BirthdayDigestResult, AttendanceSummaryResult } from '@/lib/actions/digest-triggers.types'
 
 type Props = {
   initialSettings: AppSettingsRow | null
@@ -43,6 +45,8 @@ export function SettingsClient({
         botConfigured={telegramBotConfigured}
         t={t}
       />
+
+      <AdminActionsSection t={t} />
 
       <ParishesSection
         initialParishes={initialPendingParishes}
@@ -319,6 +323,179 @@ function TelegramSection({
       </div>
 
       <p className="text-xs text-muted">{t('telegram.caveat')}</p>
+    </section>
+  )
+}
+
+// ── Admin actions: test Telegram + manual digest/summary triggers ───────────
+
+type OutcomeTone = 'success' | 'error' | 'neutral'
+type Outcome = { tone: OutcomeTone; text: string } | null
+
+function extractTelegramTestErrorReason(body: unknown): string | undefined {
+  if (typeof body !== 'object' || body === null) return undefined
+  const b = body as Record<string, unknown>
+  if (typeof b.description === 'string') return b.description
+  if (typeof b.message === 'string') return b.message
+  if (typeof b.error === 'string') return b.error
+  if (typeof b.reason === 'string') return b.reason
+  return undefined
+}
+
+function mapBirthdayDigestOutcome(result: BirthdayDigestResult, t: TFunc): Outcome {
+  switch (result.status) {
+    case 'sent':
+      return { tone: 'success', text: t('admin_actions.run_digest.sent', { count: result.count }) }
+    case 'skipped_already_sent':
+      return { tone: 'neutral', text: t('admin_actions.run_digest.skipped') }
+    case 'skipped_concurrent':
+      return { tone: 'neutral', text: t('admin_actions.run_digest.concurrent') }
+    case 'empty':
+      return { tone: 'neutral', text: t('admin_actions.run_digest.empty') }
+    case 'send_failed':
+      return { tone: 'error', text: t('admin_actions.run_digest.failed', { reason: result.reason }) }
+  }
+}
+
+function mapAttendanceSummaryOutcome(result: AttendanceSummaryResult, t: TFunc): Outcome {
+  const flipped =
+    result.flipped_count > 0 ? ` ${t('admin_actions.run_summary.flipped', { count: result.flipped_count })}` : ''
+  switch (result.status) {
+    case 'sent':
+      return { tone: 'success', text: t('admin_actions.run_summary.sent', { count: result.count }) + flipped }
+    case 'skipped_already_sent':
+      return { tone: 'neutral', text: t('admin_actions.run_summary.skipped') + flipped }
+    case 'skipped_concurrent':
+      return { tone: 'neutral', text: t('admin_actions.run_summary.concurrent') + flipped }
+    case 'empty':
+      return { tone: 'neutral', text: t('admin_actions.run_summary.empty') + flipped }
+    case 'send_failed':
+      return { tone: 'error', text: t('admin_actions.run_summary.failed', { reason: result.reason }) + flipped }
+  }
+}
+
+const OUTCOME_CLASS: Record<OutcomeTone, string> = {
+  success: 'text-green-700',
+  error: 'text-red-600',
+  neutral: 'text-muted',
+}
+
+function AdminActionsSection({ t }: { t: TFunc }) {
+  const [testResult, setTestResult] = useState<Outcome>(null)
+  const [isTesting, startTest] = useTransition()
+
+  const [digestResult, setDigestResult] = useState<Outcome>(null)
+  const [isRunningDigest, startDigest] = useTransition()
+
+  const [summaryResult, setSummaryResult] = useState<Outcome>(null)
+  const [isRunningSummary, startSummary] = useTransition()
+
+  function handleSendTest() {
+    setTestResult(null)
+    startTest(async () => {
+      try {
+        const response = await fetch('/api/admin/telegram/test', { method: 'POST' })
+        const body: unknown = await response.json()
+        if (response.ok) {
+          setTestResult({ tone: 'success', text: t('admin_actions.test_telegram.success') })
+        } else {
+          const reason = extractTelegramTestErrorReason(body)
+          setTestResult({
+            tone: 'error',
+            text: reason
+              ? t('admin_actions.test_telegram.error', { reason })
+              : t('admin_actions.test_telegram.error_generic'),
+          })
+        }
+      } catch {
+        setTestResult({ tone: 'error', text: t('admin_actions.test_telegram.error_generic') })
+      }
+    })
+  }
+
+  function handleRunDigest() {
+    setDigestResult(null)
+    startDigest(async () => {
+      const result = await runBirthdayDigestNow()
+      if (result.status === 'not_authorized') {
+        setDigestResult({ tone: 'error', text: t('admin_actions.not_authorized') })
+        return
+      }
+      setDigestResult(mapBirthdayDigestOutcome(result, t))
+    })
+  }
+
+  function handleRunSummary() {
+    setSummaryResult(null)
+    startSummary(async () => {
+      const result = await runAttendanceSummaryNow()
+      if (result.status === 'not_authorized') {
+        setSummaryResult({ tone: 'error', text: t('admin_actions.not_authorized') })
+        return
+      }
+      setSummaryResult(mapAttendanceSummaryOutcome(result, t))
+    })
+  }
+
+  return (
+    <section className="bg-cream-2 border border-line rounded-lg p-5 space-y-5">
+      <h2 className="font-heading text-lg font-semibold text-charcoal">{t('admin_actions.title')}</h2>
+
+      <div className="space-y-2">
+        <button
+          type="button"
+          onClick={handleSendTest}
+          disabled={isTesting}
+          className="inline-flex items-center justify-center rounded-sm border border-line px-4 py-2 text-sm font-medium text-charcoal hover:bg-cream transition-colors disabled:opacity-50"
+        >
+          {isTesting ? t('admin_actions.test_telegram.button_pending') : t('admin_actions.test_telegram.button')}
+        </button>
+        {testResult && (
+          <p role={testResult.tone === 'error' ? 'alert' : 'status'} className={`text-sm ${OUTCOME_CLASS[testResult.tone]}`}>
+            {testResult.text}
+          </p>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <button
+          type="button"
+          onClick={handleRunDigest}
+          disabled={isRunningDigest}
+          className="inline-flex items-center justify-center rounded-sm border border-line px-4 py-2 text-sm font-medium text-charcoal hover:bg-cream transition-colors disabled:opacity-50"
+        >
+          {isRunningDigest ? t('admin_actions.run_digest.button_pending') : t('admin_actions.run_digest.button')}
+        </button>
+        <p className="text-xs text-muted">{t('admin_actions.run_digest.help')}</p>
+        {digestResult && (
+          <p
+            role={digestResult.tone === 'error' ? 'alert' : 'status'}
+            className={`text-sm ${OUTCOME_CLASS[digestResult.tone]}`}
+          >
+            {digestResult.text}
+          </p>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <button
+          type="button"
+          onClick={handleRunSummary}
+          disabled={isRunningSummary}
+          className="inline-flex items-center justify-center rounded-sm border border-line px-4 py-2 text-sm font-medium text-charcoal hover:bg-cream transition-colors disabled:opacity-50"
+        >
+          {isRunningSummary ? t('admin_actions.run_summary.button_pending') : t('admin_actions.run_summary.button')}
+        </button>
+        <p className="text-xs text-muted">{t('admin_actions.run_summary.help')}</p>
+        {summaryResult && (
+          <p
+            role={summaryResult.tone === 'error' ? 'alert' : 'status'}
+            className={`text-sm ${OUTCOME_CLASS[summaryResult.tone]}`}
+          >
+            {summaryResult.text}
+          </p>
+        )}
+      </div>
     </section>
   )
 }

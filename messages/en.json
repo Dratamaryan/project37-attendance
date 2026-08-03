@@ -192,7 +192,39 @@
       "chat_id_kind_supergroup": "Supergroup",
       "chat_id_kind_channel_username": "Channel",
       "chat_id_malformed": "Configured, but the format looks malformed",
-      "caveat": "A structurally valid chat ID is not proof it's the correct one — editing and test-send verification are planned for a future task."
+      "caveat": "A structurally valid chat ID is not proof it's the correct one — use Send test message below to verify delivery. Editing this value is planned for a future task."
+    },
+    "admin_actions": {
+      "title": "Admin actions",
+      "not_authorized": "You are not authorized to do this.",
+      "test_telegram": {
+        "button": "Send test message",
+        "button_pending": "Sending…",
+        "success": "Test message sent.",
+        "error": "Failed to send: {reason}",
+        "error_generic": "Failed to send test message."
+      },
+      "run_digest": {
+        "button": "Run birthday digest now",
+        "button_pending": "Running…",
+        "help": "Shares today's send slot with the scheduled digest — if it already sent today, this will not send again.",
+        "sent": "Sent — {count} birthday(s).",
+        "skipped": "Already sent today — skipped.",
+        "concurrent": "A run is already in progress — refresh in a moment.",
+        "empty": "Nothing to send today.",
+        "failed": "Send failed: {reason}"
+      },
+      "run_summary": {
+        "button": "Run attendance summary now",
+        "button_pending": "Running…",
+        "help": "Shares today's send slot with the scheduled summary — if it already sent today, this will not send again. Also marks any past event today as completed, whether or not a new summary is sent.",
+        "sent": "Sent — {count} check-in(s).",
+        "skipped": "Already sent today — skipped.",
+        "concurrent": "A run is already in progress — refresh in a moment.",
+        "empty": "Nothing to send today.",
+        "failed": "Send failed: {reason}",
+        "flipped": "{count} event(s) marked completed."
+      }
     },
     "parishes": {
       "title": "Pending parishes",

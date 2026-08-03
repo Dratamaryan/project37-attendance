@@ -78,6 +78,11 @@ vi.mock('@/lib/actions/parishes-admin', () => ({
   approveParish: vi.fn(),
 }))
 
+vi.mock('@/lib/actions/digest-triggers', () => ({
+  runBirthdayDigestNow: vi.fn(),
+  runAttendanceSummaryNow: vi.fn(),
+}))
+
 describe('SettingsPage — Telegram token never in rendered output', () => {
   beforeEach(() => {
     mockRole = 'admin'

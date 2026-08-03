@@ -192,7 +192,39 @@
       "chat_id_kind_supergroup": "Supergrup",
       "chat_id_kind_channel_username": "Saluran",
       "chat_id_malformed": "Terkonfigurasi, tetapi formatnya tampak tidak valid",
-      "caveat": "ID chat yang valid secara struktur bukan bukti bahwa itu benar — pengeditan dan verifikasi kirim-uji direncanakan untuk tugas mendatang."
+      "caveat": "ID chat yang valid secara struktur bukan bukti bahwa itu benar — gunakan Kirim pesan uji di bawah untuk memverifikasi pengiriman. Pengeditan nilai ini direncanakan untuk tugas mendatang."
+    },
+    "admin_actions": {
+      "title": "Aksi admin",
+      "not_authorized": "Anda tidak berwenang melakukan ini.",
+      "test_telegram": {
+        "button": "Kirim pesan uji",
+        "button_pending": "Mengirim…",
+        "success": "Pesan uji terkirim.",
+        "error": "Gagal mengirim: {reason}",
+        "error_generic": "Gagal mengirim pesan uji."
+      },
+      "run_digest": {
+        "button": "Jalankan ringkasan ulang tahun sekarang",
+        "button_pending": "Menjalankan…",
+        "help": "Menggunakan slot kirim hari ini yang sama dengan jadwal otomatis — jika sudah terkirim hari ini, ini tidak akan mengirim lagi.",
+        "sent": "Terkirim — {count} ulang tahun.",
+        "skipped": "Sudah terkirim hari ini — dilewati.",
+        "concurrent": "Proses lain sedang berjalan — muat ulang sebentar lagi.",
+        "empty": "Tidak ada yang perlu dikirim hari ini.",
+        "failed": "Pengiriman gagal: {reason}"
+      },
+      "run_summary": {
+        "button": "Jalankan ringkasan kehadiran sekarang",
+        "button_pending": "Menjalankan…",
+        "help": "Menggunakan slot kirim hari ini yang sama dengan jadwal otomatis — jika sudah terkirim hari ini, ini tidak akan mengirim lagi. Juga menandai acara masa lalu hari ini sebagai selesai, terlepas dari apakah ringkasan baru terkirim.",
+        "sent": "Terkirim — {count} check-in.",
+        "skipped": "Sudah terkirim hari ini — dilewati.",
+        "concurrent": "Proses lain sedang berjalan — muat ulang sebentar lagi.",
+        "empty": "Tidak ada yang perlu dikirim hari ini.",
+        "failed": "Pengiriman gagal: {reason}",
+        "flipped": "{count} acara ditandai selesai."
+      }
     },
     "parishes": {
       "title": "Paroki tertunda",

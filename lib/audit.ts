@@ -27,6 +27,8 @@ export const AUDIT_ACTIONS = {
   APP_USER_ROLE_CHANGE:    'app_user.role_change',
   APP_USER_DEACTIVATE:     'app_user.deactivate',
   APP_USER_REACTIVATE:     'app_user.reactivate',
+  BIRTHDAY_DIGEST_MANUAL_TRIGGER:   'birthday_digest.manual_trigger',
+  ATTENDANCE_SUMMARY_MANUAL_TRIGGER: 'attendance_summary.manual_trigger',
 } as const
 
 export type AuditAction = typeof AUDIT_ACTIONS[keyof typeof AUDIT_ACTIONS]
