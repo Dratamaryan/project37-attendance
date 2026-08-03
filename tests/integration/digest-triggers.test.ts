@@ -24,6 +24,8 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest'
 import { randomUUID } from 'crypto'
 import { impl_runBirthdayDigestNow, impl_runAttendanceSummaryNow } from '@/lib/actions/digest-triggers.impl'
+import { BIRTHDAY_DIGEST_SOURCE } from '@/lib/events/birthday-digest.impl'
+import { ATTENDANCE_SUMMARY_SOURCE } from '@/lib/events/attendance-summary.impl'
 import type { SendTelegramMessageResult } from '@/lib/telegram/client'
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -135,8 +137,30 @@ let adminId: string
 let adminSession: SupabaseClient
 let organizerSession: SupabaseClient
 
+// The claim rows this file's happy-path tests write via the real impl (not
+// via insertHealthRow, so they're never in `healthIds`) MUST be deleted, not
+// just the fixture rows above — their fixed future checked_at (2026-12-03/04)
+// otherwise sorts as the globally "latest" system_health row by any other
+// test file's `order('checked_at', { ascending: false }).limit(1)` query
+// (e.g. events-materialize.test.ts MAT-08), breaking it on a later run.
+// Called in both beforeAll (idempotent safety if a prior run crashed before
+// its own afterAll) and afterAll.
+async function cleanupClaimRows() {
+  await serviceAdmin
+    .from('system_health')
+    .delete()
+    .eq('source', BIRTHDAY_DIGEST_SOURCE)
+    .eq('ict_date', DIGEST_TODAY_ICT)
+  await serviceAdmin
+    .from('system_health')
+    .delete()
+    .eq('source', ATTENDANCE_SUMMARY_SOURCE)
+    .eq('ict_date', SUMMARY_TODAY_ICT)
+}
+
 beforeAll(async () => {
   serviceAdmin = createClient(url, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } })
+  await cleanupClaimRows()
 
   const admin = await createAppUserFixture('admin', 'admin')
   adminId = admin.id
@@ -170,6 +194,7 @@ beforeAll(async () => {
 }, 30_000)
 
 afterAll(async () => {
+  await cleanupClaimRows()
   await serviceAdmin.from('app_settings').update({ telegram_admin_chat_id: originalChatId }).eq('id', 1)
   if (eventId) {
     await serviceAdmin.from('event_instances').delete().eq('event_id', eventId)
