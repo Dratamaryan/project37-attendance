@@ -1,7 +1,12 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { impl_searchParishes, impl_createPendingParish } from '../parishes.impl'
+import { impl_searchParishes, impl_createPendingParish, impl_approveParish } from '../parishes.impl'
 import { AUDIT_ACTIONS } from '../../audit'
+
+const requireActiveAdminMock = vi.fn()
+vi.mock('@/lib/auth/require-admin', () => ({
+  requireActiveAdmin: (...args: unknown[]) => requireActiveAdminMock(...args),
+}))
 
 // ────────────────────────────────────────────────────────────────────────────
 // Mock factory
@@ -79,6 +84,11 @@ function makeMockSupabase(
     _builder: builder,
   } as unknown as MockSupabase
 }
+
+beforeEach(() => {
+  requireActiveAdminMock.mockReset()
+  requireActiveAdminMock.mockResolvedValue({ status: 'ok', actorId: ACTOR_ID, role: 'admin' })
+})
 
 // Sample fixture
 const MOCK_PARISH: MockResponse['data'] = {
@@ -192,5 +202,124 @@ describe('impl_createPendingParish', () => {
     if (result.status !== 'duplicate') return
     expect(result.existing.id).toBe('winner-id')
     expect(supabase.rpc).not.toHaveBeenCalled()
+  })
+})
+
+// ────────────────────────────────────────────────────────────────────────────
+// impl_approveParish — unit tests (mocked). Admin-gate mechanics themselves
+// are proven live against real Postgres in tests/integration/parish-approve.test.ts,
+// same split as settings.impl.ts's unit vs integration tests.
+// ────────────────────────────────────────────────────────────────────────────
+
+// impl_approveParish makes up to two separate `.from('parishes')` calls: the
+// UPDATE chain first, then (only if that matched zero rows) a disambiguation
+// SELECT. Each needs its own builder instance — a single shared builder
+// tracking "has .update() been called" breaks once the second .from() call
+// also resolves via the same shared maybeSingle().
+function makeApproveAdminFrom({
+  updateResult,
+  disambiguateResult,
+}: {
+  updateResult: MockResponse
+  disambiguateResult?: MockResponse
+}) {
+  let callCount = 0
+  return vi.fn().mockImplementation(() => {
+    callCount++
+    const isUpdateCall = callCount === 1
+    return {
+      update: vi.fn().mockReturnThis(),
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue(
+        isUpdateCall ? updateResult : (disambiguateResult ?? { data: null, error: null }),
+      ),
+    }
+  })
+}
+
+describe('impl_approveParish', () => {
+  const fakeUserSupabase = {} as unknown as SupabaseClient
+
+  it('not_authorized short-circuits before any DB call', async () => {
+    requireActiveAdminMock.mockResolvedValue({ status: 'denied' })
+    const fromMock = vi.fn()
+    const adminSupabase = { from: fromMock, rpc: vi.fn() } as unknown as SupabaseClient
+
+    const result = await impl_approveParish({
+      supabase: fakeUserSupabase,
+      adminSupabase,
+      input: { parishId: 'p1' },
+    })
+    expect(result.status).toBe('not_authorized')
+    expect(fromMock).not.toHaveBeenCalled()
+  })
+
+  it('happy path: pending -> approved, exactly one PARISH_APPROVE audit call', async () => {
+    const fromMock = makeApproveAdminFrom({
+      updateResult: { data: { id: 'p1', name: 'Katedral', city: null, region: null, status: 'approved' }, error: null },
+    })
+    const rpcMock = vi.fn().mockResolvedValue({ data: null, error: null })
+    const adminSupabase = { from: fromMock } as unknown as SupabaseClient
+    // logAudit is called with the caller's own JWT client (supabase), not adminSupabase —
+    // same convention as admin-users.impl.ts.
+    const userSupabase = { rpc: rpcMock } as unknown as SupabaseClient
+
+    const result = await impl_approveParish({
+      supabase: userSupabase,
+      adminSupabase,
+      input: { parishId: 'p1' },
+    })
+
+    expect(result).toEqual({
+      status: 'approved',
+      parish: { id: 'p1', name: 'Katedral', city: null, region: null, status: 'approved' },
+    })
+    expect(fromMock).toHaveBeenCalledTimes(1) // no disambiguation lookup needed — matched on the first UPDATE
+    const updateBuilder = fromMock.mock.results[0].value
+    expect(updateBuilder.eq).toHaveBeenCalledWith('status', 'pending')
+    expect(rpcMock).toHaveBeenCalledTimes(1)
+    expect(rpcMock).toHaveBeenCalledWith('log_audit', expect.objectContaining({
+      p_action: AUDIT_ACTIONS.PARISH_APPROVE,
+      p_entity_type: 'parishes',
+      p_entity_id: 'p1',
+    }))
+  })
+
+  it('double-approve (already approved): UPDATE matches zero rows -> not_pending, no audit call', async () => {
+    const fromMock = makeApproveAdminFrom({
+      updateResult: { data: null, error: null }, // AND status='pending' matched nothing
+      disambiguateResult: { data: { id: 'p1', status: 'approved' }, error: null },
+    })
+    const rpcMock = vi.fn()
+    const adminSupabase = { from: fromMock } as unknown as SupabaseClient
+    const userSupabase = { rpc: rpcMock } as unknown as SupabaseClient
+
+    const result = await impl_approveParish({
+      supabase: userSupabase,
+      adminSupabase,
+      input: { parishId: 'p1' },
+    })
+
+    expect(result).toEqual({ status: 'not_pending', currentStatus: 'approved' })
+    expect(fromMock).toHaveBeenCalledTimes(2) // UPDATE (0 rows) then disambiguation SELECT
+    expect(rpcMock).not.toHaveBeenCalled()
+  })
+
+  it('unknown id: UPDATE matches zero rows, disambiguation also finds nothing -> not_found', async () => {
+    const fromMock = makeApproveAdminFrom({
+      updateResult: { data: null, error: null },
+      disambiguateResult: { data: null, error: null },
+    })
+    const adminSupabase = { from: fromMock } as unknown as SupabaseClient
+    const userSupabase = { rpc: vi.fn() } as unknown as SupabaseClient
+
+    const result = await impl_approveParish({
+      supabase: userSupabase,
+      adminSupabase,
+      input: { parishId: 'does-not-exist' },
+    })
+
+    expect(result).toEqual({ status: 'not_found' })
   })
 })

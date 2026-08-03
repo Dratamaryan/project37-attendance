@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { createClient } from '@/lib/supabase/server'
+import { requireActiveAdmin } from '@/lib/auth/require-admin'
 import { resolveChatId } from '@/lib/telegram/chat-id'
 import { sendTelegramMessage } from '@/lib/telegram/client'
 import { getTelegramBotToken } from '@/lib/telegram/token'
@@ -21,18 +22,11 @@ type AppSettingsChatIdRow = { telegram_admin_chat_id: string | null }
 export async function POST() {
   const supabase = await createClient()
 
-  const { data: claimsResult } = await supabase.auth.getClaims()
-  if (!claimsResult) {
+  const guard = await requireActiveAdmin(supabase)
+  if (guard.status === 'unauthenticated') {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
-
-  const { data: appUser } = await supabase
-    .from('app_users')
-    .select('role')
-    .eq('id', claimsResult.claims.sub)
-    .single()
-
-  if (appUser?.role !== 'admin') {
+  if (guard.status === 'denied') {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 })
   }
 

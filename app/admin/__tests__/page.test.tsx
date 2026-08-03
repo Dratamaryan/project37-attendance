@@ -62,7 +62,7 @@ describe('AdminHubPage', () => {
     expect(screen.queryByText('cards.people_title')).not.toBeInTheDocument()
   })
 
-  it('renders all 5 cards for an admin', async () => {
+  it('renders all 6 cards for an admin', async () => {
     mockRole = 'admin'
     const element = await AdminHubPage()
     render(element)
@@ -72,6 +72,7 @@ describe('AdminHubPage', () => {
     expect(screen.getByText('cards.analytics_title')).toBeInTheDocument()
     expect(screen.getByText('cards.import_title')).toBeInTheDocument()
     expect(screen.getByText('cards.users_title')).toBeInTheDocument()
+    expect(screen.getByText('cards.settings_title')).toBeInTheDocument()
   })
 
   it('each card links to its correct destination', async () => {
@@ -98,6 +99,10 @@ describe('AdminHubPage', () => {
     expect(screen.getByText('cards.users_title').closest('a')).toHaveAttribute(
       'href',
       '/admin/users'
+    )
+    expect(screen.getByText('cards.settings_title').closest('a')).toHaveAttribute(
+      'href',
+      '/admin/settings'
     )
   })
 })

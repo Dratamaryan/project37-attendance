@@ -149,7 +149,62 @@
     }
   },
   "settings": {
-    "coming_soon_message": "Pengaturan akan tersedia di Sprint 5."
+    "title": "Pengaturan",
+    "subtitle": "Konfigurasi aplikasi dan kurasi paroki",
+    "load_error": "Gagal memuat pengaturan.",
+    "general": {
+      "title": "Umum",
+      "default_language": {
+        "label": "Bahasa default untuk pengunjung baru",
+        "help": "Hanya berlaku untuk sesi yang belum memiliki preferensi bahasa tersimpan — mengubah ini tidak akan mengubah bahasa sesi Anda sendiri.",
+        "option_id": "Indonesia",
+        "option_en": "Inggris"
+      },
+      "materialization_horizon": {
+        "label": "Horizon materialisasi acara",
+        "unit": "bulan",
+        "help": "Berapa bulan ke depan acara berulang dijadwalkan."
+      },
+      "birthday_notify_time": {
+        "label": "Waktu ringkasan ulang tahun"
+      },
+      "birthday_notify_timezone": {
+        "label": "Zona waktu ringkasan ulang tahun"
+      },
+      "save": "Simpan perubahan",
+      "save_pending": "Menyimpan…",
+      "save_success": "Pengaturan disimpan.",
+      "save_error": "Gagal menyimpan pengaturan.",
+      "validation_error": "Mohon perbaiki kolom yang ditandai."
+    },
+    "horizon_warning": {
+      "text": "Sekitar {count} acara terjadwal di luar horizon baru per saat ini akan dihapus pada proses malam berikutnya; jumlah sebenarnya dapat berbeda jika ada acara yang ditambahkan atau diubah sebelum itu.",
+      "confirm_label": "Saya mengerti — lanjutkan perubahan ini"
+    },
+    "telegram": {
+      "title": "Telegram",
+      "bot_token_label": "Token bot",
+      "configured": "Terkonfigurasi",
+      "not_configured": "Belum terkonfigurasi",
+      "chat_id_label": "ID chat admin",
+      "chat_id_kind_dm": "Pesan langsung",
+      "chat_id_kind_group": "Grup",
+      "chat_id_kind_supergroup": "Supergrup",
+      "chat_id_kind_channel_username": "Saluran",
+      "chat_id_malformed": "Terkonfigurasi, tetapi formatnya tampak tidak valid",
+      "caveat": "ID chat yang valid secara struktur bukan bukti bahwa itu benar — pengeditan dan verifikasi kirim-uji direncanakan untuk tugas mendatang."
+    },
+    "parishes": {
+      "title": "Paroki tertunda",
+      "empty": "Tidak ada paroki tertunda.",
+      "table_name": "Nama",
+      "table_city": "Kota",
+      "table_region": "Wilayah",
+      "approve": "Setujui",
+      "approve_pending": "Menyetujui…",
+      "approve_success": "Paroki disetujui.",
+      "approve_error": "Gagal menyetujui paroki."
+    }
   },
   "admin": {
     "hub": {
@@ -164,7 +219,9 @@
         "import_title": "Impor Anggota",
         "import_description": "Unggah berkas roster untuk menambah anggota baru",
         "users_title": "Pengguna",
-        "users_description": "Undang organizer dan kelola akses admin"
+        "users_description": "Undang organizer dan kelola akses admin",
+        "settings_title": "Pengaturan",
+        "settings_description": "Konfigurasi aplikasi, status Telegram, dan kurasi paroki"
       }
     },
     "analytics": {

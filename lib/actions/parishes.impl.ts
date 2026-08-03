@@ -2,6 +2,7 @@
 // Never import this file in Client Components.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { requireActiveAdmin } from '@/lib/auth/require-admin'
 import { logAudit, AUDIT_ACTIONS } from '../audit'
 import type {
   SearchParishOptions,
@@ -9,6 +10,8 @@ import type {
   CreateParishInput,
   CreateParishResult,
   ParishSearchResult,
+  ListPendingParishesResult,
+  ApproveParishResult,
 } from './parishes.types'
 
 const PARISH_FIELDS = 'id, name, city, region, status'
@@ -143,4 +146,90 @@ export async function impl_createPendingParish(
   }, supabase)
 
   return { status: 'created', parish: created as ParishSearchResult }
+}
+
+// ── listPendingParishes ──────────────────────────────────────────────────────
+//
+// T7 admin-gated pattern (requireActiveAdmin + adminSupabase after 'ok'),
+// same shape as admin-users.impl.ts — distinct from the two functions above,
+// which predate that convention and rely on RLS alone via the caller's own
+// JWT client.
+
+export async function impl_listPendingParishes({
+  supabase,
+  adminSupabase,
+}: {
+  supabase: SupabaseClient
+  adminSupabase: SupabaseClient
+}): Promise<ListPendingParishesResult> {
+  const guard = await requireActiveAdmin(supabase)
+  if (guard.status !== 'ok') return { status: 'not_authorized' }
+
+  const { data, error } = await adminSupabase
+    .from('parishes')
+    .select(PARISH_FIELDS)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: true })
+
+  if (error) {
+    console.error('[listPendingParishes]', error)
+    return { status: 'error', message: 'Failed to list pending parishes' }
+  }
+
+  return { status: 'ok', parishes: (data ?? []) as ParishSearchResult[] }
+}
+
+// ── approveParish ─────────────────────────────────────────────────────────────
+
+export async function impl_approveParish({
+  supabase,
+  adminSupabase,
+  input,
+}: {
+  supabase: SupabaseClient
+  adminSupabase: SupabaseClient
+  input: { parishId: string }
+}): Promise<ApproveParishResult> {
+  const guard = await requireActiveAdmin(supabase)
+  if (guard.status !== 'ok') return { status: 'not_authorized' }
+  const actorId = guard.actorId
+
+  // AND status='pending' guards against double-approve / a race between two
+  // admins approving the same parish concurrently — the second call's UPDATE
+  // matches zero rows instead of re-approving and re-auditing.
+  const { data, error } = await adminSupabase
+    .from('parishes')
+    .update({ status: 'approved' })
+    .eq('id', input.parishId)
+    .eq('status', 'pending')
+    .select(PARISH_FIELDS)
+    .maybeSingle()
+
+  if (error) {
+    console.error('[approveParish]', error)
+    return { status: 'error', message: 'Failed to approve parish' }
+  }
+
+  if (!data) {
+    // Either the id doesn't exist, or it's not in 'pending' status anymore
+    // (already approved / raced). Disambiguate for a friendlier UI message.
+    const { data: existing } = await adminSupabase
+      .from('parishes')
+      .select('id, status')
+      .eq('id', input.parishId)
+      .maybeSingle()
+
+    if (!existing) return { status: 'not_found' }
+    return { status: 'not_pending', currentStatus: existing.status as 'approved' | 'pending' }
+  }
+
+  await logAudit({
+    actorUserId: actorId,
+    action:      AUDIT_ACTIONS.PARISH_APPROVE,
+    entityType:  'parishes',
+    entityId:    data.id,
+    detailsJson: { name: data.name },
+  }, supabase)
+
+  return { status: 'approved', parish: data as ParishSearchResult }
 }

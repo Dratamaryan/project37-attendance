@@ -52,7 +52,13 @@ export default async function AdminHubPage() {
             title={t('cards.users_title')}
             description={t('cards.users_description')}
           />
-          {/* T7 adds Settings; T9 adds Audit Log. */}
+          <HubCard
+            href="/admin/settings"
+            icon="⚙️"
+            title={t('cards.settings_title')}
+            description={t('cards.settings_description')}
+          />
+          {/* T9 adds Audit Log. */}
         </div>
       </div>
     </main>

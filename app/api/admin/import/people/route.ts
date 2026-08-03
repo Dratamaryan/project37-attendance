@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { createClient } from '@/lib/supabase/server'
+import { requireActiveAdmin } from '@/lib/auth/require-admin'
 import { validateUpload, MAX_FILE_BYTES } from '@/lib/import/validate'
 import { runImportDryRun } from '@/lib/import/dry-run.impl'
 import { runImportCommit } from '@/lib/import/commit.impl'
@@ -22,18 +23,11 @@ export const dynamic = 'force-dynamic'
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
 
-  const { data: claimsResult } = await supabase.auth.getClaims()
-  if (!claimsResult) {
+  const guard = await requireActiveAdmin(supabase)
+  if (guard.status === 'unauthenticated') {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
-
-  const { data: appUser } = await supabase
-    .from('app_users')
-    .select('role')
-    .eq('id', claimsResult.claims.sub)
-    .single()
-
-  if (appUser?.role !== 'admin') {
+  if (guard.status === 'denied') {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 })
   }
 
@@ -78,7 +72,7 @@ export async function POST(req: NextRequest) {
   const runInput = {
     fileBuffer,
     filename: file.name,
-    actorUserId: claimsResult.claims.sub,
+    actorUserId: guard.actorId,
     ipAddress,
     userAgent,
   }

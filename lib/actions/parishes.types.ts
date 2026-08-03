@@ -27,3 +27,15 @@ export type CreateParishResult =
   | { status: 'duplicate';        existing: { id: string; name: string; status: 'approved' | 'pending' } }
   | { status: 'validation_error'; field_errors: Record<string, string> }
   | { status: 'error';            message: string }
+
+export type ListPendingParishesResult =
+  | { status: 'ok';            parishes: ParishSearchResult[] }
+  | { status: 'not_authorized' }
+  | { status: 'error';         message: string }
+
+export type ApproveParishResult =
+  | { status: 'approved';      parish: ParishSearchResult }
+  | { status: 'not_found' }
+  | { status: 'not_pending';   currentStatus: 'approved' | 'pending' }
+  | { status: 'not_authorized' }
+  | { status: 'error';         message: string }

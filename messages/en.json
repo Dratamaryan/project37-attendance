@@ -149,7 +149,62 @@
     }
   },
   "settings": {
-    "coming_soon_message": "Settings will be available in Sprint 5."
+    "title": "Settings",
+    "subtitle": "App-wide configuration and parish curation",
+    "load_error": "Failed to load settings.",
+    "general": {
+      "title": "General",
+      "default_language": {
+        "label": "Default language for new visitors",
+        "help": "Only applies to sessions with no saved language preference yet — changing this will not change your own session's language.",
+        "option_id": "Indonesian",
+        "option_en": "English"
+      },
+      "materialization_horizon": {
+        "label": "Event materialization horizon",
+        "unit": "months",
+        "help": "How many months ahead recurring events are scheduled."
+      },
+      "birthday_notify_time": {
+        "label": "Birthday digest time"
+      },
+      "birthday_notify_timezone": {
+        "label": "Birthday digest timezone"
+      },
+      "save": "Save changes",
+      "save_pending": "Saving…",
+      "save_success": "Settings saved.",
+      "save_error": "Failed to save settings.",
+      "validation_error": "Please fix the highlighted fields."
+    },
+    "horizon_warning": {
+      "text": "Approximately {count} scheduled event(s) beyond the new horizon as of now will be removed on the next nightly job; the actual number may differ if events are added or changed before then.",
+      "confirm_label": "I understand — proceed with this change"
+    },
+    "telegram": {
+      "title": "Telegram",
+      "bot_token_label": "Bot token",
+      "configured": "Configured",
+      "not_configured": "Not configured",
+      "chat_id_label": "Admin chat ID",
+      "chat_id_kind_dm": "Direct message",
+      "chat_id_kind_group": "Group",
+      "chat_id_kind_supergroup": "Supergroup",
+      "chat_id_kind_channel_username": "Channel",
+      "chat_id_malformed": "Configured, but the format looks malformed",
+      "caveat": "A structurally valid chat ID is not proof it's the correct one — editing and test-send verification are planned for a future task."
+    },
+    "parishes": {
+      "title": "Pending parishes",
+      "empty": "No pending parishes.",
+      "table_name": "Name",
+      "table_city": "City",
+      "table_region": "Region",
+      "approve": "Approve",
+      "approve_pending": "Approving…",
+      "approve_success": "Parish approved.",
+      "approve_error": "Failed to approve parish."
+    }
   },
   "admin": {
     "hub": {
@@ -164,7 +219,9 @@
         "import_title": "Import People",
         "import_description": "Upload a roster file to add new members",
         "users_title": "Users",
-        "users_description": "Invite organizers and manage admin access"
+        "users_description": "Invite organizers and manage admin access",
+        "settings_title": "Settings",
+        "settings_description": "App configuration, Telegram status, and parish curation"
       }
     },
     "analytics": {

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
 
 import { createClient } from '@/lib/supabase/server'
+import { requireActiveAdmin } from '@/lib/auth/require-admin'
 import { AUDIT_ACTIONS, logAudit } from '@/lib/audit'
 import { parseAnalyticsFilters } from '@/lib/actions/analytics.types'
 import {
@@ -27,18 +28,11 @@ export const dynamic = 'force-dynamic'
 export async function GET(req: NextRequest) {
   const supabase = await createClient()
 
-  const { data: claimsResult } = await supabase.auth.getClaims()
-  if (!claimsResult) {
+  const guard = await requireActiveAdmin(supabase)
+  if (guard.status === 'unauthenticated') {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
-
-  const { data: appUser } = await supabase
-    .from('app_users')
-    .select('role')
-    .eq('id', claimsResult.claims.sub)
-    .single()
-
-  if (appUser?.role !== 'admin') {
+  if (guard.status === 'denied') {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 })
   }
 
@@ -77,7 +71,7 @@ export async function GET(req: NextRequest) {
 
   await logAudit(
     {
-      actorUserId: claimsResult.claims.sub,
+      actorUserId: guard.actorId,
       action: AUDIT_ACTIONS.EXPORT_CREATE,
       entityType: 'export',
       entityId: exportId,
