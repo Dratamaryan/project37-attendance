@@ -114,10 +114,18 @@ export default async function AdminInstanceDetailPage({ params }: Props) {
             )}
           </div>
 
-          {/* Cancel affordance — only for scheduled instances */}
-          {instance.status === 'scheduled' && (
-            <CancelInstanceDialog instanceId={instanceId} eventId={eventId} />
-          )}
+          <div className="flex items-center gap-3">
+            <Link
+              href={`/admin/events/${eventId}/instances/${instanceId}/edit`}
+              className="inline-flex items-center px-3 py-1.5 border border-line text-charcoal bg-cream rounded-lg text-sm font-medium hover:bg-cream-2 transition-colors"
+            >
+              {t('edit_button')}
+            </Link>
+            {/* Cancel affordance — only for scheduled instances */}
+            {instance.status === 'scheduled' && (
+              <CancelInstanceDialog instanceId={instanceId} eventId={eventId} />
+            )}
+          </div>
         </div>
 
         {/* Attendee count */}

@@ -40,8 +40,22 @@ export type EventInstanceRow = {
   event_name_snapshot_id: string | null
   status: 'scheduled' | 'cancelled' | 'completed'
   notes: string | null
+  image_url: string | null
   created_at: string
 }
+
+// Occurrence-details edit surface (T10) — image today, room for more fields
+// later (subtopics/description) as an add-a-field change to this type.
+export type UpdateInstanceInput = {
+  image_url?: string | null
+}
+
+export type UpdateInstanceResult =
+  | { status: 'ok'; instance_id: string }
+  | { status: 'invalid_input'; field: string; message: string }
+  | { status: 'not_found' }
+  | { status: 'forbidden'; message: string }
+  | { status: 'error'; message: string }
 
 export type CreateEventResult =
   | { status: 'ok'; event_id: string; instances_created: number }

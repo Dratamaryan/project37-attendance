@@ -369,6 +369,7 @@
       "instance": {
         "breadcrumb_events": "Events",
         "cancel_button": "Cancel instance",
+        "edit_button": "Edit occurrence",
         "cancel_dialog": {
           "title": "Cancel this instance?",
           "reason_label": "Reason (optional)",
@@ -396,6 +397,21 @@
           "scheduled": "Scheduled",
           "cancelled": "Cancelled",
           "completed": "Completed"
+        },
+        "edit": {
+          "title": "Edit occurrence",
+          "section": {
+            "details": "Occurrence details"
+          },
+          "image_url_label": "Invite image URL",
+          "image_url_placeholder": "https://…",
+          "image_url_help": "Shown in the invite email for this occurrence. Paste a link — uploads aren't supported. Leave blank to remove.",
+          "submit": "Save changes",
+          "submit_pending": "Saving...",
+          "cancel": "Cancel",
+          "error_banner": "Couldn't save. Please try again.",
+          "forbidden_banner": "You don't have permission to do this.",
+          "field_error_image_url": "Enter a valid https:// URL"
         }
       },
       "invite": {

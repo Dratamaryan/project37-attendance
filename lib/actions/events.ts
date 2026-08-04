@@ -7,6 +7,7 @@ import {
   impl_createEvent,
   impl_updateEvent,
   impl_cancelInstance,
+  impl_updateInstance,
   impl_listEvents,
   impl_listInstancesForEvent,
   impl_listNearestInstances,
@@ -14,9 +15,11 @@ import {
 import type {
   EventInput,
   UpdateEventInput,
+  UpdateInstanceInput,
   CreateEventResult,
   UpdateEventResult,
   CancelInstanceResult,
+  UpdateInstanceResult,
   ListEventsFilters,
   ListEventsResult,
   ListInstancesResult,
@@ -49,6 +52,17 @@ export async function cancelInstance(
   const supabase = await createClient()
   const adminSupabase = createAdminClient()
   const result = await impl_cancelInstance({ supabase, adminSupabase, instanceId, reason })
+  if (result.status === 'ok') revalidatePath('/admin/events')
+  return result
+}
+
+export async function updateInstance(
+  instanceId: string,
+  input: UpdateInstanceInput,
+): Promise<UpdateInstanceResult> {
+  const supabase = await createClient()
+  const adminSupabase = createAdminClient()
+  const result = await impl_updateInstance({ supabase, adminSupabase, instanceId, input })
   if (result.status === 'ok') revalidatePath('/admin/events')
   return result
 }

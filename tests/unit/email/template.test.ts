@@ -63,4 +63,38 @@ describe('renderInviteEmail — T4-06', () => {
     expect(subject).toContain('Hari Proyek')
     expect(subject).toContain('Project Day')
   })
+
+  // ── imageUrl (T10) ──────────────────────────────────────────────────────
+
+  it('renders an <img> with width attribute (not inline style) and bilingual alt text when imageUrl is present', () => {
+    const { html } = renderInviteEmail({
+      ...BASE_INPUT,
+      imageUrl: 'https://cdn.example.com/invite.jpg',
+    })
+    expect(html).toContain('<img src="https://cdn.example.com/invite.jpg" width="600"')
+    expect(html).toContain('alt="Undangan: Hari Proyek / Invitation: Project Day"')
+    // Email-safe sizing: HTML width attribute, never inline style="max-width:...".
+    expect(html).not.toContain('style=')
+    expect(html).not.toContain('max-width')
+  })
+
+  it('emits NO <img> tag when imageUrl is null — no placeholder, layout intact', () => {
+    const { html } = renderInviteEmail({ ...BASE_INPUT, imageUrl: null })
+    expect(html).not.toContain('<img')
+    // Every other node still present and in order — text never depends on the image.
+    expect(html).toContain('<h2>Undangan: Hari Proyek</h2>')
+    expect(html).toContain('<h2>Invitation: Project Day</h2>')
+    expect(html.indexOf('<h2>Undangan:')).toBeLessThan(html.indexOf('<h2>Invitation:'))
+  })
+
+  it('emits NO <img> tag when imageUrl is omitted entirely', () => {
+    const { html } = renderInviteEmail(BASE_INPUT)
+    expect(html).not.toContain('<img')
+  })
+
+  it('imageUrl has no effect on the plain-text body', () => {
+    const withImage = renderInviteEmail({ ...BASE_INPUT, imageUrl: 'https://cdn.example.com/invite.jpg' })
+    const withoutImage = renderInviteEmail({ ...BASE_INPUT, imageUrl: null })
+    expect(withImage.text).toBe(withoutImage.text)
+  })
 })

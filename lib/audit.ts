@@ -17,6 +17,7 @@ export const AUDIT_ACTIONS = {
   EVENT_CREATE:            'event.create',
   EVENT_UPDATE:            'event.update',
   EVENT_INSTANCE_CANCEL:   'event_instance.cancel',
+  EVENT_INSTANCE_UPDATE:   'event_instance.update',
   ATTENDANCE_CREATE:       'attendance.create',
   EXPORT_CREATE:           'export.create',
   IMPORT_DRY_RUN:          'import.dry_run',

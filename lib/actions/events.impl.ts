@@ -9,11 +9,13 @@ import { logAudit, AUDIT_ACTIONS } from '../audit'
 import type {
   EventInput,
   UpdateEventInput,
+  UpdateInstanceInput,
   EventRow,
   EventInstanceRow,
   CreateEventResult,
   UpdateEventResult,
   CancelInstanceResult,
+  UpdateInstanceResult,
   ListEventsFilters,
   ListEventsResult,
   ListInstancesResult,
@@ -29,7 +31,7 @@ const EVENT_FIELDS =
   'id, name, name_id, event_type, start_date, start_time, duration_min, location, description, recurrence_rule, active, created_by, created_at, updated_at'
 
 const INSTANCE_FIELDS =
-  'id, event_id, scheduled_at, event_name_snapshot, event_name_snapshot_id, status, notes, created_at'
+  'id, event_id, scheduled_at, event_name_snapshot, event_name_snapshot_id, status, notes, image_url, created_at'
 
 // ── validation helpers ────────────────────────────────────────────────────────
 
@@ -90,6 +92,25 @@ function validateUpdateInput(input: UpdateEventInput): { field: string; message:
     })
     if (rruleCheck.status === 'invalid_rrule') {
       return { field: 'recurrence_rule', message: rruleCheck.message }
+    }
+  }
+  return null
+}
+
+// Paste-a-URL only (locked decision, no Storage/upload flow). https + parseable
+// is the bar — NOT extension-sniffed, since CDN URLs (S3 presigned, imgix, …)
+// routinely have no file extension at all.
+function validateUpdateInstanceInput(
+  input: UpdateInstanceInput,
+): { field: string; message: string } | null {
+  if ('image_url' in input && input.image_url !== undefined && input.image_url !== null && input.image_url !== '') {
+    if (!input.image_url.startsWith('https://')) {
+      return { field: 'image_url', message: 'Image URL must start with https://' }
+    }
+    try {
+      new URL(input.image_url)
+    } catch {
+      return { field: 'image_url', message: 'Invalid URL' }
     }
   }
   return null
@@ -316,6 +337,76 @@ export async function impl_cancelInstance({
 
   // Found scheduled but UPDATE returned 0 rows → RLS blocked organizer
   return { status: 'forbidden', message: 'Permission denied' }
+}
+
+// ── updateInstance ───────────────────────────────────────────────────────────
+// Occurrence-details edit surface (T10): image_url today, structured so a
+// future field (subtopics/description) is an add-a-field change here, not a
+// redesign. Empty string clears the field (stored as null) — same convention
+// as EventForm's optional-field trim-to-null handling.
+
+export async function impl_updateInstance({
+  supabase,
+  adminSupabase,
+  instanceId,
+  input,
+}: {
+  supabase: SupabaseClient
+  adminSupabase: SupabaseClient
+  instanceId: string
+  input: UpdateInstanceInput
+}): Promise<UpdateInstanceResult> {
+  const validationError = validateUpdateInstanceInput(input)
+  if (validationError) {
+    return { status: 'invalid_input', ...validationError }
+  }
+
+  const { data: claims } = await supabase.auth.getClaims()
+  if (!claims) return { status: 'error', message: 'Not authenticated' }
+  const actorId = claims.claims.sub
+
+  const updatePayload: Record<string, unknown> = {}
+  if (input.image_url !== undefined) {
+    updatePayload.image_url = input.image_url === '' ? null : input.image_url
+  }
+
+  const { data: rows, error: updateError } = await supabase
+    .from('event_instances')
+    .update(updatePayload)
+    .eq('id', instanceId)
+    .select('id')
+
+  if (updateError) {
+    console.error('[updateInstance] update', updateError)
+    return { status: 'error', message: 'Failed to update instance' }
+  }
+
+  if (!rows || rows.length === 0) {
+    // D4: silent block or not found — disambiguate via admin client (bypasses RLS)
+    const { data: existing } = await adminSupabase
+      .from('event_instances')
+      .select('id')
+      .eq('id', instanceId)
+      .limit(1)
+
+    if (!existing || existing.length === 0) {
+      return { status: 'not_found' }
+    }
+    return { status: 'forbidden', message: 'Permission denied' }
+  }
+
+  await logAudit({
+    actorUserId: actorId,
+    action:      AUDIT_ACTIONS.EVENT_INSTANCE_UPDATE,
+    entityType:  'event_instance',
+    entityId:    instanceId,
+    detailsJson: {
+      changed_fields: Object.keys(updatePayload),
+      updates:        updatePayload,
+    },
+  }, supabase)
+
+  return { status: 'ok', instance_id: instanceId }
 }
 
 // ── listEvents ────────────────────────────────────────────────────────────────

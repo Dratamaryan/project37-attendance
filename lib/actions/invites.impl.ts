@@ -144,6 +144,7 @@ interface InstanceEventDetails {
   eventNameEn: string
   eventNameId: string | null
   location: string | null
+  imageUrl: string | null
 }
 
 async function loadInstanceEventDetails(
@@ -152,7 +153,7 @@ async function loadInstanceEventDetails(
 ): Promise<InstanceEventDetails | null> {
   const { data: instance } = await supabase
     .from('event_instances')
-    .select('id, event_id, scheduled_at, event_name_snapshot, event_name_snapshot_id')
+    .select('id, event_id, scheduled_at, event_name_snapshot, event_name_snapshot_id, image_url')
     .eq('id', eventInstanceId)
     .single()
   if (!instance) return null
@@ -171,6 +172,7 @@ async function loadInstanceEventDetails(
     eventNameEn: instance.event_name_snapshot,
     eventNameId: instance.event_name_snapshot_id,
     location: event.location,
+    imageUrl: instance.image_url,
   }
 }
 
@@ -270,6 +272,7 @@ async function buildAndSend({
     scheduledAt: details.scheduledAt,
     durationMin: details.durationMin,
     location: details.location,
+    imageUrl: details.imageUrl,
   })
 
   // ORGANIZER/ATTENDEE starting position (T9 plan): included so Outlook renders

@@ -17,6 +17,14 @@ export interface InviteEmailInput {
   durationMin: number
   /** events.location — nullable; real prod rows have this null today (T7 finding). */
   location: string | null
+  /**
+   * event_instances.image_url — nullable, per-INSTANCE (T10). When absent, no
+   * <img> tag is emitted at all (no placeholder) — the email is a complete
+   * text email with or without it. Every other line must stand on its own
+   * when the image is blocked (most mail clients block remote images by
+   * default), so no information may live only in the image.
+   */
+  imageUrl?: string | null
 }
 
 export interface RenderedEmail {
@@ -49,8 +57,18 @@ export function renderInviteEmail(input: InviteEmailInput): RenderedEmail {
 
   const subject = `Undangan: ${nameId} / Invitation: ${nameEn} — Project 37`
 
+  // HTML width attribute, not inline style — max-width is among the least
+  // reliably honoured CSS properties in email clients (Outlook/Word rendering
+  // in particular); the width attribute is the email-safe sizing path and
+  // keeps the template's zero-inline-style minimalism intact. No <img> at all
+  // when absent — never a broken-image placeholder.
+  const imageBlock = input.imageUrl
+    ? `<img src="${input.imageUrl}" width="600" alt="Undangan: ${nameId} / Invitation: ${nameEn}"/>`
+    : ''
+
   const html = [
     `<div>`,
+    imageBlock,
     `<h2>Undangan: ${nameId}</h2>`,
     `<p>Tanggal: ${when}</p>`,
     `<p>Lokasi: ${locationId}</p>`,
@@ -61,7 +79,7 @@ export function renderInviteEmail(input: InviteEmailInput): RenderedEmail {
     `<p>Location: ${locationEn}</p>`,
     `<p>${OPT_OUT_EN}</p>`,
     `</div>`,
-  ].join('\n')
+  ].filter(Boolean).join('\n')
 
   const text = [
     `Undangan: ${nameId}`,

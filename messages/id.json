@@ -369,6 +369,7 @@
       "instance": {
         "breadcrumb_events": "Acara",
         "cancel_button": "Batalkan sesi",
+        "edit_button": "Edit sesi",
         "cancel_dialog": {
           "title": "Batalkan sesi ini?",
           "reason_label": "Alasan (opsional)",
@@ -396,6 +397,21 @@
           "scheduled": "Terjadwal",
           "cancelled": "Dibatalkan",
           "completed": "Selesai"
+        },
+        "edit": {
+          "title": "Edit sesi",
+          "section": {
+            "details": "Detail sesi"
+          },
+          "image_url_label": "URL gambar undangan",
+          "image_url_placeholder": "https://…",
+          "image_url_help": "Ditampilkan pada email undangan untuk sesi ini. Tempel tautan — unggah berkas tidak didukung. Kosongkan untuk menghapus.",
+          "submit": "Simpan perubahan",
+          "submit_pending": "Menyimpan...",
+          "cancel": "Batal",
+          "error_banner": "Gagal menyimpan. Silakan coba lagi.",
+          "forbidden_banner": "Anda tidak memiliki izin untuk melakukan ini.",
+          "field_error_image_url": "Masukkan URL https:// yang valid"
         }
       },
       "invite": {
