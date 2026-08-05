@@ -42,7 +42,7 @@ const PROD_URL = 'https://project37-attendance.vercel.app'
 const EVENT_NAME = 'T6 Live Test Event'
 const PHONE_PREFIX = '+628888006' // distinct from T5's +628888005xxx
 const ATTENDEE_COUNT = 60
-const REAL_ADMIN_ID = '00000000-0000-0000-0000-000000000000' // admin-example@example.test — used as checked_in_by
+const REAL_ADMIN_ID = '00000000-0000-0000-0000-000000000000' // admin@example.com — used as checked_in_by
 
 if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !CRON_SECRET) {
   console.error('Missing env vars (NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / CRON_SECRET)')

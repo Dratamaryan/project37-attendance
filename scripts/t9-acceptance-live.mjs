@@ -139,7 +139,7 @@ async function main() {
   console.log(`Production: ${PROD_URL}\n`)
 
   console.log('Getting admin session...')
-  const adminSession = await getSessionForEmail('admin-example@example.test')
+  const adminSession = await getSessionForEmail('admin@example.com')
   console.log(`  Admin session obtained (${adminSession.user?.email})\n`)
 
   const browser = await chromium.launch({ headless: true })

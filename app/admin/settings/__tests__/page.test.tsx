@@ -60,7 +60,7 @@ const SETTINGS_ROW = {
   birthday_notify_time: '07:00:00',
   birthday_notify_timezone: 'Asia/Jakarta',
   birthday_notify_email: null,
-  telegram_admin_chat_id: '000000000',
+  telegram_admin_chat_id: '100000000',
   consent_policy_version: 'v1',
   retention_archive_years: 3,
   retention_aggregate_years: 5,

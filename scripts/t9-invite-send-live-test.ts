@@ -33,7 +33,7 @@ if (recipientEmails.length === 0) {
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-const ADMIN_EMAIL = 'admin-example@example.test' // matches scripts/t4-telegram-live-test.mjs — the real prod admin
+const ADMIN_EMAIL = 'admin@example.com' // matches scripts/t4-telegram-live-test.mjs — the real prod admin
 
 const NOTIFY_HOST = process.env.NOTIFY_SMTP_HOST || 'smtp.gmail.com'
 const NOTIFY_PORT = Number(process.env.NOTIFY_SMTP_PORT) || 587

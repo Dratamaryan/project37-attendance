@@ -2,7 +2,7 @@
  * Sprint 4 T4 — one-off prod fix: app_settings.telegram_admin_chat_id was set
  * to the bot's own user ID (8922952648) instead of Ryan's real DM chat ID.
  * Confirmed via getMe (bot id) vs getUpdates (Ryan's "Hi" message, chat id
- * 000000000, type: private) after Ryan messaged @Project37Admin_bot directly.
+ * <TELEGRAM_CHAT_ID>, type: private) after Ryan messaged @Project37Admin_bot directly.
  *
  * Run once: node scripts/t4-fix-telegram-chat-id.mjs
  *
@@ -35,8 +35,8 @@ try {
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-const ADMIN_EMAIL = 'admin-example@example.test'
-const CORRECT_CHAT_ID = '000000000'
+const ADMIN_EMAIL = 'admin@example.com'
+const CORRECT_CHAT_ID = '<TELEGRAM_CHAT_ID>'
 
 if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !ANON_KEY) {
   console.error('Missing env vars')

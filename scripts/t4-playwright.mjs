@@ -10,7 +10,7 @@
  *   1. Production URL: https://project37-attendance.vercel.app
  *   2. .env.local with NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
  *      SUPABASE_SERVICE_ROLE_KEY
- *   3. Test organizer: organizer-example@example.test in app_users (used for the
+ *   3. Test organizer: organizer@example.com in app_users (used for the
  *      non-admin-block assertion — no data is created/mutated by this script)
  *
  * Session pattern (from T6/T7): mint a real session via
@@ -45,8 +45,8 @@ const PROD_URL         = process.env.BASE_URL ?? 'https://project37-attendance.v
 const PROJECT_REF      = 'bftifxgdcmisasgvobuf'
 const COOKIE_NAME      = `sb-${PROJECT_REF}-auth-token`
 
-const ADMIN_EMAIL     = 'admin-example@example.test'
-const ORGANIZER_EMAIL = 'organizer-example@example.test'
+const ADMIN_EMAIL     = 'admin@example.com'
+const ORGANIZER_EMAIL = 'organizer@example.com'
 
 if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !ANON_KEY) {
   console.error('Missing env vars'); process.exit(1)

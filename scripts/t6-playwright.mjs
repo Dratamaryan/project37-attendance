@@ -10,7 +10,7 @@
  *   2. .env.local with NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
  *      SUPABASE_SERVICE_ROLE_KEY
  *   3. Two seeded events: "Project Day" and "Tribe Connect"
- *   4. Test organizer: organizer-example@example.test in app_users
+ *   4. Test organizer: organizer@example.com in app_users
  *
  * Pattern: pressSequentially + waitFor (never fill + isVisible).
  * Pre-cleanup at start so the script is re-runnable without DB cleanup.
@@ -44,8 +44,8 @@ const PROJECT_REF      = 'bftifxgdcmisasgvobuf'
 const COOKIE_NAME      = `sb-${PROJECT_REF}-auth-token`
 
 const TEST_EVENT_NAME  = 'Test Adhoc 2026'
-const ADMIN_EMAIL      = 'admin-example@example.test'
-const ORGANIZER_EMAIL  = 'organizer-example@example.test'
+const ADMIN_EMAIL      = 'admin@example.com'
+const ORGANIZER_EMAIL  = 'organizer@example.com'
 
 if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !ANON_KEY) {
   console.error('Missing env vars'); process.exit(1)

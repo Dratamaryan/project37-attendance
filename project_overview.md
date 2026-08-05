@@ -62,4 +62,4 @@ Full specs: `./docs/`
 - App name: **Absensi Project 37**
 - Colors: gold `#A8924A`, charcoal `#0F0F0F`
 - Default language: Indonesian (`id`)
-- Admin email: admin-example@example.test
+- Admin email: admin@example.com

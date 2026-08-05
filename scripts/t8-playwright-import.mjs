@@ -48,8 +48,8 @@ const BASE_URL = process.env.T8_BASE_URL ?? 'https://project37-attendance.vercel
 const PROJECT_REF = new URL(SUPABASE_URL ?? 'https://bftifxgdcmisasgvobuf.supabase.co').hostname.split('.')[0]
 const COOKIE_NAME = `sb-${PROJECT_REF}-auth-token`
 
-const ADMIN_EMAIL = 'admin-example@example.test'
-const ORGANIZER_EMAIL = 'organizer-example@example.test'
+const ADMIN_EMAIL = 'admin@example.com'
+const ORGANIZER_EMAIL = 'organizer@example.com'
 
 if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !ANON_KEY) {
   console.error('Missing env vars'); process.exit(1)

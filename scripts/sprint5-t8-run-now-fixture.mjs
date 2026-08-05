@@ -50,7 +50,7 @@ const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
 
 const EVENT_NAME = 'T8 Run-Now Live Verify Event'
 const PHONE = '+628888008001' // distinct from T5's 007xxx live-test space
-const REAL_ADMIN_ID = '00000000-0000-0000-0000-000000000000' // admin-example@example.test
+const REAL_ADMIN_ID = '00000000-0000-0000-0000-000000000000' // admin@example.com
 
 async function cleanup() {
   const { data: existingEvents } = await admin.from('events').select('id').eq('name', EVENT_NAME)

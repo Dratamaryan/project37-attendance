@@ -49,7 +49,7 @@ function assert(desc, passed, detail = '') {
 
 async function getOrganizerSession() {
   const { data: { users } } = await admin.auth.admin.listUsers({ perPage: 100 })
-  const organizer = users.find(u => u.email === 'organizer-example@example.test')
+  const organizer = users.find(u => u.email === 'organizer@example.com')
   if (!organizer) {
     console.error('Organizer user not found. Run: node scripts/t12-setup.mjs first')
     process.exit(1)
@@ -57,7 +57,7 @@ async function getOrganizerSession() {
 
   const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
     type: 'magiclink',
-    email: 'organizer-example@example.test',
+    email: 'organizer@example.com',
   })
   if (linkErr) throw linkErr
 
@@ -76,7 +76,7 @@ async function getOrganizerSession() {
 async function getAdminSession() {
   const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
     type: 'magiclink',
-    email: 'admin-example@example.test',
+    email: 'admin@example.com',
   })
   if (linkErr) throw linkErr
 

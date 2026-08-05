@@ -32,7 +32,7 @@ if (!recipientEmail) {
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-const ADMIN_EMAIL = 'admin-example@example.test'
+const ADMIN_EMAIL = 'admin@example.com'
 
 // T9's existing fixture instance — reused so the image_url set via the real
 // edit UI in the Playwright step is what the send actually picks up.

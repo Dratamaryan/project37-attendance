@@ -142,7 +142,7 @@ async function main() {
 
   // ── Admin session ─────────────────────────────────────────────────────────
   console.log('Getting admin session...')
-  const adminSession = await getSessionForEmail('admin-example@example.test')
+  const adminSession = await getSessionForEmail('admin@example.com')
   console.log(`  Admin session obtained (${adminSession.user?.email})\n`)
 
   // ── Organizer session (if user was created) ───────────────────────────────

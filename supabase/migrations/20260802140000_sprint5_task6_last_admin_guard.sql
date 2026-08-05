@@ -14,7 +14,7 @@
 -- for the two-connection concurrency test proving this.
 --
 -- Sequenced AFTER the T6 orphan cleanup (docs/sprint-5-task-6-verify.md):
--- prod's active-admin count is confirmed a true 1 (admin-example@example.test)
+-- prod's active-admin count is confirmed a true 1 (admin@example.com)
 -- before this trigger goes live, so the invariant isn't immediately
 -- tested against polluted test-residue data.
 

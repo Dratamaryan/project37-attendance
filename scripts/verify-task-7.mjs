@@ -94,7 +94,7 @@ async function main() {
   if (usersErr) { console.error('listUsers failed:', usersErr); process.exit(1) }
 
   const adminUser =
-    usersPage.users.find(u => u.email === 'admin-example@example.test') ??
+    usersPage.users.find(u => u.email === 'admin@example.com') ??
     usersPage.users[0]
   if (!adminUser) { console.error('No auth users found'); process.exit(1) }
   const adminUserId = adminUser.id

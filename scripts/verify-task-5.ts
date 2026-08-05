@@ -36,9 +36,9 @@ async function main() {
   const { data: usersPage, error: usersError } = await admin.auth.admin.listUsers({ perPage: 50 })
   if (usersError) { console.error('Could not list users:', usersError); process.exit(1) }
 
-  // Find admin user (admin-example@example.test or first user)
+  // Find admin user (admin@example.com or first user)
   const adminUser =
-    usersPage.users.find(u => u.email === 'admin-example@example.test') ??
+    usersPage.users.find(u => u.email === 'admin@example.com') ??
     usersPage.users[0]
 
   if (!adminUser) { console.error('No users found in Supabase'); process.exit(1) }

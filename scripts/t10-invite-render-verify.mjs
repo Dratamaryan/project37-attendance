@@ -43,8 +43,8 @@ const PROD_URL         = 'https://project37-attendance.vercel.app'
 const PROJECT_REF      = 'bftifxgdcmisasgvobuf'
 const COOKIE_NAME      = `sb-${PROJECT_REF}-auth-token`
 
-const ADMIN_EMAIL     = 'admin-example@example.test'
-const ORGANIZER_EMAIL = 'organizer-example@example.test'
+const ADMIN_EMAIL     = 'admin@example.com'
+const ORGANIZER_EMAIL = 'organizer@example.com'
 
 // T9's existing fixture — already documented as excluded from the demo wipe
 // predicate; reused here read-only, no new rows written.

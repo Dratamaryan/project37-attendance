@@ -63,7 +63,7 @@ function fail(id, desc, detail = '') {
 async function getAdminSession() {
   const { data: linkData, error: linkErr } = await adminSupabase.auth.admin.generateLink({
     type: 'magiclink',
-    email: 'admin-example@example.test',
+    email: 'admin@example.com',
   })
   if (linkErr) throw linkErr
 

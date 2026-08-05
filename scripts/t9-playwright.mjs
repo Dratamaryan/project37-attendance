@@ -9,7 +9,7 @@
  *   1. Production URL: https://project37-attendance.vercel.app
  *   2. .env.local with NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
  *      SUPABASE_SERVICE_ROLE_KEY
- *   3. Admin user admin-example@example.test in app_users
+ *   3. Admin user admin@example.com in app_users
  *
  * Pattern: pressSequentially + waitFor (never fill + isVisible for React inputs).
  * Pre-cleanup at start so the script is re-runnable.
@@ -44,7 +44,7 @@ const PROD_URL         = 'https://project37-attendance.vercel.app'
 const PROJECT_REF      = 'bftifxgdcmisasgvobuf'
 const COOKIE_NAME      = `sb-${PROJECT_REF}-auth-token`
 
-const ADMIN_EMAIL = 'admin-example@example.test'
+const ADMIN_EMAIL = 'admin@example.com'
 
 const T9_EVENT_NAME  = 'T9 Test Recent Panel Event'
 const T9_PERSON_NAME = 'T9 Test Person'

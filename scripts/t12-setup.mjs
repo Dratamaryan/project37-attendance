@@ -1,6 +1,6 @@
 /**
  * Sprint 1 T12 — Setup script
- * 1. Creates organizer auth user (organizer-example@example.test) + app_users row
+ * 1. Creates organizer auth user (organizer@example.com) + app_users row
  * 2. Seeds 30 Dogfood Test people for acceptance testing + 50-in-30 dogfood
  *
  * Run: node scripts/t12-setup.mjs
@@ -36,7 +36,7 @@ const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 })
 
-const ORGANIZER_EMAIL = 'organizer-example@example.test'
+const ORGANIZER_EMAIL = 'organizer@example.com'
 
 // 6 parish IDs from production DB
 const PARISHES = [

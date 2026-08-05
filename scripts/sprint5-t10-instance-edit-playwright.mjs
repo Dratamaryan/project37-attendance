@@ -44,7 +44,7 @@ const PROD_URL         = 'https://project37-attendance.vercel.app'
 const PROJECT_REF      = 'bftifxgdcmisasgvobuf'
 const COOKIE_NAME      = `sb-${PROJECT_REF}-auth-token`
 
-const ADMIN_EMAIL = 'admin-example@example.test'
+const ADMIN_EMAIL = 'admin@example.com'
 
 // T9's existing fixture — already documented as excluded from the demo wipe
 // predicate; reused here rather than creating a new event.

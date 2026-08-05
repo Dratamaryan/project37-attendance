@@ -47,7 +47,7 @@ async function main() {
   if (usersError) { console.error('listUsers failed:', usersError); process.exit(1) }
 
   const adminUser =
-    usersPage.users.find(u => u.email === 'admin-example@example.test') ??
+    usersPage.users.find(u => u.email === 'admin@example.com') ??
     usersPage.users[0]
 
   if (!adminUser) { console.error('No users found'); process.exit(1) }

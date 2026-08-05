@@ -35,7 +35,7 @@ const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 const PROD_URL = 'https://project37-attendance.vercel.app'
 const PROJECT_REF = 'bftifxgdcmisasgvobuf'
 const COOKIE_NAME = `sb-${PROJECT_REF}-auth-token`
-const ADMIN_EMAIL = 'admin-example@example.test'
+const ADMIN_EMAIL = 'admin@example.com'
 
 if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !ANON_KEY) {
   console.error('Missing env vars')

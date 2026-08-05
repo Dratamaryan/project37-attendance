@@ -53,7 +53,7 @@ const PROD_URL = 'https://project37-attendance.vercel.app'
 const EVENT_NAME = 'T5 Cron Hardening Live Test Event'
 const ATTENDANCE_PHONE = '+628888007001' // distinct from T5/T6 sprint-4 fixture spaces (005xxx/006xxx)
 const BIRTHDAY_PHONE = '+628888007002'
-const REAL_ADMIN_ID = '00000000-0000-0000-0000-000000000000' // admin-example@example.test
+const REAL_ADMIN_ID = '00000000-0000-0000-0000-000000000000' // admin@example.com
 
 if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !CRON_SECRET) {
   console.error('Missing env vars (NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / CRON_SECRET)')
@@ -290,7 +290,7 @@ async function main() {
   console.log('\n=== Overall ===')
   console.log(`  Attendance summary: ${attendance.pass ? 'PASS' : 'FAIL'}`)
   console.log(`  Birthday digest:    ${birthday.pass ? 'PASS' : 'FAIL'}`)
-  console.log('\n  Manual step: confirm BOTH messages physically arrived in Telegram chat 000000000')
+  console.log('\n  Manual step: confirm BOTH messages physically arrived in Telegram chat <TELEGRAM_CHAT_ID>')
   console.log('  before citing verified: live (a 200 to a wrong chat, or an unverified body, is a silent failure).')
 
   if (!attendance.pass || !birthday.pass) process.exitCode = 1
