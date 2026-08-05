@@ -1,0 +1,54 @@
+-- Migration: sprint6_task0_log_audit_revoke_anon
+-- PROPOSED — not yet applied to prod. Closes the log_audit() anon-forgery
+-- finding from the pre-public-release RLS audit.
+--
+-- Problem: log_audit() is SECURITY DEFINER. Every Postgres function grants
+-- EXECUTE to PUBLIC by default at CREATE FUNCTION time (Sprint 1 Task 1/4
+-- never overrode this) — PUBLIC membership means `anon` inherits EXECUTE
+-- even though no migration ever explicitly `GRANT ... TO anon`. This is why
+-- `REVOKE EXECUTE ... FROM anon` alone is a no-op: anon still holds the
+-- privilege via PUBLIC afterward (verified against local Docker before
+-- writing this migration). The revoke has to target PUBLIC, then the roles
+-- that legitimately need EXECUTE must be re-granted explicitly.
+--
+-- Call-site audit (every `logAudit()`/`.rpc('log_audit', ...)` call in the
+-- codebase, see the audit report) confirmed:
+--   - Every call runs under a JWT-verified `authenticated` session — never
+--     an anonymous/no-session client. The check-in page itself redirects to
+--     /login when there is no session at all.
+--   - Every call derives its actor id from auth.uid() server-side (via
+--     getClaims().claims.sub or requireActiveAdmin/requireActiveRole), never
+--     from client input. No caller relies on log_audit()'s own
+--     COALESCE(p_actor_user_id, auth.uid()) fallback.
+-- No legitimate anon caller exists anywhere in this codebase.
+--
+-- Fix: revoke EXECUTE from PUBLIC (removing anon's inherited access), then
+-- explicitly re-grant to `authenticated` (the only role with real callers
+-- today) and `service_role` (consistent with this schema's other
+-- SECURITY DEFINER functions, and covers future server-side-only callers).
+--
+-- ⚠️ NON-OBVIOUS, VERIFIED AGAINST LOCAL DOCKER: `REVOKE ... FROM PUBLIC`
+-- alone is NOT enough. This schema has `ALTER DEFAULT PRIVILEGES IN SCHEMA
+-- public GRANT EXECUTE ON FUNCTIONS TO anon, authenticated, service_role`
+-- set at the schema level (Supabase's own baseline setup, confirmed via
+-- pg_default_acl) — every function created by `postgres` in `public` gets an
+-- EXPLICIT, direct EXECUTE grant to `anon` at CREATE FUNCTION time, entirely
+-- separate from (and in addition to) the implicit PUBLIC grant. log_audit()
+-- has BOTH: a bare PUBLIC entry and a direct `anon=X` entry from Sprint 1's
+-- original CREATE FUNCTION. Revoking only PUBLIC leaves the direct anon
+-- grant fully intact — verified empirically: after `REVOKE ... FROM PUBLIC`
+-- alone, `has_function_privilege('anon', ..., 'EXECUTE')` still returned
+-- true. Both sources must be revoked.
+--
+-- RECURRENCE RISK: default privileges apply at object-creation time only.
+-- CREATE OR REPLACE FUNCTION on an existing function does NOT reset its ACL,
+-- but a future DROP FUNCTION + CREATE FUNCTION (e.g. a signature change,
+-- exactly like the Sprint 1 Task 1 -> Task 4 scaffold replacement did) WILL
+-- silently re-grant anon EXECUTE via this same default-privilege rule. Any
+-- future migration that drops and recreates log_audit() must re-run these
+-- two REVOKEs afterward.
+
+REVOKE EXECUTE ON FUNCTION public.log_audit(uuid, text, text, text, jsonb, inet, text) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.log_audit(uuid, text, text, text, jsonb, inet, text) FROM anon;
+GRANT EXECUTE ON FUNCTION public.log_audit(uuid, text, text, text, jsonb, inet, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.log_audit(uuid, text, text, text, jsonb, inet, text) TO service_role;
