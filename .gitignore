@@ -67,3 +67,4 @@ memory/
 .DS_Store
 **/.DS_Store
 docs/data-samples/
+.claude/
