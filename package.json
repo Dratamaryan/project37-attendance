@@ -9,6 +9,8 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:unit": "vitest run --exclude '**/node_modules/**' --exclude '**/tests/e2e/**' --exclude '**/tests/integration/**'",
+    "test:integration": "vitest run tests/integration"
     "test:watch": "vitest",
     "seed:demo": "tsx --env-file .env.local seed/demo-data.ts",
     "verify:demo": "tsx --env-file .env.local seed/verify-demo-data.ts"
