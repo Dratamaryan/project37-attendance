@@ -363,11 +363,18 @@ BEGIN
   IF v_invitations != 0 THEN RAISE EXCEPTION 'assert failed: event_invitations=% expected 0', v_invitations; END IF;
   IF v_events != 0 THEN RAISE EXCEPTION 'assert failed: events=% expected 0', v_events; END IF;
   IF v_instances != 0 THEN RAISE EXCEPTION 'assert failed: event_instances=% expected 0', v_instances; END IF;
+  -- Strict tripwires: these tables see near-zero write traffic outside admin
+  -- actions, so any drift at all is suspicious.
   IF v_parishes != ${before.parishes} THEN RAISE EXCEPTION 'assert failed: parishes=% expected ${before.parishes}', v_parishes; END IF;
   IF v_app_users != ${before.app_users} THEN RAISE EXCEPTION 'assert failed: app_users=% expected ${before.app_users}', v_app_users; END IF;
   IF v_app_settings != ${before.app_settings} THEN RAISE EXCEPTION 'assert failed: app_settings=% expected ${before.app_settings}', v_app_settings; END IF;
-  IF v_system_health != ${before.system_health} THEN RAISE EXCEPTION 'assert failed: system_health=% expected ${before.system_health}', v_system_health; END IF;
-  IF v_audit_log != ${before.audit_log + 1} THEN RAISE EXCEPTION 'assert failed: audit_log=% expected ${before.audit_log + 1}', v_audit_log; END IF;
+  -- Relaxed to >=: the heartbeat cron (and materialize-events' own health row)
+  -- write system_health independently of this transaction (~20/day); audit_log
+  -- gets this txn's own 1 data.wipe row plus whatever else is legitimately
+  -- happening concurrently. A monotonic floor still catches any row going
+  -- missing, which is what actually matters here.
+  IF v_system_health < ${before.system_health} THEN RAISE EXCEPTION 'assert failed: system_health=% expected >= ${before.system_health}', v_system_health; END IF;
+  IF v_audit_log < ${before.audit_log + 1} THEN RAISE EXCEPTION 'assert failed: audit_log=% expected >= ${before.audit_log + 1}', v_audit_log; END IF;
 END $$;
 COMMIT;
   `.trim()
@@ -393,13 +400,19 @@ async function stepOneWipe(admin: SupabaseClient, adminId: string, before: Count
   for (const table of WIPED_TABLES) {
     if (after[table] !== 0) throw new Error(`POST-WIPE VERIFY FAILED: ${table}=${after[table]}, expected 0`)
   }
-  for (const table of ['parishes', 'app_users', 'app_settings', 'system_health']) {
+  // Strict tripwires — near-zero write traffic outside admin actions.
+  for (const table of ['parishes', 'app_users', 'app_settings']) {
     if (after[table] !== before[table]) {
       throw new Error(`POST-WIPE VERIFY FAILED: ${table}=${after[table]}, expected unchanged ${before[table]}`)
     }
   }
-  if (after.audit_log !== before.audit_log + 1) {
-    throw new Error(`POST-WIPE VERIFY FAILED: audit_log=${after.audit_log}, expected ${before.audit_log + 1}`)
+  // Relaxed to >=: heartbeat cron + this txn's own audit row both write
+  // independently of the wipe's correctness (see buildWipeSql comment).
+  if (after.system_health < before.system_health) {
+    throw new Error(`POST-WIPE VERIFY FAILED: system_health=${after.system_health}, expected >= ${before.system_health}`)
+  }
+  if (after.audit_log < before.audit_log + 1) {
+    throw new Error(`POST-WIPE VERIFY FAILED: audit_log=${after.audit_log}, expected >= ${before.audit_log + 1}`)
   }
   console.log('[step-1] OK — independent recount confirms wipe end-state')
   return after
@@ -472,7 +485,16 @@ async function stepThreeMaterialize(admin: SupabaseClient) {
   if (result.instances_inserted <= 0) {
     throw new Error(`STEP 3 MATERIALIZE VERIFY FAILED: instances_inserted=${result.instances_inserted}, expected > 0`)
   }
-  console.log(`[step-3] OK — materialized ${result.instances_inserted} instances over ${result.horizon_months} months`)
+  // 2 monthly events over the live horizon → ~1 occurrence/event/month, +/-1 for
+  // month-boundary effects. Soft check only (log, don't fail) — an exact off-by-
+  // one here is not a correctness bug, just worth surfacing for the verify report.
+  const expectedMin = result.horizon_months * 2 - 4
+  const expectedMax = result.horizon_months * 2 + 4
+  const inRange = result.instances_inserted >= expectedMin && result.instances_inserted <= expectedMax
+  console.log(
+    `[step-3] ${inRange ? 'OK' : 'WARNING (out of expected range)'} — materialized ${result.instances_inserted} ` +
+      `instances over ${result.horizon_months} months (expected ~${expectedMin}-${expectedMax} for 2 monthly events)`
+  )
   return result
 }
 
