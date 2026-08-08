@@ -212,9 +212,12 @@ async function resolveAdminActor(admin: SupabaseClient): Promise<string> {
 
 async function schemaGateEvents(): Promise<string[]> {
   const url = requireEnv('NEXT_PUBLIC_SUPABASE_URL')
-  const anonKey = requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY')
+  // The OpenAPI introspection endpoint requires the service_role key on this
+  // project (confirmed live — anon key gets a 401 "Only the service_role API
+  // key can be used for this endpoint"), matching T1's method exactly.
+  const serviceKey = requireEnv('SUPABASE_SERVICE_ROLE_KEY')
   const res = await fetch(`${url}/rest/v1/`, {
-    headers: { apikey: anonKey, Accept: 'application/openapi+json' },
+    headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, Accept: 'application/openapi+json' },
   })
   if (!res.ok) throw new Error(`Schema gate: OpenAPI introspection failed with status ${res.status}`)
   const doc = (await res.json()) as { definitions?: Record<string, { required?: string[] }> }
