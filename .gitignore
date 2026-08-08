@@ -11,6 +11,9 @@ build/
 # T2 roster-repair script build output (compiled via scripts/tsconfig.repair.json)
 scripts/.build/
 
+# S6-T2 wipe-and-reseed pre-flight data dumps (local safety net, may contain PII-adjacent test data)
+scripts/.local-dumps/
+
 # Environment - NEVER commit these
 .env
 .env.local
@@ -68,3 +71,6 @@ memory/
 **/.DS_Store
 docs/data-samples/
 .claude/
+
+/docs/
+/memory/
