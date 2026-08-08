@@ -33,6 +33,15 @@ if (!url || !serviceRoleKey) {
   throw new Error('Missing env: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY');
 }
 
+const PROD_PROJECT_REF = 'bftifxgdcmisasgvobuf';
+if (url.includes(PROD_PROJECT_REF)) {
+  throw new Error(
+    `[attendance-summary.test.ts] NEXT_PUBLIC_SUPABASE_URL resolves to the PRODUCTION project ` +
+      `(${PROD_PROJECT_REF}). flipCompletedInstances() is a global, non-fixture-scoped UPDATE — ` +
+      `must run against local Docker only.`,
+  );
+}
+
 const FAKE_ADMIN_ID = '00000000-0000-0000-0000-000000000103';
 
 let admin: SupabaseClient;
