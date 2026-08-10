@@ -32,6 +32,7 @@ export const AUDIT_ACTIONS = {
   ATTENDANCE_SUMMARY_MANUAL_TRIGGER: 'attendance_summary.manual_trigger',
   DATA_WIPE:               'data.wipe',
   DATA_DEACTIVATE_TEST_USERS: 'data.deactivate_test_users',
+  PEOPLE_ANONYMIZE:        'people.anonymize',
 } as const
 
 export type AuditAction = typeof AUDIT_ACTIONS[keyof typeof AUDIT_ACTIONS]

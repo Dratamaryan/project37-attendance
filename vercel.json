@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/attendance-summary",
       "schedule": "30 16 * * *"
+    },
+    {
+      "path": "/api/cron/retention-anonymize",
+      "schedule": "0 17 * * *"
     }
   ]
 }

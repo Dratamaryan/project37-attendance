@@ -4,6 +4,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { normalizePhone } from '../utils/phone'
 import { logAudit, AUDIT_ACTIONS } from '../audit'
+import { requireActiveAdmin } from '../auth/require-admin'
 import type {
   LookupResult,
   CreatePersonInput,
@@ -18,6 +19,7 @@ import type {
   PersonFull,
   GetPersonResult,
   RestoreResult,
+  AnonymizePersonResult,
 } from './people.types'
 import type { SupportedCountry } from '../utils/phone'
 import { impl_getPhotoSignedUrl } from '../storage/photos.impl'
@@ -544,4 +546,57 @@ export async function impl_restorePerson(
   }, supabase)
 
   return { status: 'restored' }
+}
+
+// ── anonymizePerson ──────────────────────────────────────────────────────────
+//
+// S6-T4 admin-triggered "anonymize now". requireActiveAdmin(supabase) (the
+// caller's own JWT-backed client) runs BEFORE adminSupabase is ever touched —
+// same ordering as impl_approveParish (parishes.impl.ts). The actual scrub
+// runs inside the anonymize_person() SQL function via adminSupabase (service
+// role — EXECUTE is granted to service_role only, see the S6-T4 migration),
+// which also writes the audit_log row in the same transaction as the scrub.
+// guard.actorId is passed as p_actor_user_id: the service-role connection
+// carries no JWT, so auth.uid() is NULL inside log_audit() and the explicit
+// param is what actually attributes the row to this admin (same mechanism
+// scripts/wipe-and-reseed.ts relies on for its service-role writes).
+
+export async function impl_anonymizePerson({
+  supabase,
+  adminSupabase,
+  input,
+}: {
+  supabase: SupabaseClient
+  adminSupabase: SupabaseClient
+  input: { personId: string }
+}): Promise<AnonymizePersonResult> {
+  const guard = await requireActiveAdmin(supabase)
+  if (guard.status !== 'ok') return { status: 'not_authorized' }
+
+  const { data, error } = await adminSupabase.rpc('anonymize_person', {
+    p_person_id: input.personId,
+    p_actor_user_id: guard.actorId,
+    p_trigger_source: 'admin',
+  })
+
+  if (error) {
+    console.error('[anonymizePerson]', error)
+    return { status: 'error', message: 'Failed to anonymize person' }
+  }
+
+  if (data === false) {
+    // anonymize_person() returns false for two distinct cases — disambiguate
+    // for a friendlier admin-facing message, same pattern as approveParish's
+    // not_found vs not_pending split.
+    const { data: existing } = await adminSupabase
+      .from('people')
+      .select('id')
+      .eq('id', input.personId)
+      .maybeSingle()
+
+    if (!existing) return { status: 'not_found' }
+    return { status: 'already_anonymized' }
+  }
+
+  return { status: 'anonymized' }
 }

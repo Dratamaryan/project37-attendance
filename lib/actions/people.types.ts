@@ -174,3 +174,12 @@ export type RestoreResult =
   | { status: 'not_found' }
   | { status: 'not_authorized' }
   | { status: 'error'; message: string }
+
+// ── anonymizePerson ──────────────────────────────────────────────
+
+export type AnonymizePersonResult =
+  | { status: 'anonymized' }
+  | { status: 'already_anonymized' }
+  | { status: 'not_found' }
+  | { status: 'not_authorized' }
+  | { status: 'error'; message: string }
