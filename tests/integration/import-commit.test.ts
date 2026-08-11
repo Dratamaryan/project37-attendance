@@ -12,7 +12,10 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
 import * as XLSX from 'xlsx'
 import { runImportCommit, insertNewPeople } from '../../lib/import/commit.impl'
+import { COLUMN_MAPPINGS } from '../../lib/import/columns'
 import type { ClassifiedRow } from '../../lib/import/types'
+
+const CONSENT_HEADER = COLUMN_MAPPINGS.find((m) => m.target === 'photo_consent_raw')!.headerAliases[0]
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -32,6 +35,9 @@ const PHONES = {
   RACE_A: '+62812000920006',
   RACE_B: '+62812000920007',
   RACE_CONFLICT: '+62812000920008',
+  CONSENT_GRANTED: '+62812000920009',
+  CONSENT_REFUSED: '+62812000920010',
+  CONSENT_BLANK: '+62812000920011',
 } as const
 
 let svc: SupabaseClient
@@ -45,7 +51,12 @@ function buildXlsxBuffer(headerRow: string[], dataRows: unknown[][]): Buffer {
   return XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }) as Buffer
 }
 
-function fakeNewRow(sourceRowNumber: number, phone_e164: string, full_name: string): ClassifiedRow {
+function fakeNewRow(
+  sourceRowNumber: number,
+  phone_e164: string,
+  full_name: string,
+  consent: { state: 'granted' | 'refused' | 'unknown'; publish: boolean } = { state: 'unknown', publish: false },
+): ClassifiedRow {
   return {
     sourceRowNumber,
     rowClass: 'new',
@@ -69,6 +80,8 @@ function fakeNewRow(sourceRowNumber: number, phone_e164: string, full_name: stri
       marital_status: null,
       kepanitiaan: null,
       tribe: null,
+      photo_consent_state: consent.state,
+      photo_publish_consent: consent.publish,
       warnings: [],
     },
   }
@@ -126,14 +139,14 @@ afterAll(async () => {
 describe('runImportCommit', () => {
   it('mixed classification fixture -> inserts only new rows, correct result counts, one audit row', async () => {
     const buffer = buildXlsxBuffer(
-      ['Nama Lengkap', 'Nomor HP'],
+      ['Nama Lengkap', 'Nomor HP', CONSENT_HEADER],
       [
-        ['New Person One', PHONES.NEW_1.replace('+62', '0')],
-        ['Dup In File A', PHONES.DUP_IN_FILE.replace('+62', '0')],
-        ['Dup In File B', PHONES.DUP_IN_FILE.replace('+62', '0')],
-        ['DB Active Person', PHONES.DB_ACTIVE.replace('+62', '0')],
-        ['DB Deleted Person', PHONES.DB_DELETED.replace('+62', '0')],
-        ['No Phone Person', null],
+        ['New Person One', PHONES.NEW_1.replace('+62', '0'), 'Ya'],
+        ['Dup In File A', PHONES.DUP_IN_FILE.replace('+62', '0'), 'Tidak'],
+        ['Dup In File B', PHONES.DUP_IN_FILE.replace('+62', '0'), 'Tidak'],
+        ['DB Active Person', PHONES.DB_ACTIVE.replace('+62', '0'), null],
+        ['DB Deleted Person', PHONES.DB_DELETED.replace('+62', '0'), null],
+        ['No Phone Person', null, null],
       ],
     )
 
@@ -185,8 +198,8 @@ describe('runImportCommit', () => {
 
   it('dup_soft_deleted phone is never resurrected -- deleted_at stays set, no new row created', async () => {
     const buffer = buildXlsxBuffer(
-      ['Nama Lengkap', 'Nomor HP'],
-      [['Deleted Person Reimported', PHONES.DB_DELETED.replace('+62', '0')]],
+      ['Nama Lengkap', 'Nomor HP', CONSENT_HEADER],
+      [['Deleted Person Reimported', PHONES.DB_DELETED.replace('+62', '0'), 'Ya']],
     )
 
     const outcome = await runImportCommit(
@@ -214,7 +227,7 @@ describe('runImportCommit', () => {
   })
 
   it('empty new set (all dup/error) -> ok result, zero inserts, still exactly one audit row', async () => {
-    const buffer = buildXlsxBuffer(['Nama Lengkap', 'Nomor HP'], [['Bad Row', null]])
+    const buffer = buildXlsxBuffer(['Nama Lengkap', 'Nomor HP', CONSENT_HEADER], [['Bad Row', null, null]])
 
     const outcome = await runImportCommit(
       { fileBuffer: buffer, filename: 'all-error.xlsx', actorUserId: FAKE_ADMIN_ID, ipAddress: null, userAgent: null },
@@ -250,6 +263,44 @@ describe('runImportCommit', () => {
       .eq('action', 'import.commit')
       .eq('details_json->>filename', 'missing-col-commit.xlsx')
     expect(auditRows).toHaveLength(0)
+  })
+
+  it('S6-T5a: granted/refused/blank rows persist explicit photo_consent_state + photo_publish_consent, not DB defaults -- refused stays distinct from unknown', async () => {
+    const buffer = buildXlsxBuffer(
+      ['Nama Lengkap', 'Nomor HP', CONSENT_HEADER],
+      [
+        ['Consent Granted', PHONES.CONSENT_GRANTED.replace('+62', '0'), 'Ya'],
+        ['Consent Refused', PHONES.CONSENT_REFUSED.replace('+62', '0'), 'Tidak'],
+        ['Consent Blank', PHONES.CONSENT_BLANK.replace('+62', '0'), null],
+      ],
+    )
+
+    const outcome = await runImportCommit(
+      { fileBuffer: buffer, filename: 'consent-mapping.xlsx', actorUserId: FAKE_ADMIN_ID, ipAddress: null, userAgent: null },
+      svc,
+    )
+
+    expect(outcome.ok).toBe(true)
+    if (!outcome.ok) return
+    importIdsToClean.push(outcome.importId)
+    expect(outcome.result.inserted).toBe(3)
+
+    const { data: rows } = await svc
+      .from('people')
+      .select('phone_e164, photo_consent_state, photo_publish_consent')
+      .in('phone_e164', [PHONES.CONSENT_GRANTED, PHONES.CONSENT_REFUSED, PHONES.CONSENT_BLANK])
+    const byPhone = Object.fromEntries((rows ?? []).map((r) => [r.phone_e164, r]))
+
+    expect(byPhone[PHONES.CONSENT_GRANTED]).toMatchObject({ photo_consent_state: 'granted', photo_publish_consent: true })
+    // The DB default for photo_consent_state is 'unknown' -- if this ever
+    // regressed to relying on the default, this row would silently read
+    // 'unknown' instead of 'refused', which is exactly the B/D2 failure
+    // (33 legacy refusers becoming indistinguishable from never-asked) that
+    // S6-T5a exists to prevent. Asserted explicitly, not just via toMatchObject
+    // above, so a future refactor can't quietly weaken this.
+    expect(byPhone[PHONES.CONSENT_REFUSED].photo_consent_state).toBe('refused')
+    expect(byPhone[PHONES.CONSENT_REFUSED].photo_publish_consent).toBe(false)
+    expect(byPhone[PHONES.CONSENT_BLANK]).toMatchObject({ photo_consent_state: 'unknown', photo_publish_consent: false })
   })
 })
 

@@ -43,8 +43,12 @@ export type RunImportCommitResult =
 /** One field per real `people` column the import engine populates. Built
  *  directly off the live information_schema audit (T8 schema gates) -- do
  *  not add a key here that isn't a real column; a phantom key fails the
- *  WHOLE batch, not just one row. id/created_at/updated_at/photo_publish_consent
- *  all have DB defaults and are intentionally omitted. */
+ *  WHOLE batch, not just one row. id/created_at/updated_at have DB defaults
+ *  and are intentionally omitted. photo_consent_state and
+ *  photo_publish_consent are written EXPLICITLY (S6-T5a) -- NOT left to their
+ *  DB defaults ('unknown'/false) -- because the import is the only place that
+ *  carries the roster's actual consent answer; relying on the default here
+ *  would silently collapse every 'granted'/'refused' row to 'unknown'/false. */
 function toInsertPayload(row: ClassifiedRow) {
   const data = row.data
   return {
@@ -58,6 +62,8 @@ function toInsertPayload(row: ClassifiedRow) {
     marital_status: data.marital_status,
     kepanitiaan: data.kepanitiaan,
     tribe: data.tribe,
+    photo_consent_state: data.photo_consent_state,
+    photo_publish_consent: data.photo_publish_consent,
   }
 }
 

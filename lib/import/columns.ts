@@ -28,6 +28,13 @@ export const COLUMN_MAPPINGS: ColumnMapping[] = [
   { target: 'origin_parish',      headerAliases: ['Asal Paroki'],         required: false },
   { target: 'marital_status_raw', headerAliases: ['Status Pernikahan'],   required: false },
   { target: 'gender_raw',         headerAliases: ['Jenis Kelamin'],       required: false },
+  // Consent header must be byte-for-byte exact, including the space before
+  // "?" — detectHeaderRow does trim()+toLowerCase() only, no internal-
+  // whitespace normalization, so a "tidied" alias here would silently fail
+  // to match the real file and defeat the whole point of required: true
+  // below (loud failure over a silent all-'unknown' default). Do not edit
+  // this string for style.
+  { target: 'photo_consent_raw',  headerAliases: ['Apakah kamu setuju untuk foto / data di publish di group WA Project 37 untuk ucapan-ucapan ?'], required: true },
 ]
 
 export type SelectSheetResult =

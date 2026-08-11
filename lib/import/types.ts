@@ -24,6 +24,7 @@ export type RawFieldKey =
   | 'origin_parish'
   | 'marital_status_raw'
   | 'gender_raw'
+  | 'photo_consent_raw'
 
 /** One physical spreadsheet row, still holding raw cell values keyed by
  *  RawFieldKey, plus the 1-based Excel row number it came from. */
@@ -48,6 +49,8 @@ export interface ParsedPersonRow {
   marital_status: 'married' | 'single' | null
   kepanitiaan: string | null
   tribe: string | null
+  photo_consent_state: 'granted' | 'refused' | 'unknown'
+  photo_publish_consent: boolean
   warnings: string[]
 }
 

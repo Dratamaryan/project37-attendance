@@ -16,6 +16,9 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
 import * as XLSX from 'xlsx'
 import { runImportDryRun } from '../../lib/import/dry-run.impl'
+import { COLUMN_MAPPINGS } from '../../lib/import/columns'
+
+const CONSENT_HEADER = COLUMN_MAPPINGS.find((m) => m.target === 'photo_consent_raw')!.headerAliases[0]
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -110,14 +113,14 @@ describe('runImportDryRun', () => {
       .like('phone_e164', '+62812000910301%')
 
     const buffer = buildXlsxBuffer(
-      ['Nama Lengkap', 'Nomor HP'],
+      ['Nama Lengkap', 'Nomor HP', CONSENT_HEADER],
       [
-        ['New Person One', PHONES.NEW_1.replace('+62', '0')],
-        ['Dup In File A', PHONES.DUP_IN_FILE.replace('+62', '0')],
-        ['Dup In File B', PHONES.DUP_IN_FILE.replace('+62', '0')],
-        ['DB Active Person', PHONES.DB_ACTIVE.replace('+62', '0')],
-        ['DB Deleted Person', PHONES.DB_DELETED.replace('+62', '0')],
-        ['No Phone Person', null],
+        ['New Person One', PHONES.NEW_1.replace('+62', '0'), 'Ya'],
+        ['Dup In File A', PHONES.DUP_IN_FILE.replace('+62', '0'), 'Tidak'],
+        ['Dup In File B', PHONES.DUP_IN_FILE.replace('+62', '0'), 'Tidak'],
+        ['DB Active Person', PHONES.DB_ACTIVE.replace('+62', '0'), null],
+        ['DB Deleted Person', PHONES.DB_DELETED.replace('+62', '0'), null],
+        ['No Phone Person', null, null],
       ],
     )
 
@@ -146,6 +149,16 @@ describe('runImportDryRun', () => {
     const dbDeletedRow = outcome.result.rows.find((r) => r.phone_e164 === PHONES.DB_DELETED)
     expect(dbDeletedRow?.matchedPersonId).toBe(dbDeletedId)
 
+    // S6-T5a: consent flows through the dry-run's own JSON (data.photo_consent_state
+    // / data.photo_publish_consent), not just at commit time -- this is what
+    // lets the S6-T5 dry-run tally 81/33/77 straight from this response.
+    const newRow = outcome.result.rows.find((r) => r.phone_e164 === PHONES.NEW_1)
+    expect(newRow?.data.photo_consent_state).toBe('granted')
+    expect(newRow?.data.photo_publish_consent).toBe(true)
+    const dupInFileRow = outcome.result.rows.find((r) => r.phone_e164 === PHONES.DUP_IN_FILE)
+    expect(dupInFileRow?.data.photo_consent_state).toBe('refused')
+    expect(dupInFileRow?.data.photo_publish_consent).toBe(false)
+
     const { count: peopleAfter } = await svc
       .from('people')
       .select('id', { count: 'exact', head: true })
@@ -166,7 +179,7 @@ describe('runImportDryRun', () => {
   })
 
   it('empty-data file (valid header, zero data rows) -> ok, all-zero counts, still exactly one audit row', async () => {
-    const buffer = buildXlsxBuffer(['Nama Lengkap', 'Nomor HP'], [])
+    const buffer = buildXlsxBuffer(['Nama Lengkap', 'Nomor HP', CONSENT_HEADER], [])
 
     const outcome = await runImportDryRun(
       { fileBuffer: buffer, filename: 'empty.xlsx', actorUserId: FAKE_ADMIN_ID, ipAddress: null, userAgent: null },
@@ -198,10 +211,10 @@ describe('runImportDryRun', () => {
     // junk row -> Excel row 1, header -> Excel row 2, data starts Excel row 3.
     // Second data row (missing phone) is Excel row 4.
     const buffer = buildXlsxBuffer(
-      ['Nama Lengkap', 'Nomor HP'],
+      ['Nama Lengkap', 'Nomor HP', CONSENT_HEADER],
       [
-        ['First Person', PHONES.NEW_2.replace('+62', '0')],
-        ['Second Person (bad)', null],
+        ['First Person', PHONES.NEW_2.replace('+62', '0'), 'Ya'],
+        ['Second Person (bad)', null, null],
       ],
       [null, null], // junk row above header
     )
@@ -243,7 +256,7 @@ describe('runImportDryRun', () => {
   })
 
   it('missing required column (Nomor HP) -> loud-fail naming it, no audit row written', async () => {
-    const buffer = buildXlsxBuffer(['Nama Lengkap'], [['Someone']])
+    const buffer = buildXlsxBuffer(['Nama Lengkap', CONSENT_HEADER], [['Someone', 'Ya']])
 
     const outcome = await runImportDryRun(
       { fileBuffer: buffer, filename: 'missing-col.xlsx', actorUserId: FAKE_ADMIN_ID, ipAddress: null, userAgent: null },
@@ -256,5 +269,28 @@ describe('runImportDryRun', () => {
     if (outcome.error === 'missing_required_columns') {
       expect(outcome.missingFields).toEqual(['Nomor HP'])
     }
+  })
+
+  it('S6-T5a: missing consent column -> loud-fail naming it, no audit row, no rows classified (anti-silent-drop guard end-to-end)', async () => {
+    const buffer = buildXlsxBuffer(['Nama Lengkap', 'Nomor HP'], [['Someone', PHONES.NEW_1.replace('+62', '0')]])
+
+    const outcome = await runImportDryRun(
+      { fileBuffer: buffer, filename: 'missing-consent-col.xlsx', actorUserId: FAKE_ADMIN_ID, ipAddress: null, userAgent: null },
+      svc,
+    )
+
+    expect(outcome.ok).toBe(false)
+    if (outcome.ok) return
+    expect(outcome.error).toBe('missing_required_columns')
+    if (outcome.error === 'missing_required_columns') {
+      expect(outcome.missingFields).toEqual([CONSENT_HEADER])
+    }
+
+    const { data: auditRows } = await svc
+      .from('audit_log')
+      .select('id')
+      .eq('entity_type', 'import')
+      .eq('details_json->>filename', 'missing-consent-col.xlsx')
+    expect(auditRows).toHaveLength(0)
   })
 })

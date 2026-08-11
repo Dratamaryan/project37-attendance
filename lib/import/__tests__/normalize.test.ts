@@ -155,3 +155,53 @@ describe('normalizeRow — full_name / nickname', () => {
     expect(result.nickname).toBeNull()
   })
 })
+
+describe('normalizeRow — photo consent (S6-T5a, col-16)', () => {
+  it('"Ya" -> granted, photo_publish_consent true, no warning', () => {
+    const result = normalizeRow(row({ photo_consent_raw: 'Ya' }))
+    expect(result.photo_consent_state).toBe('granted')
+    expect(result.photo_publish_consent).toBe(true)
+    expect(result.warnings).toEqual([])
+  })
+
+  it('"Tidak" -> refused, photo_publish_consent false, no warning', () => {
+    const result = normalizeRow(row({ photo_consent_raw: 'Tidak' }))
+    expect(result.photo_consent_state).toBe('refused')
+    expect(result.photo_publish_consent).toBe(false)
+    expect(result.warnings).toEqual([])
+  })
+
+  it('blank cell -> unknown, photo_publish_consent false, NO warning (expected, per B/3)', () => {
+    const result = normalizeRow(row({ photo_consent_raw: null }))
+    expect(result.photo_consent_state).toBe('unknown')
+    expect(result.photo_publish_consent).toBe(false)
+    expect(result.warnings).toEqual([])
+  })
+
+  it('"?" -> unknown, photo_publish_consent false, NO warning (expected, per B/3)', () => {
+    const result = normalizeRow(row({ photo_consent_raw: '?' }))
+    expect(result.photo_consent_state).toBe('unknown')
+    expect(result.photo_publish_consent).toBe(false)
+    expect(result.warnings).toEqual([])
+  })
+
+  it('column entirely absent from the row -> unknown, no warning (same as blank)', () => {
+    const result = normalizeRow(row({}))
+    expect(result.photo_consent_state).toBe('unknown')
+    expect(result.photo_publish_consent).toBe(false)
+    expect(result.warnings).toEqual([])
+  })
+
+  it('unexpected non-blank token -> unknown, photo_publish_consent false, WITH a visible warning (data-quality signal, non-fatal)', () => {
+    const result = normalizeRow(row({ photo_consent_raw: 'Maybe' }))
+    expect(result.photo_consent_state).toBe('unknown')
+    expect(result.photo_publish_consent).toBe(false)
+    expect(result.warnings).toContain('unmapped_consent_value:Maybe')
+  })
+
+  it('case-insensitive: "ya"/"YA"/"tidak" all map correctly', () => {
+    expect(normalizeRow(row({ photo_consent_raw: 'ya' })).photo_consent_state).toBe('granted')
+    expect(normalizeRow(row({ photo_consent_raw: 'YA' })).photo_consent_state).toBe('granted')
+    expect(normalizeRow(row({ photo_consent_raw: 'tidak' })).photo_consent_state).toBe('refused')
+  })
+})

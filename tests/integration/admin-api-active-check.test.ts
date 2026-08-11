@@ -29,6 +29,9 @@ import { NextRequest } from 'next/server'
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 import { randomUUID } from 'crypto'
 import * as XLSX from 'xlsx'
+import { COLUMN_MAPPINGS } from '../../lib/import/columns'
+
+const CONSENT_HEADER = COLUMN_MAPPINGS.find((m) => m.target === 'photo_consent_raw')!.headerAliases[0]
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -219,8 +222,8 @@ describe('GET /api/admin/export/attendance — active-check', () => {
 
 function buildDryRunFormData(): FormData {
   const worksheet = XLSX.utils.aoa_to_sheet([
-    ['Nama Lengkap', 'Nomor HP'],
-    ['S7 Gate Test Person', '081200091099'],
+    ['Nama Lengkap', 'Nomor HP', CONSENT_HEADER],
+    ['S7 Gate Test Person', '081200091099', 'Ya'],
   ])
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1')

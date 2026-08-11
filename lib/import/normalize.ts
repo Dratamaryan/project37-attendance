@@ -98,6 +98,25 @@ function mapGender(raw: unknown): { value: 'male' | 'female' | null; warning?: s
   return { value: null, warning: `unmapped_gender:${str}` }
 }
 
+const CONSENT_STATE_MAP: Record<string, 'granted' | 'refused'> = {
+  ya: 'granted',
+  tidak: 'refused',
+}
+
+/** Same shape as mapMaritalStatus/mapGender but with the key inversion those
+ *  can't use: photo_consent_state is NOT NULL at the DB level, so an unmapped
+ *  token can't fall back to null the way marital_status/gender do -- it falls
+ *  back to the safe 'unknown' (no affirmative grant recorded), same as a
+ *  blank cell or '?', but WITH a warning since a real, non-blank, unrecognized
+ *  token is a data-quality signal that blank/'?' are not. */
+function mapConsentState(raw: unknown): { value: 'granted' | 'refused' | 'unknown'; warning?: string } {
+  const str = cellToTrimmedString(raw)
+  if (!str || str === '?') return { value: 'unknown' }
+  const mapped = CONSENT_STATE_MAP[str.toLowerCase()]
+  if (mapped) return { value: mapped }
+  return { value: 'unknown', warning: `unmapped_consent_value:${str}` }
+}
+
 /** nicknameRaw wins if present; otherwise falls back to the first token of
  *  fullNameTrimmed. Only called with a non-blank fullNameTrimmed (the
  *  hard-required full_name check happens before this in normalizeRow), so
@@ -138,6 +157,9 @@ export function normalizeRow(row: RawDataRow): ParsedPersonRow {
   const genderResult = mapGender(row.cellsByField.gender_raw)
   if (genderResult.warning) warnings.push(genderResult.warning)
 
+  const consentResult = mapConsentState(row.cellsByField.photo_consent_raw)
+  if (consentResult.warning) warnings.push(consentResult.warning)
+
   return {
     sourceRowNumber: row.sourceRowNumber,
     phone_e164,
@@ -152,6 +174,8 @@ export function normalizeRow(row: RawDataRow): ParsedPersonRow {
     marital_status: maritalResult.value,
     kepanitiaan: kepanitiaanStr || null,
     tribe: tribeStr || null,
+    photo_consent_state: consentResult.value,
+    photo_publish_consent: consentResult.value === 'granted',
     warnings,
   }
 }
