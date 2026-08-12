@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "resolveJsonModule": true,
+    "outDir": "./.build",
+    "rootDir": "..",
+    "lib": ["ES2020"]
+  },
+  "include": [
+    "s6-t6-import-commit.ts",
+    "../lib/utils/phone.ts",
+    "../lib/audit.ts",
+    "../lib/import/columns.ts",
+    "../lib/import/normalize.ts",
+    "../lib/import/classify.ts",
+    "../lib/import/lookup.ts",
+    "../lib/import/types.ts",
+    "../lib/import/dry-run.impl.ts",
+    "../lib/import/commit.impl.ts"
+  ],
+  "exclude": ["**/__tests__/**"]
+}
