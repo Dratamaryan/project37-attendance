@@ -160,10 +160,17 @@ function assertEnvGuards() {
 }
 
 function assertFilePathLocked() {
-  const lower = FILE_PATH.toLowerCase()
+  // Checked against the FILENAME only, not the full path -- the legitimate
+  // file legitimately lives under a directory literally named
+  // 'data-samples' (docs/data-samples/roster-repair/...), which contains the
+  // substring 'sample'. Matching the full path here was a false positive
+  // that blocked the correct file, not just synthetic ones (caught live
+  // against prod on first run). The endswith check below is the real lock;
+  // this is the additional belt-and-suspenders check on top of it.
+  const lowerFilename = path.basename(FILE_PATH).toLowerCase()
   for (const token of FORBIDDEN_PATH_TOKENS) {
-    if (lower.includes(token)) {
-      throw new Error(`FILE GUARD FAILED: FILE_PATH contains forbidden token "${token}": ${FILE_PATH}`)
+    if (lowerFilename.includes(token)) {
+      throw new Error(`FILE GUARD FAILED: filename contains forbidden token "${token}": ${FILE_PATH}`)
     }
   }
   if (!FILE_PATH.endsWith('roster-repair/legacy-roster-corrected.xlsx')) {
