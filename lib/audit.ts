@@ -34,6 +34,7 @@ export const AUDIT_ACTIONS = {
   DATA_WIPE:               'data.wipe',
   DATA_DEACTIVATE_TEST_USERS: 'data.deactivate_test_users',
   PEOPLE_ANONYMIZE:        'people.anonymize',
+  NOTIFY_DAILY_CAP_DEFERRED: 'notify.daily_cap_deferred',
 } as const
 
 export type AuditAction = typeof AUDIT_ACTIONS[keyof typeof AUDIT_ACTIONS]

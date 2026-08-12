@@ -1,0 +1,18 @@
+-- Migration: sprint6_task7_notify_daily_cap
+-- S6-T7 — additive only, single ALTER, no other column touched.
+--
+-- notify_daily_cap: a self-imposed POLICY ceiling on app-originated notify
+-- email (event invites/resends via lib/actions/invites.impl.ts), tunable
+-- without deploy — same pattern as retention_archive_years /
+-- retention_aggregate_years on this table. It is NOT a measured Gmail limit
+-- and NOT an auth-headroom reservation: Supabase Auth (GoTrue) magic-link
+-- sends are configured via Supabase Dashboard Custom SMTP, entirely outside
+-- this codebase, and structurally never write to event_invitations or read
+-- this column.
+--
+-- NOT NULL, unlike the nullable retention_* precedent: the enforcement code
+-- needs a concrete number on every call, and unlike retention's NULL/<=0
+-- meaning "feature off", there is no safe "cap off" interpretation here —
+-- app code additionally falls back to 150 defensively if a read ever comes
+-- back null, but the column itself never should be.
+ALTER TABLE app_settings ADD COLUMN notify_daily_cap smallint NOT NULL DEFAULT 150;

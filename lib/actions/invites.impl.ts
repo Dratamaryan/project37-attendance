@@ -11,6 +11,7 @@ import { generateIcs } from '@/lib/events/ics'
 import { renderInviteEmail } from '@/lib/email/template'
 import type { EmailTransport, SendEmailResult } from '@/lib/email/transport'
 import { requireActiveAdmin } from '@/lib/auth/require-admin'
+import { toJakartaInstant } from '@/lib/events/timezone'
 import { logAudit, AUDIT_ACTIONS } from '../audit'
 import type {
   RecipientFilter,
@@ -41,6 +42,57 @@ function isQuotaExhaustedError(message: string): boolean {
 
 function defaultSleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+// ── S6-T7: NOTIFY_DAILY_CAP — a self-imposed policy ceiling on app-originated
+// notify email, NOT a measured Gmail limit and NOT an auth-headroom
+// reservation (auth is out-of-codebase, GoTrue's own Custom SMTP — see
+// lib/email/config.ts). Additive to the existing per-run budget above, never
+// a replacement for it. ─────────────────────────────────────────────────────
+
+const NOTIFY_DAILY_CAP_FALLBACK = 150
+
+interface AppSettingsNotifyCapRow {
+  notify_daily_cap: number | null
+}
+
+// Deliberately swallows a read error/null into the fallback rather than
+// throwing (unlike getSentToday below): the cap has a safe default to fall
+// back to, whereas the tally has no safe substitute for an exact count.
+async function getNotifyDailyCap(supabase: SupabaseClient): Promise<number> {
+  const { data } = await supabase.from('app_settings').select('notify_daily_cap').eq('id', 1).maybeSingle()
+  const cap = (data as AppSettingsNotifyCapRow | null)?.notify_daily_cap
+  return cap ?? NOTIFY_DAILY_CAP_FALLBACK
+}
+
+/**
+ * [start, end) of "today" in Jakarta wall-clock time, as UTC instants —
+ * reuses lib/events/timezone.ts's toJakartaInstant, the locked single place
+ * for day-boundary math (D/3). Jakarta (WIB) has a fixed UTC+7 offset with no
+ * DST, so `start + 24h` is always exactly tomorrow's Jakarta midnight.
+ */
+function jakartaDayBoundary(now: Date): { start: Date; end: Date } {
+  const start = toJakartaInstant(now, '00:00')
+  return { start, end: new Date(start.getTime() + 24 * 60 * 60 * 1000) }
+}
+
+/**
+ * Tally source is event_invitations.sent_at, not audit_log — EVENT_INVITE_SEND
+ * writes one aggregate row per run, not one row per email, so audit_log would
+ * need jsonb-summing across rows. event_invitations has exactly one 'sent'
+ * row per real send (batch or resend), and auth is structurally excluded —
+ * GoTrue auth sends never write to this table.
+ */
+async function getSentToday(supabase: SupabaseClient, now: Date): Promise<number> {
+  const { start, end } = jakartaDayBoundary(now)
+  const { count, error } = await supabase
+    .from('event_invitations')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'sent')
+    .gte('sent_at', start.toISOString())
+    .lt('sent_at', end.toISOString())
+  if (error) throw error
+  return count ?? 0
 }
 
 type EmailIdentity = { organizerEmail: string; fromName: string; replyTo: string }
@@ -365,11 +417,59 @@ export async function impl_sendInvites(input: SendInvitesInput): Promise<SendInv
   const details = await loadInstanceEventDetails(supabase, eventInstanceId)
   if (!details) return { status: 'error', message: 'Event instance not found' }
 
-  const { hasEmail, noEmail } = await impl_resolveRecipients({ supabase, filter, now })
+  const runNow = now()
+  const [{ hasEmail, noEmail }, dailyCap, sentToday] = await Promise.all([
+    impl_resolveRecipients({ supabase, filter, now }),
+    getNotifyDailyCap(supabase),
+    getSentToday(supabase, runNow),
+  ])
+  const dailyRemaining = Math.max(0, dailyCap - sentToday)
+
+  // S6-T7: exhausted BEFORE the loop starts — send nothing, leave every
+  // recipient unclaimed (same shape as the per-run budget's pre-claim check
+  // below), and record the deferral distinctly from a normal send run rather
+  // than folding it into the generic EVENT_INVITE_SEND aggregate row.
+  if (dailyRemaining <= 0 && hasEmail.length > 0) {
+    await logAudit(
+      {
+        actorUserId: actorId,
+        action: AUDIT_ACTIONS.NOTIFY_DAILY_CAP_DEFERRED,
+        entityType: 'event_instance',
+        entityId: eventInstanceId,
+        detailsJson: {
+          cap: dailyCap,
+          sent_today: sentToday,
+          requested: hasEmail.length,
+          deferred: hasEmail.length,
+        },
+      },
+      supabase,
+    )
+
+    return {
+      status: 'ok',
+      eventInstanceId,
+      noEmail,
+      attempted: 0,
+      sent: 0,
+      failed: 0,
+      skippedAlreadySent: 0,
+      remaining: hasEmail.length,
+      stoppedReason: 'daily_cap_exhausted',
+    }
+  }
 
   const dynamicCap =
     sendIntervalMs > 0 ? Math.floor((sendLoopBudgetSeconds * 1000) / sendIntervalMs) : Number.POSITIVE_INFINITY
-  const maxSendsThisRun = Math.min(dynamicCap, MAX_SENDS_PER_RUN_CAP)
+  // Fold the daily remainder into the existing cap math — same run-budget
+  // pre-claim check below now also stops at the daily ceiling, whichever
+  // binds tighter.
+  const runCap = Math.min(dynamicCap, MAX_SENDS_PER_RUN_CAP)
+  const maxSendsThisRun = Math.min(runCap, dailyRemaining)
+  // On a tie, attribute to the daily cap: the next click would send 0 and hit
+  // the pre-loop daily-exhausted path above, so 'daily_cap_exhausted' is the
+  // honest, more useful signal for what's actually blocking further sends.
+  const capStopReason: StoppedReason = dailyRemaining <= runCap ? 'daily_cap_exhausted' : 'run_budget_exhausted'
 
   let attempted = 0
   let sent = 0
@@ -383,7 +483,7 @@ export async function impl_sendInvites(input: SendInvitesInput): Promise<SendInv
     // Budget check BEFORE claiming — a recipient we won't reach this run stays
     // truly unclaimed (no row at all), not a claimed-but-untouched 'pending'.
     if (attempted >= maxSendsThisRun) {
-      stoppedReason = 'run_budget_exhausted'
+      stoppedReason = capStopReason
       break
     }
 
@@ -507,6 +607,30 @@ export async function impl_resendInvite(input: ResendInviteInput): Promise<Resen
   const { data: person } = await supabase.from('people').select('full_name, email').eq('id', personId).single()
   if (!person?.email) {
     return { status: 'send_failed', message: 'Recipient has no email on file', sequence: existing.sequence }
+  }
+
+  // S6-T7: same daily policy ceiling as impl_sendInvites, checked before the
+  // pending-flip so an exhausted day never bumps `sequence` or claims the row.
+  const [dailyCap, sentToday] = await Promise.all([getNotifyDailyCap(supabase), getSentToday(supabase, now())])
+  if (sentToday >= dailyCap) {
+    await logAudit(
+      {
+        actorUserId: actorId,
+        action: AUDIT_ACTIONS.NOTIFY_DAILY_CAP_DEFERRED,
+        entityType: 'event_invitation',
+        entityId: existing.id,
+        detailsJson: {
+          cap: dailyCap,
+          sent_today: sentToday,
+          requested: 1,
+          deferred: 1,
+          event_instance_id: eventInstanceId,
+          person_id: personId,
+        },
+      },
+      supabase,
+    )
+    return { status: 'daily_cap_exhausted', sequence: existing.sequence }
   }
 
   const newSequence = existing.sequence + 1

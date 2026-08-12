@@ -466,7 +466,8 @@
           "resending": "Resending…",
           "resend_ok": "Resent (v{sequence})",
           "resend_failed": "Resend failed: {message}",
-          "resend_not_found": "Not invited yet — send invites first."
+          "resend_not_found": "Not invited yet — send invites first.",
+          "resend_daily_cap_exhausted": "Today's send limit has been reached — try again tomorrow."
         }
       },
       "form": {

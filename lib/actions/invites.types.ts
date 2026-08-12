@@ -31,7 +31,7 @@ export interface ResolveRecipientsResult {
 
 // ── sendInvites ──────────────────────────────────────────────────────────────
 
-export type StoppedReason = 'completed' | 'run_budget_exhausted' | 'quota_exhausted'
+export type StoppedReason = 'completed' | 'run_budget_exhausted' | 'quota_exhausted' | 'daily_cap_exhausted'
 
 export type SendInvitesResult =
   | { status: 'forbidden'; message: string }
@@ -58,3 +58,4 @@ export type ResendInviteResult =
   | { status: 'not_found' }
   | { status: 'ok'; sequence: number }
   | { status: 'send_failed'; message: string; sequence: number }
+  | { status: 'daily_cap_exhausted'; sequence: number }

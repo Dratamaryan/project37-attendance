@@ -14,6 +14,7 @@ type RowResult =
   | { kind: 'ok'; sequence: number }
   | { kind: 'failed'; message: string }
   | { kind: 'not_found' }
+  | { kind: 'daily_cap_exhausted' }
   | { kind: 'forbidden' | 'error'; message: string }
 
 function ResendCell({ eventInstanceId, personId }: { eventInstanceId: string; personId: string }) {
@@ -30,6 +31,8 @@ function ResendCell({ eventInstanceId, personId }: { eventInstanceId: string; pe
         setResult({ kind: 'failed', message: res.message })
       } else if (res.status === 'not_found') {
         setResult({ kind: 'not_found' })
+      } else if (res.status === 'daily_cap_exhausted') {
+        setResult({ kind: 'daily_cap_exhausted' })
       } else {
         setResult({ kind: res.status, message: res.message })
       }
@@ -55,6 +58,7 @@ function ResendCell({ eventInstanceId, personId }: { eventInstanceId: string; pe
         >
           {result.kind === 'ok' && t('resend_ok', { sequence: result.sequence })}
           {result.kind === 'not_found' && t('resend_not_found')}
+          {result.kind === 'daily_cap_exhausted' && t('resend_daily_cap_exhausted')}
           {(result.kind === 'failed' || result.kind === 'forbidden' || result.kind === 'error') &&
             t('resend_failed', { message: result.message })}
         </span>

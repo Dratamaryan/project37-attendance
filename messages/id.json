@@ -466,7 +466,8 @@
           "resending": "Mengirim ulang…",
           "resend_ok": "Terkirim ulang (v{sequence})",
           "resend_failed": "Gagal kirim ulang: {message}",
-          "resend_not_found": "Belum diundang — kirim undangan terlebih dahulu."
+          "resend_not_found": "Belum diundang — kirim undangan terlebih dahulu.",
+          "resend_daily_cap_exhausted": "Batas pengiriman hari ini sudah tercapai — coba lagi besok."
         }
       },
       "form": {
