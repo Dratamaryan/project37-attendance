@@ -6,6 +6,9 @@ import { NextResponse, type NextRequest } from 'next/server'
 //   /dashboard  — main app shell
 //   /admin      — admin-only management pages
 //   /checkin    — volunteer check-in flow
+// Any route NOT listed here falls through unauthenticated (e.g. /, /login,
+// /privacy) — /privacy in particular must stay public: a privacy policy
+// gated behind login is broken. Do not add it to this list.
 const PROTECTED_PREFIXES = ['/dashboard', '/admin', '/checkin']
 // Auth-only routes — authenticated users are redirected to /dashboard.
 const AUTH_ONLY_PREFIXES = ['/login']

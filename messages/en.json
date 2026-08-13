@@ -10,6 +10,9 @@
     "title": "Absensi Project 37",
     "description": "Church event attendance and member management"
   },
+  "footer": {
+    "privacyLink": "Privacy Policy"
+  },
   "login": {
     "title": "Absensi Project 37",
     "subtitle": "Admin sign in",
