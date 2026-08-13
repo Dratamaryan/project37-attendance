@@ -1,4 +1,10 @@
-<!-- locale: en (secondary). Canonical: privacy-policy.id.md. Keep both files structurally in sync. -->
+// Bundled at build time (static import) — not read via fs at request time.
+// Vercel's output file tracing can't reliably resolve fs.readFile() calls behind a
+// templated/dynamic path (`privacy-policy.${locale}.md`), which risks a missing-file
+// 500 on a fresh deploy. A plain TS module sidesteps tracing entirely: any bundler that
+// can resolve a normal `import` bundles this string with zero extra config.
+// Source of truth: docs/privacy-policy.{id,en}.md (verbatim copy — do not reword).
+export const privacyPolicyEn = `<!-- locale: en (secondary). Canonical: privacy-policy.id.md. Keep both files structurally in sync. -->
 
 # Privacy Policy
 
@@ -84,3 +90,4 @@ We may update this Privacy Policy from time to time. Any changes will be marked 
 For any privacy question, request, or complaint, contact:
 
 **project37events@gmail.com**
+` as const

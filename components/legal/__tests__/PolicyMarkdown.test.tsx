@@ -1,18 +1,9 @@
 // @vitest-environment jsdom
-import { readFileSync } from 'fs'
-import path from 'path'
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { PolicyMarkdown } from '../PolicyMarkdown'
-
-const idContent = readFileSync(
-  path.join(process.cwd(), 'content/legal/privacy-policy.id.md'),
-  'utf-8'
-)
-const enContent = readFileSync(
-  path.join(process.cwd(), 'content/legal/privacy-policy.en.md'),
-  'utf-8'
-)
+import { privacyPolicyId as idContent } from '@/content/legal/privacy-policy.id'
+import { privacyPolicyEn as enContent } from '@/content/legal/privacy-policy.en'
 
 describe('PolicyMarkdown', () => {
   it('renders the id (Indonesian) section headings', () => {

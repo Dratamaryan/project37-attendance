@@ -14,19 +14,19 @@ describe('resolvePrivacyLocale', () => {
 })
 
 describe('loadPrivacyPolicyContent', () => {
-  it('loads the Indonesian document for locale=id', async () => {
-    const content = await loadPrivacyPolicyContent('id')
+  it('loads the Indonesian document for locale=id', () => {
+    const content = loadPrivacyPolicyContent('id')
     expect(content).toContain('# Kebijakan Privasi')
   })
 
-  it('loads the English document for locale=en — proves the language toggle changes the rendered document', async () => {
-    const content = await loadPrivacyPolicyContent('en')
+  it('loads the English document for locale=en — proves the language toggle changes the rendered document', () => {
+    const content = loadPrivacyPolicyContent('en')
     expect(content).toContain('# Privacy Policy')
     expect(content).not.toContain('# Kebijakan Privasi')
   })
 
-  it('falls back to the Indonesian document for an unsupported locale', async () => {
-    const content = await loadPrivacyPolicyContent('fr')
+  it('falls back to the Indonesian document for an unsupported locale', () => {
+    const content = loadPrivacyPolicyContent('fr')
     expect(content).toContain('# Kebijakan Privasi')
   })
 })

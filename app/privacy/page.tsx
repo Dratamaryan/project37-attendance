@@ -5,7 +5,7 @@ import { loadPrivacyPolicyContent } from './content'
 
 export default async function PrivacyPage() {
   const locale = await getLocale()
-  const content = await loadPrivacyPolicyContent(locale)
+  const content = loadPrivacyPolicyContent(locale)
 
   return (
     <PublicShell>
