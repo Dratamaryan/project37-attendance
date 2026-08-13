@@ -13,6 +13,9 @@
   "footer": {
     "privacyLink": "Kebijakan Privasi"
   },
+  "privacy": {
+    "backToLogin": "← Kembali ke halaman masuk"
+  },
   "login": {
     "title": "Absensi Project 37",
     "subtitle": "Masuk sebagai Admin",

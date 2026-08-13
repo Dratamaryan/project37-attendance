@@ -1,4 +1,5 @@
 import Image from 'next/image'
+import Link from 'next/link'
 import { getLocale } from 'next-intl/server'
 import { LanguageSwitcher } from './LanguageSwitcher'
 import { type ReactNode } from 'react'
@@ -14,14 +15,19 @@ export async function PublicShell({ children }: Props) {
     <>
       <header className="border-b border-line bg-cream/80 backdrop-blur-sm sticky top-0 z-40">
         <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
-          <Image
-            src="/brand/logo-primary.png"
-            alt="Project 37"
-            width={120}
-            height={40}
-            className="h-8 w-auto"
-            priority
-          />
+          {/* '/' redirects to /login (unauthenticated) or /dashboard (authenticated) —
+              harmless round-trip on /login itself, and the only way out of a dead-end
+              page like /privacy that has no other chrome. */}
+          <Link href="/">
+            <Image
+              src="/brand/logo-primary.png"
+              alt="Project 37"
+              width={120}
+              height={40}
+              className="h-8 w-auto"
+              priority
+            />
+          </Link>
           <LanguageSwitcher currentLocale={locale} />
         </div>
       </header>

@@ -13,6 +13,9 @@
   "footer": {
     "privacyLink": "Privacy Policy"
   },
+  "privacy": {
+    "backToLogin": "← Back to login"
+  },
   "login": {
     "title": "Absensi Project 37",
     "subtitle": "Admin sign in",
