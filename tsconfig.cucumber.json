@@ -1,0 +1,21 @@
+{
+  // S6-T11: dedicated tsconfig for ts-node loading Cucumber step-defs.
+  // CommonJS (not the app tsconfig's "esnext"/"bundler" pair, which is a
+  // Next.js-bundler-only combination ts-node cannot execute directly).
+  "compilerOptions": {
+    "target": "ES2021",
+    "lib": ["ES2021"],
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "outDir": "dist-cucumber",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": ["features/**/*.ts"]
+}

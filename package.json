@@ -13,7 +13,8 @@
     "test:integration": "vitest run tests/integration",
     "test:watch": "vitest",
     "seed:demo": "tsx --env-file .env.local seed/demo-data.ts",
-    "verify:demo": "tsx --env-file .env.local seed/verify-demo-data.ts"
+    "verify:demo": "tsx --env-file .env.local seed/verify-demo-data.ts",
+    "bdd": "TS_NODE_PROJECT=tsconfig.cucumber.json node --env-file=.env.test.local node_modules/.bin/cucumber-js"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",
@@ -32,6 +33,7 @@
     "xlsx": "file:vendor/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
+    "@cucumber/cucumber": "^13.2.1",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -47,6 +49,8 @@
     "node-ical": "^0.27.1",
     "playwright": "^1.61.1",
     "tailwindcss": "^4",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
     "tsx": "^4.22.4",
     "typescript": "^5",
     "vitest": "^4.1.7"
