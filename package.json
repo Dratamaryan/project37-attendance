@@ -14,7 +14,11 @@
     "test:watch": "vitest",
     "seed:demo": "tsx --env-file .env.local seed/demo-data.ts",
     "verify:demo": "tsx --env-file .env.local seed/verify-demo-data.ts",
-    "bdd": "TS_NODE_PROJECT=tsconfig.cucumber.json node --env-file=.env.test.local node_modules/.bin/cucumber-js"
+    "bdd": "TS_NODE_PROJECT=tsconfig.cucumber.json node --env-file=.env.test.local node_modules/.bin/cucumber-js",
+    "preflight": "node scripts/preflight/guard.mjs",
+    "db:push": "node scripts/preflight/guard.mjs --op=db-push && supabase db push",
+    "migrate:up": "node scripts/preflight/guard.mjs --op=migrate-up && supabase migration up --linked",
+    "preflight:selftest": "node scripts/preflight/selftest.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",

@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "prodRef": "bftifxgdcmisasgvobuf",
+  "denyByDefault": true,
+  "branches": {
+    "main": "bftifxgdcmisasgvobuf",
+    "release/*": "bftifxgdcmisasgvobuf"
+  }
+}
