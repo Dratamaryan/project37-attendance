@@ -34,6 +34,26 @@ const cases = [
     input: { branch: 'feature/x', op: 'migrate-up', resolved: resolved(PROD_REF), map },
     check: (r) => r.ok === false && r.reason === 'branch-unmatched-deny-by-default',
   },
+  {
+    name: 'branch=HEAD (detached), resolved=prod => abort (detached-or-empty-branch)',
+    input: { branch: 'HEAD', op: 'migrate-up', resolved: resolved(PROD_REF), map },
+    check: (r) => r.ok === false && r.reason === 'detached-or-empty-branch',
+  },
+  {
+    name: 'map=null => abort (map-missing-or-unparseable)',
+    input: { branch: 'main', op: 'migrate-up', resolved: resolved(PROD_REF), map: null },
+    check: (r) => r.ok === false && r.reason === 'map-missing-or-unparseable',
+  },
+  {
+    name: 'branch=main, resolved matches expected but disagree=true => abort (ref-source-disagreement)',
+    input: { branch: 'main', op: 'migrate-up', resolved: resolved(PROD_REF, { disagree: true }), map },
+    check: (r) => r.ok === false && r.reason === 'ref-source-disagreement',
+  },
+  {
+    name: 'branch=main, resolved.ref=null => abort (remote-write-op-no-resolvable-ref)',
+    input: { branch: 'main', op: 'migrate-up', resolved: { ref: null, local: false, sources: {}, disagree: false }, map },
+    check: (r) => r.ok === false && r.reason === 'remote-write-op-no-resolvable-ref',
+  },
 ]
 
 let failures = 0
