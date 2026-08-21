@@ -37,6 +37,11 @@ export function evaluate({ branch, op, resolved, map }) {
     return { ok: false, reason: 'map-missing-or-unparseable' }
   }
 
+  // A local target (localhost/127.0.0.1) can never be the wrong REMOTE; the
+  // guard exists to prevent hitting the wrong remote DB, not to block local
+  // dev/rehearsal.
+  if (resolved && resolved.local) return { ok: true, reason: null }
+
   const expectedRef = matchBranchRef(map.branches, branch)
   if (expectedRef === undefined) {
     if (map.denyByDefault) {

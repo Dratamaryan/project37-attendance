@@ -128,12 +128,13 @@ branch-expected ref for remote ops.
 
 ## 6. Known limitations & S8 follow-ups
 
-- **Local-target exemption is not yet wired.** `resolve-ref` classifies
-  `localhost` / `127.0.0.1` as local, but `evaluate()` does not yet exempt it — so
-  a guarded op against a local target currently aborts (mismatch on `main`,
-  branch-deny on a feature branch). This is added when a guarded op first needs a
-  local target (S7-T3 roster rehearsal against a Docker restore), proven by a
-  dedicated selftest case.
+- **Local-target exemption is wired in <commit>.** `evaluate()` now returns
+  `{ ok: true, reason: null }` for any `resolved.local === true` target
+  (`localhost` / `127.0.0.1`), checked immediately after the map-missing check
+  and before branch-deny/mismatch logic — a local target can never be the
+  wrong *remote*, which is what the guard exists to prevent. Proven by the
+  `branch=feature/x, op=roster-apply, resolved=local(127.0.0.1) => ok` case in
+  `selftest.mjs`.
 - **`SUPABASE_DB_URL` host parse is imprecise.** A direct connection string parses
   to `db`, a pooler string to `aws-0-<region>` (the ref lives in the username).
   This is fail-safe — it can only ever produce a spurious abort, never a false

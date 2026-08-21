@@ -54,6 +54,11 @@ const cases = [
     input: { branch: 'main', op: 'migrate-up', resolved: { ref: null, local: false, sources: {}, disagree: false }, map },
     check: (r) => r.ok === false && r.reason === 'remote-write-op-no-resolvable-ref',
   },
+  {
+    name: 'branch=feature/x, op=roster-apply, resolved=local(127.0.0.1) => ok (local bypasses branch-deny)',
+    input: { branch: 'feature/x', op: 'roster-apply', resolved: resolved('127.0.0.1', { local: true }), map },
+    check: (r) => r.ok === true,
+  },
 ]
 
 let failures = 0
