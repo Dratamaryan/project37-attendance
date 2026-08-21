@@ -128,7 +128,7 @@ branch-expected ref for remote ops.
 
 ## 6. Known limitations & S8 follow-ups
 
-- **Local-target exemption is wired in <commit>.** `evaluate()` now returns
+- **Local-target exemption is wired in S7-T3.1 (469eee9).** `evaluate()` now returns
   `{ ok: true, reason: null }` for any `resolved.local === true` target
   (`localhost` / `127.0.0.1`), checked immediately after the map-missing check
   and before branch-deny/mismatch logic — a local target can never be the
