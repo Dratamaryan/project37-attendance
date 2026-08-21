@@ -59,15 +59,18 @@
  * while photo_publish_consent is already true) from ever being downgraded by
  * a stale form answer.
  *
- * BUCKET PRIORITY (an explicit design decision, not directly specified) — a
- * matched-active row can independently qualify for a demographic fill AND a
- * consent move at once (e.g. birth_date is null AND consent is eligible).
- * Buckets must partition all 227 rows exactly once for the reconciliation
- * rail, so priority is: would-conflict > matched-fill > matched-consent-move
- * > matched-no-op. A matched-fill row that ALSO has an eligible consent move
- * carries that transition as an annotation on its report line (and, in apply
- * mode, in its UPDATE payload) so the move is never silently dropped by the
- * priority choice — only the bucket COUNT reflects fill as primary.
+ * WRITE vs. BUCKET (S7-T3.2 revision, FIX 2) — the write is computed once,
+ * per-column, independent of which bucket a matched-active row is labeled
+ * with: fillFields (existing null -> form value, per column) and the consent
+ * tuple (when eligible) are ALWAYS combined into that row's updatePayload,
+ * even when the row also has a conflicting column. A conflict on one column
+ * must never suppress a fill or consent write on another. The bucket is a
+ * COUNT LABEL ONLY, chosen by priority (would-conflict > matched-fill >
+ * matched-consent-move > matched-no-op) purely so the 11-bucket
+ * reconciliation stays a one-bucket-per-row partition summing to 227 — it
+ * does not gate what gets written. Every matched-active row's report line
+ * carries conflicts=[...] will-fill=[...] will-consent=X regardless of its
+ * bucket, so a would-conflict row's real write is always visible.
  *
  * Similarly, phone validity is checked before full_name (matching requires a
  * phone key; you cannot decide match-vs-insert without one), so a fully
@@ -151,17 +154,29 @@ function assertPhoneUtilTrustworthy(): void {
   console.log('[phone-util-guard] OK -- ID and AU known-good phones normalized correctly under this runtime')
 }
 
-// Per-cell recovery rule: numeric cells String()'d; digits not starting with
-// '0' or '+' get a '0' prepended (ID dropped-leading-zero recovery) before
-// normalizing. A '+' prefix is parsed international, untouched.
+function stripPhoneSeparators(str: string): string {
+  return str.replace(/[\s\-().]+/g, '')
+}
+
+/** S7-T3.2 revision, FIX 1 -- replaces the old "prepend 0 unless starts with
+ *  0/+" rule, which mangled a numeric cell that already carried the 62
+ *  country code (row 100: e.g. raw number 6281234567890 -> old code produced
+ *  '062...' garbage since it only special-cased '0'/'+', never '62'). Ladder,
+ *  checked after stripping separators: '+' -> parse as-is; '62' (no '+') ->
+ *  prepend '+'; '0' -> parse as-is (ID national format); '8' (dropped leading
+ *  zero) -> prepend '0'; anything else -> prepend '0' as a last resort.
+ *  libphonenumber-js still validates every branch, so genuine garbage still
+ *  fails safe into phone-normalize-failed -- this only widens which raw
+ *  shapes get a fair shot at validating. */
 function normalizeRosterPhone(raw: unknown): ReturnType<typeof normalizePhone> {
-  let str = raw === null || raw === undefined ? '' : typeof raw === 'number' ? String(raw) : String(raw).trim()
-  str = str.trim()
+  const initial = raw === null || raw === undefined ? '' : typeof raw === 'number' ? String(raw) : String(raw).trim()
+  const str = stripPhoneSeparators(initial.trim())
   if (!str) return { ok: false, reason: 'empty' }
-  if (!str.startsWith('0') && !str.startsWith('+')) {
-    str = '0' + str
-  }
-  return normalizePhone(str, 'ID')
+  if (str.startsWith('+')) return normalizePhone(str, 'ID')
+  if (str.startsWith('62')) return normalizePhone('+' + str, 'ID')
+  if (str.startsWith('0')) return normalizePhone(str, 'ID')
+  if (str.startsWith('8')) return normalizePhone('0' + str, 'ID')
+  return normalizePhone('0' + str, 'ID')
 }
 
 // ---------------------------------------------------------------------------
@@ -592,11 +607,13 @@ interface ClassifiedRow {
   bucket: Bucket
   sourceRowNumber: number
   personId?: string
+  // Matched-active rows carry ALL of these regardless of which bucket the
+  // priority rule below picked for the count/label -- S7-T3.2 revision FIX 2:
+  // conflicts no longer suppress fills/consent on OTHER columns.
   filledFields?: FillableField[]
-  alsoConsentTransition?: string | null
   conflictFields?: FillableField[]
+  willConsent?: string | null
   birthDateDayDiff?: number | null
-  consentTransition?: string
   presentColumns?: string[]
   consentDecision?: ConsentState
   insertPayload?: Record<string, unknown>
@@ -617,6 +634,10 @@ function classifyRow(row: ParsedRow, existingByPhone: Map<string, ExistingPerson
     if (existing.anonymized_at !== null) return { ...base, bucket: 'matched-anonymized', personId: existing.id }
     if (existing.deleted_at !== null) return { ...base, bucket: 'matched-deleted', personId: existing.id }
 
+    // FIX 2: the write is computed ONCE, per-column, independent of which
+    // bucket the row is labeled with below. A conflict on one field must
+    // never suppress a fill on another field, or an eligible consent write
+    // (consent is orthogonal to the demographic fill entirely).
     const form: FormFillValues = {
       birth_date: row.birth_date,
       birth_place: row.birth_place,
@@ -625,41 +646,34 @@ function classifyRow(row: ParsedRow, existingByPhone: Map<string, ExistingPerson
     }
     const { fillFields, conflictFields, birthDateDayDiff } = computeFillAndConflict(existing, form)
     const consentEligible = computeConsentEligibility(existing)
-    const transition = consentEligible ? `unknown->${row.consentState}` : undefined
+    const willConsent = consentEligible ? `unknown->${row.consentState}` : null
 
-    if (conflictFields.length > 0) {
-      return { ...base, bucket: 'would-conflict', personId: existing.id, conflictFields, birthDateDayDiff }
-    }
-    if (fillFields.length > 0) {
-      const updatePayload: Record<string, unknown> = { updated_at: new Date().toISOString() }
-      for (const f of fillFields) updatePayload[f] = form[f]
-      if (consentEligible) {
-        updatePayload.photo_consent_state = row.consentState
-        updatePayload.photo_publish_consent = row.consentState === 'granted'
-      }
-      return {
-        ...base,
-        bucket: 'matched-fill',
-        personId: existing.id,
-        filledFields: fillFields,
-        alsoConsentTransition: transition ?? null,
-        updatePayload,
-      }
-    }
+    const updatePayload: Record<string, unknown> = {}
+    for (const f of fillFields) updatePayload[f] = form[f]
     if (consentEligible) {
-      return {
-        ...base,
-        bucket: 'matched-consent-move',
-        personId: existing.id,
-        consentTransition: transition,
-        updatePayload: {
-          photo_consent_state: row.consentState,
-          photo_publish_consent: row.consentState === 'granted',
-          updated_at: new Date().toISOString(),
-        },
-      }
+      updatePayload.photo_consent_state = row.consentState
+      updatePayload.photo_publish_consent = row.consentState === 'granted'
     }
-    return { ...base, bucket: 'matched-no-op', personId: existing.id }
+    const hasWrite = fillFields.length > 0 || consentEligible
+    if (hasWrite) updatePayload.updated_at = new Date().toISOString()
+
+    // Bucket is a COUNT LABEL ONLY (priority would-conflict > matched-fill >
+    // matched-consent-move > matched-no-op) so the 11-bucket reconciliation
+    // stays a one-bucket-per-row partition summing to 227. It does NOT gate
+    // what gets written -- updatePayload above already reflects the real
+    // per-column write regardless of this label.
+    const bucket: Bucket = conflictFields.length > 0 ? 'would-conflict' : fillFields.length > 0 ? 'matched-fill' : consentEligible ? 'matched-consent-move' : 'matched-no-op'
+
+    return {
+      ...base,
+      bucket,
+      personId: existing.id,
+      filledFields: fillFields,
+      conflictFields,
+      willConsent,
+      birthDateDayDiff,
+      updatePayload: hasWrite ? updatePayload : undefined,
+    }
   }
 
   // No match -> candidate insert.
@@ -696,9 +710,14 @@ function classifyRow(row: ParsedRow, existingByPhone: Map<string, ExistingPerson
 // ONLY, never digits.
 // ---------------------------------------------------------------------------
 
-function edgeRowSummary(row: ParsedRow | undefined): { country: string | null; valid: boolean; e164_length: number | null } {
+function edgeRowSummary(row: ParsedRow | undefined): Record<string, unknown> {
   if (!row) return { country: null, valid: false, e164_length: null }
-  if (!row.phoneResult.ok) return { country: null, valid: false, e164_length: null }
+  if (!row.phoneResult.ok) {
+    // Still fails after FIX 1's ladder -- report ONLY cell shape (char length
+    // + first 2 digits of the stripped raw cell), never the full digits.
+    const stripped = stripPhoneSeparators(cellToTrimmedString(row.phoneRaw))
+    return { country: null, valid: false, e164_length: null, cell_char_length: stripped.length, cell_first_2_chars: stripped.slice(0, 2) }
+  }
   const e164 = row.phoneResult.e164
   const country = e164.startsWith('+62') ? 'ID' : e164.startsWith('+61') ? 'AU' : e164.startsWith('+65') ? 'SG' : e164.startsWith('+60') ? 'MY' : e164.startsWith('+64') ? 'NZ' : 'OTHER'
   return { country, valid: true, e164_length: e164.length }
@@ -755,22 +774,34 @@ function printDryRunReport(
     console.log(`  OK -- within expected ~100 blank range`)
   }
 
-  console.log(`\n-- matched-fill (person id + filled columns) --`)
-  for (const c of byBucket.get('matched-fill')!) {
-    const also = c.alsoConsentTransition ? ` also-consent:${c.alsoConsentTransition}` : ''
-    console.log(`  ${c.personId}: [${c.filledFields!.join(', ')}]${also}`)
+  // S7-T3.2 revision FIX 2: every matched-active row (all 4 buckets below)
+  // is annotated with everything that applies -- conflicts=[...],
+  // will-fill=[...], will-consent=X -- so the actual write (updatePayload)
+  // is visible regardless of which bucket the row's priority label landed
+  // in. A would-conflict row's will-fill/will-consent make its real write
+  // visible even though the row is conflict-labeled.
+  function annotate(c: ClassifiedRow): string {
+    const diff = c.conflictFields?.includes('birth_date') && c.birthDateDayDiff !== null && c.birthDateDayDiff !== undefined ? ` (birth_date day-diff: ${c.birthDateDayDiff >= 0 ? '+' : ''}${c.birthDateDayDiff})` : ''
+    return `conflicts=[${(c.conflictFields ?? []).join(', ')}]${diff} will-fill=[${(c.filledFields ?? []).join(', ')}] will-consent=${c.willConsent ?? 'none'}`
   }
 
-  console.log(`\n-- matched-consent-move (person id + transition) --`)
-  for (const c of byBucket.get('matched-consent-move')!) {
-    console.log(`  ${c.personId}: ${c.consentTransition}`)
-  }
+  console.log(`\n-- matched-fill (person id + annotation) --`)
+  for (const c of byBucket.get('matched-fill')!) console.log(`  ${c.personId}: ${annotate(c)}`)
 
-  console.log(`\n-- would-conflict (person id + conflicting columns) --`)
-  for (const c of byBucket.get('would-conflict')!) {
-    const diff = c.conflictFields!.includes('birth_date') && c.birthDateDayDiff !== null && c.birthDateDayDiff !== undefined ? ` (birth_date day-diff: ${c.birthDateDayDiff >= 0 ? '+' : ''}${c.birthDateDayDiff})` : ''
-    console.log(`  ${c.personId}: [${c.conflictFields!.join(', ')}]${diff}`)
-  }
+  console.log(`\n-- matched-consent-move (person id + annotation) --`)
+  for (const c of byBucket.get('matched-consent-move')!) console.log(`  ${c.personId}: ${annotate(c)}`)
+
+  console.log(`\n-- matched-no-op (person id + annotation) --`)
+  for (const c of byBucket.get('matched-no-op')!) console.log(`  ${c.personId}: ${annotate(c)}`)
+
+  console.log(`\n-- would-conflict (person id + annotation -- will-fill/will-consent show the REAL write) --`)
+  for (const c of byBucket.get('would-conflict')!) console.log(`  ${c.personId}: ${annotate(c)}`)
+
+  const allMatchedActive = [...byBucket.get('matched-fill')!, ...byBucket.get('matched-consent-move')!, ...byBucket.get('matched-no-op')!, ...byBucket.get('would-conflict')!]
+  const consentWriteGranted = allMatchedActive.filter((c) => c.willConsent?.endsWith('granted')).length
+  const consentWriteRefused = allMatchedActive.filter((c) => c.willConsent?.endsWith('refused')).length
+  console.log(`\n-- Consent-write summary (across all matched buckets) --`)
+  console.log(`  ->granted: ${consentWriteGranted}, ->refused: ${consentWriteRefused}, total: ${consentWriteGranted + consentWriteRefused}`)
 
   const birthDateConflicts = byBucket.get('would-conflict')!.filter((c) => c.conflictFields!.includes('birth_date'))
   const plusOneDay = birthDateConflicts.filter((c) => c.birthDateDayDiff === 1).length
@@ -844,10 +875,12 @@ async function runApply(supabase: SupabaseClient, classified: ClassifiedRow[], a
   const adminId = await resolveAdminActor(supabase, adminEmail)
 
   const inserts = classified.filter((c) => c.bucket === 'new-insert')
-  const fills = classified.filter((c) => c.bucket === 'matched-fill')
-  const consentMoves = classified.filter((c) => c.bucket === 'matched-consent-move')
+  // FIX 2: the write is decoupled from the bucket label -- ANY matched-active
+  // row (including would-conflict ones) with a non-empty updatePayload gets
+  // written. matched-no-op rows never have one (hasWrite was false).
+  const updates = classified.filter((c) => c.updatePayload !== undefined)
 
-  console.log(`[apply] would insert ${inserts.length}, update (fill) ${fills.length}, update (consent-move) ${consentMoves.length}`)
+  console.log(`[apply] would insert ${inserts.length}, update ${updates.length} (across matched-fill/matched-consent-move/would-conflict rows with a non-empty per-column write)`)
 
   if (!armed) {
     console.log('[apply] DRY (not armed) -- pass --confirm-apply to actually write. No DB writes made.')
@@ -866,16 +899,16 @@ async function runApply(supabase: SupabaseClient, classified: ClassifiedRow[], a
     )
   }
 
-  for (const c of [...fills, ...consentMoves]) {
+  for (const c of updates) {
     const { error } = await supabase.from('people').update(c.updatePayload!).eq('id', c.personId!)
     if (error) throw error
     await logAudit(
       {
         actorUserId: adminId,
-        action: c.bucket === 'matched-fill' ? AUDIT_ACTIONS.PEOPLE_UPDATE : AUDIT_ACTIONS.CONSENT_GRANT,
+        action: c.willConsent ? AUDIT_ACTIONS.CONSENT_GRANT : AUDIT_ACTIONS.PEOPLE_UPDATE,
         entityType: 'people',
         entityId: c.personId!,
-        detailsJson: { kind: 's7-t3-roster-remigrate', bucket: c.bucket, fields: c.filledFields ?? null, consentTransition: c.consentTransition ?? c.alsoConsentTransition ?? null, importId },
+        detailsJson: { kind: 's7-t3-roster-remigrate', bucket: c.bucket, fields: c.filledFields ?? null, consentTransition: c.willConsent ?? null, importId },
       },
       supabase,
     )
