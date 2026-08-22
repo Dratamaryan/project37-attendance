@@ -1,13 +1,24 @@
 /**
- * S7-T3.2 — Roster re-migration (DATA UMAT (19Aug2026).xlsx -> public.people).
+ * S7-T3 — Roster re-migration (DATA UMAT (19Aug2026).xlsx -> public.people).
  *
  * Two modes:
  *   --mode=dry-run   (default) — read-only. Classifies every row, prints a
  *                     PII-safe report (surrogate keys / column names / bucket
  *                     counts only — never a name/phone/email/birth value).
- *   --mode=apply     — writes. Built and type-checked here, but this task
- *                     never invokes it: T3.2's job is the script + a local
- *                     dry-run, not a real or rehearsal write.
+ *   --mode=apply     — writes. Finalized in S7-T3.3 (payload guard, split
+ *                     audit actions, mandatory post-write re-verify — see
+ *                     the "Apply" section below). Rehearsed once against a
+ *                     local scratch restore in S7-T3.3, including a second
+ *                     back-to-back run proving idempotency. STILL NEVER RUN
+ *                     AGAINST PROD as of this revision — the preflight guard
+ *                     enforces branch/ref agreement for any non-local target,
+ *                     but that is a backstop, not an invitation to point this
+ *                     at prod without a separate, explicit decision to do so.
+ *                     --any-active-admin resolves any active admin from
+ *                     app_users as the audit actor without ever fetching or
+ *                     printing an email — intended for a scratch restore
+ *                     where no admin email is known in advance; prefer
+ *                     --admin-email / IMPORT_ADMIN_EMAIL for a real apply.
  *
  * RUNTIME WARNING — do NOT run this with `tsx` or `node --import tsx`.
  * normalizePhone (libphonenumber-js's `/min` subpath) fails SILENT under
@@ -503,6 +514,19 @@ interface ExistingPersonRow {
   photo_publish_consent: boolean
 }
 
+/** S7-T3.3 FIX 4 -- pre/post-write snapshot shape for the mandatory
+ *  re-verify. Deliberately narrower than ExistingPersonRow (no phone_e164 --
+ *  the re-verify never needs to print or match on it, only compare by id). */
+interface PreImageRow {
+  id: string
+  photo_consent_state: 'granted' | 'refused' | 'unknown'
+  photo_publish_consent: boolean
+  birth_date: string | null
+  birth_place: string | null
+  marital_status: MaritalStatus | null
+  photo_url: string | null
+}
+
 async function lookupExisting(supabase: SupabaseClient, phones: string[]): Promise<Map<string, ExistingPersonRow>> {
   const unique = [...new Set(phones)]
   const result = new Map<string, ExistingPersonRow>()
@@ -844,7 +868,15 @@ function printDryRunReport(
 }
 
 // ---------------------------------------------------------------------------
-// Apply (built, type-checked -- NOT invoked by S7-T3.2)
+// Apply -- finalized in S7-T3.3. All four APPLY-PATH FIXES live here:
+//   FIX 1: assertPayloadGuard -- hard-aborts before any write if any row's
+//          updatePayload would touch one of its own conflictFields.
+//   FIX 2: (see below) writes are idempotent BY CONSTRUCTION, not by any
+//          special-cased retry/dedup logic -- relied on, not just asserted.
+//   FIX 3: audit action direction (CONSENT_GRANT / CONSENT_REVOKE /
+//          PEOPLE_UPDATE), split into two entries when a row does both.
+//   FIX 4: snapshotActiveUniverse + reVerifyAndAssert -- mandatory, runs
+//          every armed apply, hard-aborts on any violated invariant.
 // ---------------------------------------------------------------------------
 
 function requireEnv(name: string): string {
@@ -869,10 +901,222 @@ async function resolveAdminActor(supabase: SupabaseClient, adminEmail: string): 
   return data.id as string
 }
 
+/** --any-active-admin (S7-T3.3 rehearsal-only escape hatch, not requested
+ *  literally but required to satisfy "audit actor = any active admin ...
+ *  resolve its id, do NOT print the email" -- resolveAdminActor above needs
+ *  a known email upfront, which doesn't fit a scratch restore where no email
+ *  is known in advance). Selects id/role/active only -- email is never
+ *  fetched, so it structurally cannot be printed. --admin-email/
+ *  IMPORT_ADMIN_EMAIL remains the default, deliberate path for a real apply
+ *  where the actor should be named explicitly. */
+async function resolveAnyActiveAdmin(supabase: SupabaseClient): Promise<string> {
+  const { data, error } = await supabase.from('app_users').select('id, role, active').eq('role', 'admin').eq('active', true).limit(1).maybeSingle()
+  if (error) throw new Error(`Any-active-admin lookup failed: ${error.message}`)
+  if (!data) throw new Error('No active admin found in app_users.')
+  return data.id as string
+}
+
+/** FIX 1 -- pre-write payload guard. For every matched row with a non-empty
+ *  updatePayload, asserts none of its keys appear in that row's own
+ *  conflictFields (a conflicting column, above all birth_date, must never be
+ *  written -- FIX 2 decoupled the write from the report bucket precisely so
+ *  OTHER columns could still be written past a conflict, which makes this
+ *  guard the thing that keeps the conflicting column itself untouchable).
+ *  Pure, no DB access -- runs first, hard-aborts the WHOLE run on any
+ *  violation before insert/update/audit ever executes. */
+function assertPayloadGuard(classified: ClassifiedRow[]): void {
+  const violations: string[] = []
+  let checked = 0
+  for (const c of classified) {
+    if (!c.updatePayload || !c.conflictFields) continue
+    checked++
+    for (const key of Object.keys(c.updatePayload)) {
+      if ((c.conflictFields as string[]).includes(key)) {
+        violations.push(`personId=${c.personId} key="${key}"`)
+      }
+    }
+  }
+  if (violations.length > 0) {
+    console.error('PAYLOAD GUARD FAILED -- a conflicting column would be written:')
+    for (const v of violations) console.error(`  ${v}`)
+    process.exit(1)
+  }
+  console.log(`[payload-guard] OK -- ${checked} update payload(s) checked, 0 touch a conflicting column`)
+}
+
+/** FIX 2 -- writes are idempotent BY CONSTRUCTION, relied on rather than
+ *  special-cased: fill writes are null->value only (a field already filled,
+ *  by this run or a prior partial one, never gets re-touched, since
+ *  computeFillAndConflict only ever proposes a fill when existing is null);
+ *  consent writes fire only when existing state='unknown' AND publish=false
+ *  (once moved, re-running finds it no longer eligible); inserts upsert
+ *  onConflict phone_e164 with ignoreDuplicates:true (a phone already present
+ *  is silently skipped, never re-inserted or overwritten). A partial failure
+ *  midway through a real apply is therefore always safe to re-run to
+ *  completion -- re-running re-classifies against fresh DB state, and
+ *  anything already written simply reclassifies to matched-no-op / a no-op
+ *  insert-skip and is left alone. Proven empirically by the S7-T3.3 rehearsal
+ *  (identical run twice: 0 inserts / 0 updates the second time). */
+
+/** FIX 4 -- snapshot the full active universe (deleted_at/anonymized_at both
+ *  null) BEFORE any write, for the mandatory post-write re-verify. Active-
+ *  only matches the same universe definition used throughout S7-T3's recon. */
+async function snapshotActiveUniverse(supabase: SupabaseClient): Promise<Map<string, PreImageRow>> {
+  const { data, error } = await supabase
+    .from('people')
+    .select('id, photo_consent_state, photo_publish_consent, birth_date, birth_place, marital_status, photo_url')
+    .is('deleted_at', null)
+    .is('anonymized_at', null)
+  if (error) throw error
+  return new Map((data as PreImageRow[]).map((p) => [p.id, p]))
+}
+
+/** FIX 4 -- MANDATORY post-write re-verify. Independent re-query (not a
+ *  reuse of any in-memory write result) against the same active universe.
+ *  PII-SAFE: prints counts, booleans, and surrogate ids ONLY -- never a
+ *  birth_date/birth_place/marital_status/photo_url VALUE, pre or post. Any
+ *  failed assertion prints FAIL and hard-exits non-zero. */
+async function reVerifyAndAssert(
+  supabase: SupabaseClient,
+  preImage: Map<string, PreImageRow>,
+  classified: ClassifiedRow[],
+  insertedCount: number,
+): Promise<void> {
+  console.log('\n-- POST-WRITE RE-VERIFY (independent re-query, PII-safe: counts/ids only) --')
+
+  const { data: postData, error } = await supabase
+    .from('people')
+    .select('id, photo_consent_state, photo_publish_consent, birth_date, birth_place, marital_status, photo_url')
+    .is('deleted_at', null)
+    .is('anonymized_at', null)
+  if (error) throw error
+  const post = postData as PreImageRow[]
+  const postById = new Map(post.map((p) => [p.id, p]))
+
+  let failures = 0
+
+  const total = post.length
+  const granted = post.filter((p) => p.photo_consent_state === 'granted').length
+  const refused = post.filter((p) => p.photo_consent_state === 'refused').length
+  const unknown = post.filter((p) => p.photo_consent_state === 'unknown').length
+  console.log(`  people total: ${total}`)
+  console.log(`  consent: granted=${granted} refused=${refused} unknown=${unknown} (sum=${granted + refused + unknown})`)
+  if (granted + refused + unknown !== total) {
+    console.error('  FAIL: consent group sum != total')
+    failures++
+  }
+
+  const coherenceViolations = post.filter((p) => p.photo_publish_consent !== (p.photo_consent_state === 'granted')).length
+  const publishTrueCount = post.filter((p) => p.photo_publish_consent === true).length
+  console.log(`  coherence violations (publish != (state==='granted')): ${coherenceViolations}`)
+  console.log(`  publish=true count: ${publishTrueCount} (expect == granted count)`)
+  if (coherenceViolations !== 0) {
+    console.error('  FAIL: coherence violations != 0')
+    failures++
+  }
+  if (publishTrueCount !== granted) {
+    console.error('  FAIL: publish=true count != granted count')
+    failures++
+  }
+
+  // NEVER-FLIP: every id already granted or already refused pre-write must
+  // be byte-identical on (state, publish) post-write.
+  const preGranted = [...preImage.values()].filter((p) => p.photo_consent_state === 'granted' && p.photo_publish_consent === true)
+  const preRefused = [...preImage.values()].filter((p) => p.photo_consent_state === 'refused' && p.photo_publish_consent === false)
+  let neverFlipViolations = 0
+  for (const pre of preGranted) {
+    const now = postById.get(pre.id)
+    if (!now || now.photo_consent_state !== 'granted' || now.photo_publish_consent !== true) neverFlipViolations++
+  }
+  for (const pre of preRefused) {
+    const now = postById.get(pre.id)
+    if (!now || now.photo_consent_state !== 'refused' || now.photo_publish_consent !== false) neverFlipViolations++
+  }
+  console.log(`  NEVER-FLIP: pre-granted=${preGranted.length} pre-refused=${preRefused.length} -- violations: ${neverFlipViolations}`)
+  if (neverFlipViolations !== 0) {
+    console.error('  FAIL: NEVER-FLIP violated')
+    failures++
+  }
+
+  // NO NON-NULL CLOBBER: every pre-image non-null fillable value must be
+  // byte-identical post-write; count null->value fills (birth_date called
+  // out specifically per spec).
+  const fields: FillableField[] = ['birth_date', 'birth_place', 'marital_status', 'photo_url']
+  let clobberViolations = 0
+  let birthDateFillCount = 0
+  for (const [id, pre] of preImage) {
+    const now = postById.get(id)
+    if (!now) continue
+    for (const f of fields) {
+      const preVal = pre[f]
+      const postVal = now[f]
+      if (preVal !== null && postVal !== preVal) clobberViolations++
+      if (f === 'birth_date' && preVal === null && postVal !== null) birthDateFillCount++
+    }
+  }
+  console.log(`  NO-CLOBBER: violations: ${clobberViolations}`)
+  console.log(`  birth_date null->value fill count: ${birthDateFillCount}`)
+  if (clobberViolations !== 0) {
+    console.error('  FAIL: a non-null value was clobbered')
+    failures++
+  }
+
+  // All 102/107 would-conflict rows' conflicting birth_date must be unchanged.
+  const conflictRows = classified.filter((c) => c.conflictFields?.includes('birth_date') && c.personId)
+  let conflictBirthDateChanged = 0
+  for (const c of conflictRows) {
+    const pre = preImage.get(c.personId!)
+    const now = postById.get(c.personId!)
+    if (pre && now && pre.birth_date !== now.birth_date) conflictBirthDateChanged++
+  }
+  console.log(`  birth_date conflict rows: ${conflictRows.length}, changed post-write: ${conflictBirthDateChanged} (expect 0)`)
+  if (conflictBirthDateChanged !== 0) {
+    console.error('  FAIL: a conflicting birth_date was written')
+    failures++
+  }
+
+  // Edge rows.
+  const row82 = classified.find((c) => c.sourceRowNumber === 82)
+  const row82Phone = row82?.insertPayload?.phone_e164 as string | undefined
+  if (row82Phone) {
+    const { data: row82Person, error: row82Err } = await supabase.from('people').select('id, phone_e164').eq('phone_e164', row82Phone).maybeSingle()
+    if (row82Err) throw row82Err
+    const ok = !!row82Person && (row82Person.phone_e164 as string).startsWith('+61')
+    console.log(`  row 82 (new-insert) +61 intl phone preserved: ${ok}`)
+    if (!ok) {
+      console.error('  FAIL: row 82 phone not found post-write, or not +61 intl')
+      failures++
+    }
+  } else {
+    console.log('  row 82: not a new-insert this run (already migrated -- expected on a re-run)')
+  }
+
+  const row100 = classified.find((c) => c.sourceRowNumber === 100)
+  if (row100?.personId) {
+    const pre = preImage.get(row100.personId)
+    const now = postById.get(row100.personId)
+    const unchanged = !!pre && !!now && pre.birth_date === now.birth_date
+    console.log(`  row 100 (matched) conflicting birth_date NOT written: ${unchanged}`)
+    if (!unchanged) {
+      console.error('  FAIL: row 100 birth_date was modified')
+      failures++
+    }
+  }
+
+  console.log(`  inserted this run: ${insertedCount}`)
+
+  if (failures > 0) {
+    console.error(`\n  RE-VERIFY FAILED: ${failures} assertion(s) failed.`)
+    process.exit(1)
+  }
+  console.log('\n  RE-VERIFY OK -- all assertions passed.')
+}
+
 async function runApply(supabase: SupabaseClient, classified: ClassifiedRow[], args: string[]): Promise<void> {
+  assertPayloadGuard(classified) // FIX 1 -- pure, always runs first, no DB access needed
+
   const armed = args.includes('--confirm-apply')
-  const adminEmail = resolveAdminEmailArg(args)
-  const adminId = await resolveAdminActor(supabase, adminEmail)
+  const adminId = args.includes('--any-active-admin') ? await resolveAnyActiveAdmin(supabase) : await resolveAdminActor(supabase, resolveAdminEmailArg(args))
 
   const inserts = classified.filter((c) => c.bucket === 'new-insert')
   // FIX 2: the write is decoupled from the bucket label -- ANY matched-active
@@ -887,34 +1131,63 @@ async function runApply(supabase: SupabaseClient, classified: ClassifiedRow[], a
     return
   }
 
+  const preImage = await snapshotActiveUniverse(supabase) // FIX 4 -- BEFORE any write
+
   const importId = crypto.randomUUID()
+  let insertedCount = 0
 
   if (inserts.length > 0) {
     const payload = inserts.map((c) => c.insertPayload!)
     const { data, error } = await supabase.from('people').upsert(payload, { onConflict: 'phone_e164', ignoreDuplicates: true }).select('id')
     if (error) throw error
+    insertedCount = data?.length ?? 0
     await logAudit(
-      { actorUserId: adminId, action: AUDIT_ACTIONS.IMPORT_COMMIT, entityType: 'import', entityId: importId, detailsJson: { kind: 's7-t3-roster-remigrate-insert', count: data?.length ?? 0 } },
+      { actorUserId: adminId, action: AUDIT_ACTIONS.IMPORT_COMMIT, entityType: 'import', entityId: importId, detailsJson: { kind: 's7-t3-roster-remigrate-insert', count: insertedCount } },
       supabase,
     )
   }
 
+  // FIX 3 -- audit direction: fills -> PEOPLE_UPDATE, unknown->granted ->
+  // CONSENT_GRANT, unknown->refused -> CONSENT_REVOKE (only existing
+  // consent-direction constant available -- lib/audit.ts has no dedicated
+  // "first-time refusal" action, only GRANT/REVOKE; REVOKE is a semantic
+  // stretch here since this is never actually undoing a prior grant, only
+  // ever moving out of 'unknown'. Flagged per instructions, not invented
+  // around.) A row doing both a fill AND a consent move emits BOTH entries.
   for (const c of updates) {
     const { error } = await supabase.from('people').update(c.updatePayload!).eq('id', c.personId!)
     if (error) throw error
-    await logAudit(
-      {
-        actorUserId: adminId,
-        action: c.willConsent ? AUDIT_ACTIONS.CONSENT_GRANT : AUDIT_ACTIONS.PEOPLE_UPDATE,
-        entityType: 'people',
-        entityId: c.personId!,
-        detailsJson: { kind: 's7-t3-roster-remigrate', bucket: c.bucket, fields: c.filledFields ?? null, consentTransition: c.willConsent ?? null, importId },
-      },
-      supabase,
-    )
+
+    if (c.filledFields && c.filledFields.length > 0) {
+      await logAudit(
+        {
+          actorUserId: adminId,
+          action: AUDIT_ACTIONS.PEOPLE_UPDATE,
+          entityType: 'people',
+          entityId: c.personId!,
+          detailsJson: { kind: 's7-t3-roster-remigrate-fill', bucket: c.bucket, fields: c.filledFields, importId },
+        },
+        supabase,
+      )
+    }
+    if (c.willConsent) {
+      const isGrant = c.willConsent.endsWith('granted')
+      await logAudit(
+        {
+          actorUserId: adminId,
+          action: isGrant ? AUDIT_ACTIONS.CONSENT_GRANT : AUDIT_ACTIONS.CONSENT_REVOKE,
+          entityType: 'people',
+          entityId: c.personId!,
+          detailsJson: { kind: 's7-t3-roster-remigrate-consent', bucket: c.bucket, consentTransition: c.willConsent, importId },
+        },
+        supabase,
+      )
+    }
   }
 
-  console.log(`[apply] DONE -- importId=${importId}`)
+  console.log(`[apply] DONE -- importId=${importId}, inserted=${insertedCount}, updated=${updates.length}`)
+
+  await reVerifyAndAssert(supabase, preImage, classified, insertedCount) // FIX 4 -- MANDATORY
 }
 
 // ---------------------------------------------------------------------------
