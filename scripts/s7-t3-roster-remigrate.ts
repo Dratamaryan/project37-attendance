@@ -1122,45 +1122,80 @@ async function reVerifyAndAssert(
     failures++
   }
 
-  // birth_date, by action: fill/correct rows MUST now equal that row's file
-  // value; quarantine/nochange/file-null rows MUST be byte-identical to
-  // pre-image (untouched).
-  let birthDateFillCount = 0
-  let birthDateCorrectCount = 0
-  let birthDateWrongWrite = 0
-  let birthDateWronglyUnchanged = 0
-  let birthDateQuarantineChanged = 0
-  for (const c of classified) {
-    if (!c.personId || !c.birthDateAction) continue
-    const pre = preImage.get(c.personId)
-    const now = postById.get(c.personId)
-    if (!pre || !now) continue
-    if (c.birthDateAction === 'fill') {
-      birthDateFillCount++
-      if (now.birth_date !== c.birthDateFileValue) birthDateWrongWrite++
-    } else if (c.birthDateAction === 'correct') {
-      birthDateCorrectCount++
-      if (now.birth_date !== c.birthDateFileValue) birthDateWrongWrite++
-    } else if (c.birthDateAction === 'quarantine') {
-      if (now.birth_date !== pre.birth_date) birthDateQuarantineChanged++
-    } else {
-      // nochange / file-null -- also must be untouched
-      if (now.birth_date !== pre.birth_date) birthDateWronglyUnchanged++
+  // birth_date, per action -- expected COUNTS and IDS are derived from the
+  // classified plan itself (each row already carries its birthDateAction
+  // from classification), then independently checked against the fresh
+  // post-write re-query. This is deliberately per-category, not one blended
+  // check, per S7-T3.3 rev's explicit ask for CORRECT/FILL/QUARANTINE/
+  // NOCHANGE to each be asserted on their own terms.
+  const correctRows = classified.filter((c) => c.birthDateAction === 'correct' && c.personId)
+  const fillRows = classified.filter((c) => c.birthDateAction === 'fill' && c.personId)
+  const quarantineRows = classified.filter((c) => c.birthDateAction === 'quarantine' && c.personId)
+  const nochangeRows = classified.filter((c) => c.birthDateAction === 'nochange' && c.personId)
+  console.log(`  birth_date plan counts: correct=${correctRows.length} fill=${fillRows.length} quarantine=${quarantineRows.length} nochange=${nochangeRows.length}`)
+
+  // CORRECT: pre-image must have been exactly file-1 day (re-proving the
+  // known +1 offset existed, not just trusting the classification decided
+  // it), post must now equal the file value, and explicitly 0 rows may
+  // remain sitting at the old (+1-off) pre value.
+  let correctMismatch = 0
+  let correctStillAtPre = 0
+  for (const c of correctRows) {
+    const pre = preImage.get(c.personId!)
+    const now = postById.get(c.personId!)
+    if (!pre || !now || pre.birth_date === null || c.birthDateFileValue == null) {
+      correctMismatch++
+      continue
     }
+    if (dayDiff(pre.birth_date, c.birthDateFileValue) !== 1) correctMismatch++
+    if (now.birth_date !== c.birthDateFileValue) correctMismatch++
+    if (now.birth_date === pre.birth_date) correctStillAtPre++
   }
-  console.log(`  birth_date fill=${birthDateFillCount} correct=${birthDateCorrectCount} -- wrong-write violations: ${birthDateWrongWrite}`)
-  console.log(`  birth_date quarantine changed post-write: ${birthDateQuarantineChanged} (expect 0)`)
-  console.log(`  birth_date nochange/file-null changed post-write: ${birthDateWronglyUnchanged} (expect 0)`)
-  if (birthDateWrongWrite !== 0) {
-    console.error('  FAIL: a fill|correct row did not end up with the file value')
+  console.log(`  CORRECT: ${correctRows.length} rows -- pre-was-file-minus-1-and-post-equals-file violations: ${correctMismatch}, still at pre +1-off value: ${correctStillAtPre} (expect 0)`)
+  if (correctMismatch !== 0 || correctStillAtPre !== 0) {
+    console.error('  FAIL: a CORRECT row was not properly re-written')
     failures++
   }
-  if (birthDateQuarantineChanged !== 0) {
+
+  // FILL: pre-image birth_date was null, post now equals the file value.
+  let fillMismatch = 0
+  for (const c of fillRows) {
+    const pre = preImage.get(c.personId!)
+    const now = postById.get(c.personId!)
+    if (!pre || !now || pre.birth_date !== null || now.birth_date !== c.birthDateFileValue) fillMismatch++
+  }
+  console.log(`  FILL: ${fillRows.length} rows -- violations: ${fillMismatch}`)
+  if (fillMismatch !== 0) {
+    console.error('  FAIL: a FILL row was not properly written')
+    failures++
+  }
+
+  // QUARANTINE: the specific anomaly ids, printed individually (surrogate id
+  // only) and confirmed byte-identical pre/post -- never written.
+  console.log(`  QUARANTINE: ${quarantineRows.length} anomaly id(s), each confirmed unchanged:`)
+  let quarantineChanged = 0
+  for (const c of quarantineRows) {
+    const pre = preImage.get(c.personId!)
+    const now = postById.get(c.personId!)
+    const unchanged = !!pre && !!now && pre.birth_date === now.birth_date
+    console.log(`    ${c.personId}: unchanged=${unchanged}`)
+    if (!unchanged) quarantineChanged++
+  }
+  if (quarantineChanged !== 0) {
     console.error('  FAIL: a quarantined birth_date was written')
     failures++
   }
-  if (birthDateWronglyUnchanged !== 0) {
-    console.error('  FAIL: a nochange/file-null birth_date changed unexpectedly')
+
+  // NOCHANGE: pre already equalled file; must still be byte-identical post.
+  let nochangeMismatch = 0
+  for (const c of nochangeRows) {
+    const pre = preImage.get(c.personId!)
+    const now = postById.get(c.personId!)
+    if (!pre || !now || pre.birth_date !== now.birth_date) nochangeMismatch++
+  }
+  console.log(`  NOCHANGE: ${nochangeRows.length} rows -- violations: ${nochangeMismatch}`)
+  if (nochangeMismatch !== 0) {
+    console.error('  FAIL: a nochange birth_date changed unexpectedly')
     failures++
   }
 
