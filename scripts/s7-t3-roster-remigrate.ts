@@ -555,25 +555,29 @@ interface FormFillValues {
   photo_url: string | null
 }
 
-/** Whole-day difference between two 'YYYY-MM-DD' strings (form minus existing),
- *  or null if either fails to parse. Used only to detect the suspected
- *  systematic date-serial discrepancy below -- not printed as a date. */
-function dayDiff(existingIso: string, formIso: string): number | null {
+/** Whole-day difference between two 'YYYY-MM-DD' strings (file minus
+ *  existing), or null if either fails to parse. Never printed as a date --
+ *  only ever surfaced as a signed integer delta. */
+function dayDiff(existingIso: string, fileIso: string): number | null {
   const a = Date.parse(existingIso + 'T00:00:00Z')
-  const b = Date.parse(formIso + 'T00:00:00Z')
+  const b = Date.parse(fileIso + 'T00:00:00Z')
   if (Number.isNaN(a) || Number.isNaN(b)) return null
   return Math.round((b - a) / 86400000)
 }
 
+/** birth_place / marital_status / photo_url ONLY -- generic fill-only-if-
+ *  empty, non-null differing => conflict, unchanged from S7-T3.2. birth_date
+ *  is deliberately excluded here and handled by decideBirthDate below. */
+const GENERIC_FILLABLE_FIELDS = ['birth_place', 'marital_status', 'photo_url'] as const satisfies readonly FillableField[]
+type GenericFillableField = (typeof GENERIC_FILLABLE_FIELDS)[number]
+
 function computeFillAndConflict(
   existing: ExistingPersonRow,
   form: FormFillValues,
-): { fillFields: FillableField[]; conflictFields: FillableField[]; birthDateDayDiff: number | null } {
-  const fillFields: FillableField[] = []
-  const conflictFields: FillableField[] = []
-  let birthDateDayDiff: number | null = null
-  const pairs: [FillableField, string | null, string | null][] = [
-    ['birth_date', existing.birth_date, form.birth_date],
+): { fillFields: GenericFillableField[]; conflictFields: GenericFillableField[] } {
+  const fillFields: GenericFillableField[] = []
+  const conflictFields: GenericFillableField[] = []
+  const pairs: [GenericFillableField, string | null, string | null][] = [
     ['birth_place', existing.birth_place, form.birth_place],
     ['marital_status', existing.marital_status, form.marital_status],
     ['photo_url', existing.photo_url, form.photo_url],
@@ -584,12 +588,33 @@ function computeFillAndConflict(
       fillFields.push(field)
       continue
     }
-    if (existingVal !== formVal) {
-      conflictFields.push(field)
-      if (field === 'birth_date') birthDateDayDiff = dayDiff(existingVal, formVal)
-    }
+    if (existingVal !== formVal) conflictFields.push(field)
   }
-  return { fillFields, conflictFields, birthDateDayDiff }
+  return { fillFields, conflictFields }
+}
+
+type BirthDateAction = 'fill' | 'nochange' | 'correct' | 'quarantine' | 'file-null'
+
+/** S7-T3.2 rev2 -- birth_date-only model change, replacing plain
+ *  fill-only-if-empty for this one column. Rationale: the S7-T3 spot-check
+ *  (4/4 known real birthdays, by name, matched this xlsx file's decoded
+ *  Tanggal Lahir exactly) confirmed the FILE is ground truth; the near-
+ *  uniform +1-day pattern found across ~102 matched rows is existing prod
+ *  data sitting one day behind reality -- a pipeline artifact from the
+ *  ORIGINAL S6 import of a different source file, not a defect in this file
+ *  or this script's decode. So the known +1 offset is corrected outright,
+ *  while every OTHER non-zero delta (the +9863/+88/+32/+10/-12 outliers) is
+ *  quarantined -- held for a human, never auto-written -- because those do
+ *  NOT match the known artifact's signature and could be genuine per-person
+ *  disagreements or a distinct data-entry error (e.g. +9863 looks like a
+ *  wrong-decade typo, not a pipeline bug). */
+function decideBirthDate(existing: string | null, file: string | null): { action: BirthDateAction; delta: number | null } {
+  if (file === null || file === '') return { action: 'file-null', delta: null }
+  if (existing === null) return { action: 'fill', delta: null }
+  if (existing === file) return { action: 'nochange', delta: 0 }
+  const delta = dayDiff(existing, file)
+  if (delta === 1) return { action: 'correct', delta }
+  return { action: 'quarantine', delta }
 }
 
 function computeConsentEligibility(existing: ExistingPersonRow): boolean {
@@ -635,9 +660,13 @@ interface ClassifiedRow {
   // priority rule below picked for the count/label -- S7-T3.2 revision FIX 2:
   // conflicts no longer suppress fills/consent on OTHER columns.
   filledFields?: FillableField[]
-  conflictFields?: FillableField[]
+  // rev2: conflictFields is now birth_place/marital_status/photo_url ONLY --
+  // birth_date has its own action model (birthDateAction) below.
+  conflictFields?: GenericFillableField[]
   willConsent?: string | null
-  birthDateDayDiff?: number | null
+  birthDateAction?: BirthDateAction
+  birthDateDelta?: number | null
+  birthDateFileValue?: string | null
   presentColumns?: string[]
   consentDecision?: ConsentState
   insertPayload?: Record<string, unknown>
@@ -668,34 +697,45 @@ function classifyRow(row: ParsedRow, existingByPhone: Map<string, ExistingPerson
       marital_status: row.marital_status,
       photo_url: row.photo_url,
     }
-    const { fillFields, conflictFields, birthDateDayDiff } = computeFillAndConflict(existing, form)
+    const { fillFields, conflictFields } = computeFillAndConflict(existing, form)
+    const { action: birthDateAction, delta: birthDateDelta } = decideBirthDate(existing.birth_date, form.birth_date)
     const consentEligible = computeConsentEligibility(existing)
     const willConsent = consentEligible ? `unknown->${row.consentState}` : null
 
+    const birthDateWrites = birthDateAction === 'fill' || birthDateAction === 'correct'
+
     const updatePayload: Record<string, unknown> = {}
     for (const f of fillFields) updatePayload[f] = form[f]
+    if (birthDateWrites) updatePayload.birth_date = form.birth_date
     if (consentEligible) {
       updatePayload.photo_consent_state = row.consentState
       updatePayload.photo_publish_consent = row.consentState === 'granted'
     }
-    const hasWrite = fillFields.length > 0 || consentEligible
+    const hasWrite = fillFields.length > 0 || birthDateWrites || consentEligible
     if (hasWrite) updatePayload.updated_at = new Date().toISOString()
 
     // Bucket is a COUNT LABEL ONLY (priority would-conflict > matched-fill >
     // matched-consent-move > matched-no-op) so the 11-bucket reconciliation
     // stays a one-bucket-per-row partition summing to 227. It does NOT gate
     // what gets written -- updatePayload above already reflects the real
-    // per-column write regardless of this label.
-    const bucket: Bucket = conflictFields.length > 0 ? 'would-conflict' : fillFields.length > 0 ? 'matched-fill' : consentEligible ? 'matched-consent-move' : 'matched-no-op'
+    // per-column write regardless of this label. rev2: a quarantined
+    // birth_date is a blocker for bucket purposes exactly like a
+    // birth_place/marital_status/photo_url conflict was before.
+    const hasBlocker = conflictFields.length > 0 || birthDateAction === 'quarantine'
+    const bucket: Bucket = hasBlocker ? 'would-conflict' : fillFields.length > 0 || birthDateWrites ? 'matched-fill' : consentEligible ? 'matched-consent-move' : 'matched-no-op'
+
+    const reportFillFields: FillableField[] = birthDateWrites ? ['birth_date', ...fillFields] : [...fillFields]
 
     return {
       ...base,
       bucket,
       personId: existing.id,
-      filledFields: fillFields,
+      filledFields: reportFillFields,
       conflictFields,
       willConsent,
-      birthDateDayDiff,
+      birthDateAction,
+      birthDateDelta,
+      birthDateFileValue: form.birth_date,
       updatePayload: hasWrite ? updatePayload : undefined,
     }
   }
@@ -805,8 +845,9 @@ function printDryRunReport(
   // in. A would-conflict row's will-fill/will-consent make its real write
   // visible even though the row is conflict-labeled.
   function annotate(c: ClassifiedRow): string {
-    const diff = c.conflictFields?.includes('birth_date') && c.birthDateDayDiff !== null && c.birthDateDayDiff !== undefined ? ` (birth_date day-diff: ${c.birthDateDayDiff >= 0 ? '+' : ''}${c.birthDateDayDiff})` : ''
-    return `conflicts=[${(c.conflictFields ?? []).join(', ')}]${diff} will-fill=[${(c.filledFields ?? []).join(', ')}] will-consent=${c.willConsent ?? 'none'}`
+    const bdDelta = c.birthDateAction === 'quarantine' && c.birthDateDelta !== null && c.birthDateDelta !== undefined ? `(${c.birthDateDelta >= 0 ? '+' : ''}${c.birthDateDelta})` : ''
+    const bd = c.birthDateAction ? ` birth_date=${c.birthDateAction}${bdDelta}` : ''
+    return `conflicts=[${(c.conflictFields ?? []).join(', ')}] will-fill=[${(c.filledFields ?? []).join(', ')}] will-consent=${c.willConsent ?? 'none'}${bd}`
   }
 
   console.log(`\n-- matched-fill (person id + annotation) --`)
@@ -827,23 +868,31 @@ function printDryRunReport(
   console.log(`\n-- Consent-write summary (across all matched buckets) --`)
   console.log(`  ->granted: ${consentWriteGranted}, ->refused: ${consentWriteRefused}, total: ${consentWriteGranted + consentWriteRefused}`)
 
-  const birthDateConflicts = byBucket.get('would-conflict')!.filter((c) => c.conflictFields!.includes('birth_date'))
-  const plusOneDay = birthDateConflicts.filter((c) => c.birthDateDayDiff === 1).length
-  const otherDiff = birthDateConflicts.length - plusOneDay
-  if (birthDateConflicts.length > 0) {
-    console.log(`\n-- SUSPECTED SYSTEMATIC DATE-SERIAL DISCREPANCY (flagged, not auto-corrected) --`)
-    console.log(`  birth_date conflicts: ${birthDateConflicts.length} total`)
-    console.log(`  exactly +1 day (form ahead of existing): ${plusOneDay}`)
-    console.log(`  other day-diff (more likely genuine): ${otherDiff}`)
-    if (plusOneDay >= birthDateConflicts.length * 0.8) {
-      console.error(
-        `  FLAG: ${plusOneDay}/${birthDateConflicts.length} birth_date conflicts are a UNIFORM +1 day. This does not look like ` +
-          `per-person data disagreement -- it looks like a systematic date-serial encoding discrepancy between this xlsx file ` +
-          `and whatever produced the existing DB values (both this script's raw-serial and cellDates decode paths agree with ` +
-          `each other and still show it). NOT auto-corrected here. Needs a human decision on which side is right before any ` +
-          `apply -- an unverified -1/+1 day correction could silently corrupt real birth dates.`,
-      )
-    }
+  // rev2: birth_date summary + quarantine list, replacing the old "flag it,
+  // don't touch it" discrepancy section now that the model actually resolves
+  // the +1 case (correct) and isolates the rest (quarantine).
+  const fillCount = allMatchedActive.filter((c) => c.birthDateAction === 'fill').length
+  const correctCount = allMatchedActive.filter((c) => c.birthDateAction === 'correct').length
+  const quarantineCount = allMatchedActive.filter((c) => c.birthDateAction === 'quarantine').length
+  const nochangeCount = allMatchedActive.filter((c) => c.birthDateAction === 'nochange').length
+  const fileNullCount = allMatchedActive.filter((c) => c.birthDateAction === 'file-null').length
+  const bdActionSum = fillCount + correctCount + quarantineCount + nochangeCount + fileNullCount
+  console.log(`\n-- birth_date summary (rev2: file-wins with quarantine) --`)
+  console.log(`  fill=${fillCount} correct=${correctCount} quarantine=${quarantineCount} nochange=${nochangeCount} file-null=${fileNullCount}`)
+  console.log(`  sum: ${bdActionSum} (matched-row count: ${allMatchedActive.length})`)
+  if (bdActionSum !== allMatchedActive.length) {
+    console.error(`  RECONCILIATION FAILED: birth_date action sum (${bdActionSum}) != matched-row count (${allMatchedActive.length})`)
+    process.exit(1)
+  }
+  console.log(`  OK -- every matched row has exactly one birth_date action`)
+
+  console.log(`\n-- QUARANTINE (birth_date anomalies, NOT written -- for human review) --`)
+  const quarantined = allMatchedActive
+    .filter((c) => c.birthDateAction === 'quarantine')
+    .sort((a, b) => Math.abs(b.birthDateDelta ?? 0) - Math.abs(a.birthDateDelta ?? 0))
+  for (const c of quarantined) {
+    const d = c.birthDateDelta ?? 0
+    console.log(`  ${c.personId}: delta=${d >= 0 ? '+' : ''}${d}`)
   }
 
   console.log(`\n-- new-insert (sheet row + present columns + consent decision) --`)
@@ -916,32 +965,50 @@ async function resolveAnyActiveAdmin(supabase: SupabaseClient): Promise<string> 
   return data.id as string
 }
 
-/** FIX 1 -- pre-write payload guard. For every matched row with a non-empty
- *  updatePayload, asserts none of its keys appear in that row's own
- *  conflictFields (a conflicting column, above all birth_date, must never be
- *  written -- FIX 2 decoupled the write from the report bucket precisely so
- *  OTHER columns could still be written past a conflict, which makes this
- *  guard the thing that keeps the conflicting column itself untouchable).
- *  Pure, no DB access -- runs first, hard-aborts the WHOLE run on any
- *  violation before insert/update/audit ever executes. */
+/** FIX 1, revised in S7-T3.2 rev2 -- pre-write payload guard, now runs in
+ *  BOTH modes (called from main(), not just inside runApply()) since the
+ *  invariant is about the classification plan itself, not specifically the
+ *  act of writing. Two separate assertions:
+ *   1. No-clobber, scoped to birth_place/marital_status/photo_url ONLY
+ *      (unchanged shape from S7-T3.3, narrower field set): none of a row's
+ *      conflictFields may appear as an updatePayload key.
+ *   2. birth_date, which now has its own model: if 'birth_date' is present
+ *      in updatePayload, that row's birthDateAction MUST be 'fill' or
+ *      'correct' (never 'quarantine'/'nochange'/'file-null'), and the
+ *      payload value MUST equal that row's file value exactly -- guards
+ *      against a future edit accidentally writing the EXISTING value back,
+ *      or writing during a quarantine.
+ *  Pure, no DB access -- hard-aborts the WHOLE run on any violation before
+ *  anything else happens (dry-run report, or apply's insert/update/audit). */
 function assertPayloadGuard(classified: ClassifiedRow[]): void {
   const violations: string[] = []
   let checked = 0
   for (const c of classified) {
-    if (!c.updatePayload || !c.conflictFields) continue
+    if (!c.updatePayload) continue
     checked++
+
     for (const key of Object.keys(c.updatePayload)) {
-      if ((c.conflictFields as string[]).includes(key)) {
-        violations.push(`personId=${c.personId} key="${key}"`)
+      if (key === 'birth_date') continue // checked separately below
+      if ((c.conflictFields ?? []).includes(key as GenericFillableField)) {
+        violations.push(`personId=${c.personId} key="${key}" (no-clobber violation)`)
+      }
+    }
+
+    if ('birth_date' in c.updatePayload) {
+      if (c.birthDateAction !== 'fill' && c.birthDateAction !== 'correct') {
+        violations.push(`personId=${c.personId} birth_date present but action="${c.birthDateAction}" (expected fill|correct)`)
+      }
+      if (c.updatePayload.birth_date !== c.birthDateFileValue) {
+        violations.push(`personId=${c.personId} birth_date payload value does not equal the file value`)
       }
     }
   }
   if (violations.length > 0) {
-    console.error('PAYLOAD GUARD FAILED -- a conflicting column would be written:')
+    console.error('PAYLOAD GUARD FAILED:')
     for (const v of violations) console.error(`  ${v}`)
     process.exit(1)
   }
-  console.log(`[payload-guard] OK -- ${checked} update payload(s) checked, 0 touch a conflicting column`)
+  console.log(`[payload-guard] OK -- ${checked} update payload(s) checked, 0 violations`)
 }
 
 /** FIX 2 -- writes are idempotent BY CONSTRUCTION, relied on rather than
@@ -1038,40 +1105,62 @@ async function reVerifyAndAssert(
     failures++
   }
 
-  // NO NON-NULL CLOBBER: every pre-image non-null fillable value must be
-  // byte-identical post-write; count null->value fills (birth_date called
-  // out specifically per spec).
-  const fields: FillableField[] = ['birth_date', 'birth_place', 'marital_status', 'photo_url']
+  // NO NON-NULL CLOBBER: rev2 scopes this to birth_place/marital_status/
+  // photo_url ONLY -- birth_date now has its own model (a 'correct' action
+  // is a DELIBERATE, expected overwrite of a non-null value, not a clobber).
   let clobberViolations = 0
-  let birthDateFillCount = 0
   for (const [id, pre] of preImage) {
     const now = postById.get(id)
     if (!now) continue
-    for (const f of fields) {
-      const preVal = pre[f]
-      const postVal = now[f]
-      if (preVal !== null && postVal !== preVal) clobberViolations++
-      if (f === 'birth_date' && preVal === null && postVal !== null) birthDateFillCount++
+    for (const f of GENERIC_FILLABLE_FIELDS) {
+      if (pre[f] !== null && now[f] !== pre[f]) clobberViolations++
     }
   }
-  console.log(`  NO-CLOBBER: violations: ${clobberViolations}`)
-  console.log(`  birth_date null->value fill count: ${birthDateFillCount}`)
+  console.log(`  NO-CLOBBER (birth_place/marital_status/photo_url): violations: ${clobberViolations}`)
   if (clobberViolations !== 0) {
     console.error('  FAIL: a non-null value was clobbered')
     failures++
   }
 
-  // All 102/107 would-conflict rows' conflicting birth_date must be unchanged.
-  const conflictRows = classified.filter((c) => c.conflictFields?.includes('birth_date') && c.personId)
-  let conflictBirthDateChanged = 0
-  for (const c of conflictRows) {
-    const pre = preImage.get(c.personId!)
-    const now = postById.get(c.personId!)
-    if (pre && now && pre.birth_date !== now.birth_date) conflictBirthDateChanged++
+  // birth_date, by action: fill/correct rows MUST now equal that row's file
+  // value; quarantine/nochange/file-null rows MUST be byte-identical to
+  // pre-image (untouched).
+  let birthDateFillCount = 0
+  let birthDateCorrectCount = 0
+  let birthDateWrongWrite = 0
+  let birthDateWronglyUnchanged = 0
+  let birthDateQuarantineChanged = 0
+  for (const c of classified) {
+    if (!c.personId || !c.birthDateAction) continue
+    const pre = preImage.get(c.personId)
+    const now = postById.get(c.personId)
+    if (!pre || !now) continue
+    if (c.birthDateAction === 'fill') {
+      birthDateFillCount++
+      if (now.birth_date !== c.birthDateFileValue) birthDateWrongWrite++
+    } else if (c.birthDateAction === 'correct') {
+      birthDateCorrectCount++
+      if (now.birth_date !== c.birthDateFileValue) birthDateWrongWrite++
+    } else if (c.birthDateAction === 'quarantine') {
+      if (now.birth_date !== pre.birth_date) birthDateQuarantineChanged++
+    } else {
+      // nochange / file-null -- also must be untouched
+      if (now.birth_date !== pre.birth_date) birthDateWronglyUnchanged++
+    }
   }
-  console.log(`  birth_date conflict rows: ${conflictRows.length}, changed post-write: ${conflictBirthDateChanged} (expect 0)`)
-  if (conflictBirthDateChanged !== 0) {
-    console.error('  FAIL: a conflicting birth_date was written')
+  console.log(`  birth_date fill=${birthDateFillCount} correct=${birthDateCorrectCount} -- wrong-write violations: ${birthDateWrongWrite}`)
+  console.log(`  birth_date quarantine changed post-write: ${birthDateQuarantineChanged} (expect 0)`)
+  console.log(`  birth_date nochange/file-null changed post-write: ${birthDateWronglyUnchanged} (expect 0)`)
+  if (birthDateWrongWrite !== 0) {
+    console.error('  FAIL: a fill|correct row did not end up with the file value')
+    failures++
+  }
+  if (birthDateQuarantineChanged !== 0) {
+    console.error('  FAIL: a quarantined birth_date was written')
+    failures++
+  }
+  if (birthDateWronglyUnchanged !== 0) {
+    console.error('  FAIL: a nochange/file-null birth_date changed unexpectedly')
     failures++
   }
 
@@ -1091,13 +1180,18 @@ async function reVerifyAndAssert(
     console.log('  row 82: not a new-insert this run (already migrated -- expected on a re-run)')
   }
 
+  // rev2: row 100's expectation is now action-dependent -- fill/correct
+  // means the file value SHOULD land, quarantine/nochange/file-null means it
+  // must stay untouched. No longer a blanket "never written" (that was the
+  // pre-rev2 assumption, only true when row 100 isn't a +1-day correction).
   const row100 = classified.find((c) => c.sourceRowNumber === 100)
-  if (row100?.personId) {
+  if (row100?.personId && row100.birthDateAction) {
     const pre = preImage.get(row100.personId)
     const now = postById.get(row100.personId)
-    const unchanged = !!pre && !!now && pre.birth_date === now.birth_date
-    console.log(`  row 100 (matched) conflicting birth_date NOT written: ${unchanged}`)
-    if (!unchanged) {
+    const shouldWrite = row100.birthDateAction === 'fill' || row100.birthDateAction === 'correct'
+    const ok = !!pre && !!now && (shouldWrite ? now.birth_date === row100.birthDateFileValue : now.birth_date === pre.birth_date)
+    console.log(`  row 100 (matched, birth_date action=${row100.birthDateAction}) outcome as expected: ${ok}`)
+    if (!ok) {
       console.error('  FAIL: row 100 birth_date was modified')
       failures++
     }
@@ -1113,8 +1207,6 @@ async function reVerifyAndAssert(
 }
 
 async function runApply(supabase: SupabaseClient, classified: ClassifiedRow[], args: string[]): Promise<void> {
-  assertPayloadGuard(classified) // FIX 1 -- pure, always runs first, no DB access needed
-
   const armed = args.includes('--confirm-apply')
   const adminId = args.includes('--any-active-admin') ? await resolveAnyActiveAdmin(supabase) : await resolveAdminActor(supabase, resolveAdminEmailArg(args))
 
@@ -1228,6 +1320,8 @@ async function main(): Promise<void> {
     ...survivors.map((r) => classifyRow(r, existingByPhone)),
   ]
   classified.sort((a, b) => a.sourceRowNumber - b.sourceRowNumber)
+
+  assertPayloadGuard(classified) // FIX 1, rev2 -- both modes; pure, no DB access, before the report or any write
 
   const unparseableBirthDateCount = rows.filter((r) => r.birthDateUnparseable).length
   const unmappedMaritalCount = rows.filter((r) => r.maritalUnmapped).length
