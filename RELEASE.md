@@ -151,3 +151,11 @@ branch-expected ref for remote ops.
 - **Map extension (S8).** Add staging (`sijfyvaodqkawbeuyrpu`) entries for feature
   branches once staging is adopted, so feature work can target staging instead of
   being denied all remote ops.
+
+---
+
+## 7. S7 task log
+
+- S7-T2 PII fixture cleanup: verified live on fd14a7c — preflight OK, gitleaks baseline-only,
+  grep 0 fixture hits, 897/897, preflight:selftest 8/8, Vercel dpl_EHBjbks7… READY sin1.
+  Forward-fix only; history residual accepted (revisit post-S11). See docs/sprint-7-task-2-verify.md.
