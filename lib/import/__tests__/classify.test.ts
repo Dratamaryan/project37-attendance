@@ -116,8 +116,8 @@ describe('classifyRows — one fixture per class', () => {
 describe('classifyRows — normalized-phone-collision dedup', () => {
   it('two different raw formats normalizing to the same E.164 -> dup_in_file (dedup keys on normalized phone, not raw)', () => {
     const rows = [
-      parsed(3, { full_name: 'A', phone_raw: '0818962281' }),
-      parsed(4, { full_name: 'B', phone_raw: '+62818962281' }),
+      parsed(3, { full_name: 'A', phone_raw: '0812000904' }),
+      parsed(4, { full_name: 'B', phone_raw: '+62812000904' }),
     ]
     const result = classifyRows(rows, new Map())
     expect(result[0].phone_e164).toBe(result[1].phone_e164)

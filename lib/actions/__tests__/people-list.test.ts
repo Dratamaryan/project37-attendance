@@ -16,8 +16,8 @@ const ACTOR_ID = 'admin-uuid-0001'
 const MOCK_PERSON = {
   id: 'person-001',
   phone_e164: '+6281234567890',
-  full_name: 'Ryan Dratama',
-  nickname: 'Ryan',
+  full_name: 'Budi Hartono',
+  nickname: 'Budi',
   origin_parish: 'Jakarta Selatan',
   photo_url: null,
   created_at: '2026-01-01T00:00:00Z',
@@ -133,10 +133,10 @@ describe('impl_listPeople', () => {
 
   it('search by name uses OR filter on full_name and nickname', async () => {
     const { supabase, peopleBuilder } = makeSupabase()
-    const result = await impl_listPeople({ query: 'Ryan' }, supabase as unknown as SupabaseClient)
+    const result = await impl_listPeople({ query: 'Budi' }, supabase as unknown as SupabaseClient)
     expect(result.status).toBe('ok')
     expect(peopleBuilder.or).toHaveBeenCalledWith(
-      'full_name.ilike.%Ryan%,nickname.ilike.%Ryan%'
+      'full_name.ilike.%Budi%,nickname.ilike.%Budi%'
     )
     expect(peopleBuilder.ilike).not.toHaveBeenCalled()
   })

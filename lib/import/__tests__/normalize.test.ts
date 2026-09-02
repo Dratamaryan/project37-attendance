@@ -8,19 +8,19 @@ function row(cellsByField: RawDataRow['cellsByField'], sourceRowNumber = 3): Raw
 
 describe('normalizeRow — phone', () => {
   it('legacy 11-digit ID without country code -> E.164', () => {
-    const result = normalizeRow(row({ phone_raw: '81808247576' }))
-    expect(result.phone_e164).toBe('+6281808247576')
+    const result = normalizeRow(row({ phone_raw: '81200090101' }))
+    expect(result.phone_e164).toBe('+6281200090101')
     expect(result.phone_error).toBeNull()
   })
 
   it('legacy 10-digit ID without country code -> E.164', () => {
-    const result = normalizeRow(row({ phone_raw: '8118053197' }))
-    expect(result.phone_e164).toBe('+628118053197')
+    const result = normalizeRow(row({ phone_raw: '8120009031' }))
+    expect(result.phone_e164).toBe('+628120009031')
   })
 
   it('legacy 9-digit ID without country code -> E.164 (real data has zero invalid phones this length)', () => {
-    const result = normalizeRow(row({ phone_raw: '818962281' }))
-    expect(result.phone_e164).toBe('+62818962281')
+    const result = normalizeRow(row({ phone_raw: '812000904' }))
+    expect(result.phone_e164).toBe('+62812000904')
   })
 
   it('garbled phone "abc" -> phone_error set, phone_e164 null', () => {
@@ -41,15 +41,15 @@ describe('normalizeRow — phone', () => {
   })
 
   it('numeric-typed cell (leading zero lost) still resolves via ID default', () => {
-    const result = normalizeRow(row({ phone_raw: 82185352609 }))
-    expect(result.phone_e164).toBe('+6282185352609')
+    const result = normalizeRow(row({ phone_raw: 81200090201 }))
+    expect(result.phone_e164).toBe('+6281200090201')
   })
 
   it('different raw formats normalize to the same E.164 (proves dedup keys on normalized value)', () => {
-    const a = normalizeRow(row({ phone_raw: '0818962281' }))
-    const b = normalizeRow(row({ phone_raw: '+62818962281' }))
+    const a = normalizeRow(row({ phone_raw: '0812000904' }))
+    const b = normalizeRow(row({ phone_raw: '+62812000904' }))
     expect(a.phone_e164).toBe(b.phone_e164)
-    expect(a.phone_e164).toBe('+62818962281')
+    expect(a.phone_e164).toBe('+62812000904')
   })
 })
 
@@ -131,14 +131,14 @@ describe('normalizeRow — categorical maps', () => {
 
 describe('normalizeRow — full_name / nickname', () => {
   it('nickname column blank -> falls back to first token of full_name', () => {
-    const result = normalizeRow(row({ full_name: 'Bernadet Amelia', nickname: null }))
-    expect(result.nickname).toBe('Bernadet')
+    const result = normalizeRow(row({ full_name: 'Maria Sitorus', nickname: null }))
+    expect(result.nickname).toBe('Maria')
     expect(result.nicknameFallbackApplied).toBe(true)
   })
 
   it('nickname column present -> used as-is, no fallback', () => {
-    const result = normalizeRow(row({ full_name: 'Adhitya wilnanda', nickname: 'Adhit' }))
-    expect(result.nickname).toBe('Adhit')
+    const result = normalizeRow(row({ full_name: 'Budi Santoso', nickname: 'Budi' }))
+    expect(result.nickname).toBe('Budi')
     expect(result.nicknameFallbackApplied).toBe(false)
   })
 

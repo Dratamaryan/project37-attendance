@@ -57,8 +57,8 @@ function makeMockSupabase(
 const FULL_PERSON = {
   id:                    'person-001',
   phone_e164:            '+6281234567890',
-  full_name:             'Ryan Dratama',
-  nickname:              'Ryan',
+  full_name:             'Budi Hartono',
+  nickname:              'Budi',
   email:                 null,
   birth_place:           null,
   birth_date:            '1990-01-01',

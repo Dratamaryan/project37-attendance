@@ -35,10 +35,10 @@ export type NormalizeResult =
  *     adjusting the country selector.
  *   - Input without `+`: the `country` argument is **authoritative**. Used to
  *     resolve local formats — leading 0, national number, or the 9–11-digit
- *     legacy values from the imported roster (e.g. '81808247576' → '+6281808247576').
+ *     legacy values from the imported roster (e.g. '81200090101' → '+6281200090101').
  *
  * @example
- *   normalizePhone('082185352609', 'ID')   // { ok: true, e164: '+6282185352609' }
+ *   normalizePhone('081200090201', 'ID')   // { ok: true, e164: '+6281200090201' }
  *   normalizePhone('+6591234567', 'ID')    // { ok: true, e164: '+6591234567' } — '+' overrides
  *   normalizePhone('', 'ID')              // { ok: false, reason: 'empty' }
  */

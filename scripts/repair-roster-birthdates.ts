@@ -61,11 +61,12 @@ const FORM_COL_BIRTH_2 = 9
 const FORM_COL_PHONE_2 = 10
 
 /** Hard-fails before any file I/O if normalizePhone is misbehaving under the
- *  current runtime (see the file-header warning). Known-good pair confirmed
- *  live against the real roster during T2 planning. */
+ *  current runtime (see the file-header warning). Uses a synthetic (non-roster)
+ *  known-good pair — this only needs to prove normalizePhone works correctly
+ *  under the current runtime, not that it matches a specific real number. */
 function assertPhoneUtilTrustworthy(): void {
-  const KNOWN_PHONE = '081808247576'
-  const EXPECTED_E164 = '+6281808247576'
+  const KNOWN_PHONE = '081200090101'
+  const EXPECTED_E164 = '+6281200090101'
   const result = normalizePhone(KNOWN_PHONE, 'ID')
   if (!result.ok || result.e164 !== EXPECTED_E164) {
     console.error(

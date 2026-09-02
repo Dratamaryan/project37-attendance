@@ -9,9 +9,9 @@ const SUPERGROUP_RE = /^-100\d+$/
 const GROUP_RE = /^-[1-9]\d*$/
 const CHANNEL_USERNAME_RE = /^@[A-Za-z][A-Za-z0-9_]{4,31}$/
 
-// Indonesian mobile prefix without the leading '+' (e.g. a pasted "6281808247576").
+// Indonesian mobile prefix without the leading '+' (e.g. a pasted "6281200090101").
 const ID_MOBILE_62_RE = /^628\d{7,11}$/
-// Indonesian local format (e.g. a pasted "081808247576").
+// Indonesian local format (e.g. a pasted "081200090101").
 const LEADING_ZERO_RE = /^0\d+$/
 
 /**

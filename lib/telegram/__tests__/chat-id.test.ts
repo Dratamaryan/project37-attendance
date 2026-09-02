@@ -87,26 +87,26 @@ describe('resolveChatId', () => {
     })
 
     it('T4-C12: E.164 phone pasted by mistake', () => {
-      expect(resolveChatId('+6281808247576')).toEqual({
+      expect(resolveChatId('+6281200090101')).toEqual({
         status: 'invalid',
         reason: 'phone_number_shaped',
-        value: '+6281808247576',
+        value: '+6281200090101',
       })
     })
 
     it('T4-C13: Indonesian local-format phone (leading 0) pasted by mistake', () => {
-      expect(resolveChatId('081808247576')).toEqual({
+      expect(resolveChatId('081200090101')).toEqual({
         status: 'invalid',
         reason: 'phone_number_shaped',
-        value: '081808247576',
+        value: '081200090101',
       })
     })
 
     it('T4-C14: Indonesian mobile with 62 prefix, no plus, pasted by mistake', () => {
-      expect(resolveChatId('6281808247576')).toEqual({
+      expect(resolveChatId('6281200090101')).toEqual({
         status: 'invalid',
         reason: 'phone_number_shaped',
-        value: '6281808247576',
+        value: '6281200090101',
       })
     })
 

@@ -37,8 +37,8 @@ const mockListPeople = vi.mocked(listPeople)
 const MOCK_PERSON: PersonListItem = {
   id: 'person-001',
   phone_e164: '+6281234567890',
-  full_name: 'Ryan Dratama',
-  nickname: 'Ryan',
+  full_name: 'Budi Hartono',
+  nickname: 'Budi',
   origin_parish: null,
   photo_url: null,
   photo_signed_url: null,
@@ -106,7 +106,7 @@ describe('PeopleListClient', () => {
 
     mockListPeople.mockClear()
     const input = screen.getByRole('searchbox')
-    await user.type(input, 'Ryan')
+    await user.type(input, 'Budi')
     // Typing fast — 300ms hasn't elapsed yet
     expect(mockListPeople).toHaveBeenCalledTimes(0)
     await flushDebounce()
@@ -134,9 +134,9 @@ describe('PeopleListClient', () => {
 
     // Now type a query — page should reset to 1
     const input = screen.getByRole('searchbox')
-    await user.type(input, 'Ryan')
+    await user.type(input, 'Budi')
     await flushDebounce()
-    expect(mockListPeople).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1, query: 'Ryan' }))
+    expect(mockListPeople).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1, query: 'Budi' }))
   })
 
   it('renders rows when listPeople returns data', async () => {

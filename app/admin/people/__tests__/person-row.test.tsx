@@ -35,8 +35,8 @@ vi.mock('next/link', () => ({
 const BASE_PERSON: PersonListItem = {
   id: 'person-001',
   phone_e164: '+6281234567890',
-  full_name: 'Ryan Dratama',
-  nickname: 'Ryan',
+  full_name: 'Budi Hartono',
+  nickname: 'Budi',
   origin_parish: 'Jakarta Selatan',
   photo_url: null,
   photo_signed_url: null,
@@ -58,8 +58,8 @@ function renderRow(person: PersonListItem) {
 describe('PersonRow', () => {
   it('renders name, nickname, formatted phone, and parish', () => {
     renderRow(BASE_PERSON)
-    expect(screen.getByText('Ryan Dratama')).toBeInTheDocument()
-    expect(screen.getByText('Ryan')).toBeInTheDocument()
+    expect(screen.getByText('Budi Hartono')).toBeInTheDocument()
+    expect(screen.getByText('Budi')).toBeInTheDocument()
     // formatPhoneForDisplay returns "+62 812 3456 7890" — match country code + digits
     expect(screen.getByText(/\+62.*812/)).toBeInTheDocument()
     expect(screen.getByText('Jakarta Selatan')).toBeInTheDocument()
@@ -67,8 +67,8 @@ describe('PersonRow', () => {
 
   it('renders initials fallback when photo_signed_url is null', () => {
     renderRow(BASE_PERSON)
-    // Initials: R (Ryan) + D (Dratama) = RD
-    expect(screen.getByText('RD')).toBeInTheDocument()
+    // Initials: B (Budi) + H (Hartono) = BH
+    expect(screen.getByText('BH')).toBeInTheDocument()
     // No img element
     expect(screen.queryByRole('img')).toBeNull()
   })

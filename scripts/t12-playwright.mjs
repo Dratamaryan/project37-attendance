@@ -163,33 +163,37 @@ async function main() {
   const page = await context.newPage()
 
   // ── T1-01: Known phone E.164 ────────────────────────────────────────────────
-  console.log('--- T1-01: Known phone +6282185352609 in E.164 format ---')
-  await goCheckinType(page, '+6282185352609')
+  // NOTE (S7-T2 PII forward-fix): this literal used to be a real roster member's
+  // phone/name. It's now a synthetic placeholder and will NOT match a real
+  // production record — re-point PHONE/NAME to a real (never-committed) test
+  // fixture before running this script live again.
+  console.log('--- T1-01: Known phone +6281200090201 in E.164 format ---')
+  await goCheckinType(page, '+6281200090201')
   try {
-    await page.locator('text=Ryan Dratama').first().waitFor({ state: 'visible', timeout: LOOKUP_TIMEOUT })
-    pass('T1-01', 'Person card shows "Ryan Dratama" for +6282185352609')
+    await page.locator('text=Budi Hartono').first().waitFor({ state: 'visible', timeout: LOOKUP_TIMEOUT })
+    pass('T1-01', 'Person card shows "Budi Hartono" for +6281200090201')
   } catch {
-    fail('T1-01', 'Person card "Ryan Dratama" not visible within timeout', 'debounce+lookup took too long on production')
+    fail('T1-01', 'Person card "Budi Hartono" not visible within timeout', 'debounce+lookup took too long on production')
   }
 
   // ── T1-02: Same phone, local format ─────────────────────────────────────────
-  console.log('\n--- T1-02: Same phone, local format 082185352609 ---')
-  await goCheckinType(page, '082185352609')
+  console.log('\n--- T1-02: Same phone, local format 081200090201 ---')
+  await goCheckinType(page, '081200090201')
   try {
-    await page.locator('text=Ryan Dratama').first().waitFor({ state: 'visible', timeout: LOOKUP_TIMEOUT })
-    pass('T1-02', '"Ryan Dratama" found with local format (normalization works)')
+    await page.locator('text=Budi Hartono').first().waitFor({ state: 'visible', timeout: LOOKUP_TIMEOUT })
+    pass('T1-02', '"Budi Hartono" found with local format (normalization works)')
   } catch {
-    fail('T1-02', 'Person card not visible for local format 082185352609')
+    fail('T1-02', 'Person card not visible for local format 081200090201')
   }
 
   // ── T1-03: Spaces in phone ───────────────────────────────────────────────────
-  console.log('\n--- T1-03: Phone with spaces 0821 8535 2609 ---')
-  await goCheckinType(page, '0821 8535 2609')
+  console.log('\n--- T1-03: Phone with spaces 0812 0009 0201 ---')
+  await goCheckinType(page, '0812 0009 0201')
   try {
-    await page.locator('text=Ryan Dratama').first().waitFor({ state: 'visible', timeout: LOOKUP_TIMEOUT })
-    pass('T1-03', '"Ryan Dratama" found with spaces in phone (strip-spaces normalization)')
+    await page.locator('text=Budi Hartono').first().waitFor({ state: 'visible', timeout: LOOKUP_TIMEOUT })
+    pass('T1-03', '"Budi Hartono" found with spaces in phone (strip-spaces normalization)')
   } catch {
-    fail('T1-03', 'Person card not visible for spaced format 0821 8535 2609')
+    fail('T1-03', 'Person card not visible for spaced format 0812 0009 0201')
   }
 
   // ── T1-04: Unknown phone → new-person trigger ────────────────────────────────
@@ -246,7 +250,7 @@ async function main() {
     await page.waitForTimeout(2000)
     const lookupFired = (
       await page.locator('text=Tidak ditemukan').first().isVisible().catch(() => false) ||
-      await page.locator('text=Ryan Dratama').first().isVisible().catch(() => false) ||
+      await page.locator('text=Budi Hartono').first().isVisible().catch(() => false) ||
       await page.locator('text=Tambah orang baru').first().isVisible().catch(() => false) ||
       await page.locator('text=Mencari').first().isVisible().catch(() => false)
     )

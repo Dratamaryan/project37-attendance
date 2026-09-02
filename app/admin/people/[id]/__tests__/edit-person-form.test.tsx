@@ -65,9 +65,9 @@ const mockRouterRefresh = vi.fn()
 const BASE_PERSON: PersonFull = {
   id:                    'person-001',
   phone_e164:            '+6281234567890',
-  full_name:             'Ryan Dratama',
-  nickname:              'Ryan',
-  email:                 'ryan@example.com',
+  full_name:             'Budi Hartono',
+  nickname:              'Budi',
+  email:                 'budi@example.com',
   birth_place:           'Jakarta',
   birth_date:            '1995-03-15',
   gender:                'male',
@@ -97,8 +97,8 @@ const OK_UPDATE: UpdateResult = {
   person: {
     id:                    'person-001',
     phone_e164:            '+6281234567890',
-    full_name:             'Ryan Dratama',
-    nickname:              'Ryan',
+    full_name:             'Budi Hartono',
+    nickname:              'Budi',
     email:                 null,
     birth_date:            '1995-03-15',
     gender:                'male',
@@ -165,7 +165,7 @@ describe('EditPersonForm', () => {
   it('save button is enabled after a field change', async () => {
     const user = userEvent.setup()
     setup()
-    const nickField = screen.getByDisplayValue('Ryan')
+    const nickField = screen.getByDisplayValue('Budi')
     await user.clear(nickField)
     await user.type(nickField, 'Ryo')
     const saveBtn = screen.getByText('save_button')
@@ -178,7 +178,7 @@ describe('EditPersonForm', () => {
     const user = userEvent.setup()
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
     setup()
-    const nickField = screen.getByDisplayValue('Ryan')
+    const nickField = screen.getByDisplayValue('Budi')
     await user.clear(nickField)
     await user.type(nickField, 'Ryo')
     await user.click(screen.getByText('cancel_button'))
@@ -203,7 +203,7 @@ describe('EditPersonForm', () => {
     const user = userEvent.setup()
     mockUpdate.mockResolvedValue(OK_UPDATE)
     setup()
-    const nickField = screen.getByDisplayValue('Ryan')
+    const nickField = screen.getByDisplayValue('Budi')
     await user.clear(nickField)
     await user.type(nickField, 'Ryo')
     await act(async () => {
@@ -223,7 +223,7 @@ describe('EditPersonForm', () => {
     const user = userEvent.setup()
     mockUpdate.mockResolvedValue(OK_UPDATE)
     setup()
-    const nickField = screen.getByDisplayValue('Ryan')
+    const nickField = screen.getByDisplayValue('Budi')
     await user.clear(nickField)
     await user.type(nickField, 'Ryo')
     await act(async () => {
@@ -242,7 +242,7 @@ describe('EditPersonForm', () => {
       field_errors: { full_name: 'Required' },
     })
     setup()
-    const nickField = screen.getByDisplayValue('Ryan')
+    const nickField = screen.getByDisplayValue('Budi')
     await user.clear(nickField)
     await user.type(nickField, 'Ryo')
     await act(async () => {
@@ -257,7 +257,7 @@ describe('EditPersonForm', () => {
     const user = userEvent.setup()
     mockUpdate.mockResolvedValue({ status: 'not_found' })
     setup()
-    const nickField = screen.getByDisplayValue('Ryan')
+    const nickField = screen.getByDisplayValue('Budi')
     await user.clear(nickField)
     await user.type(nickField, 'Ryo')
     await act(async () => {
@@ -327,7 +327,7 @@ describe('EditPersonForm', () => {
     const user = userEvent.setup()
     setup()
     await user.click(screen.getByText('soft_delete_button'))
-    expect(screen.getByText(/soft_delete_confirm.message Ryan Dratama/)).toBeInTheDocument()
+    expect(screen.getByText(/soft_delete_confirm.message Budi Hartono/)).toBeInTheDocument()
   })
 
   it('soft-delete success: navigates to /admin/people', async () => {
@@ -367,10 +367,10 @@ describe('EditPersonForm', () => {
   it('deleted person: dispatching SET_TEXT does not mutate state (safeDispatch no-op)', async () => {
     const user = userEvent.setup()
     setup(DELETED_PERSON)
-    const fullNameInput = screen.getByDisplayValue('Ryan Dratama') as HTMLInputElement
+    const fullNameInput = screen.getByDisplayValue('Budi Hartono') as HTMLInputElement
     // readOnly inputs ignore user input events, confirming safeDispatch blocks mutation
     await user.type(fullNameInput, 'Changed')
-    expect(fullNameInput.value).toBe('Ryan Dratama')
+    expect(fullNameInput.value).toBe('Budi Hartono')
   })
 
   it('restore success: calls router.refresh()', async () => {

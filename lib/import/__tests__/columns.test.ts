@@ -36,7 +36,7 @@ describe('detectHeaderRow', () => {
     const rawRows = [
       [null, null, null, null, 55, 43], // junk totals row — Excel row 1
       HEADER_ROW,                        // Excel row 2
-      [1, 'Adhitya wilnanda', 'Adhit', '081808247576', 'Shepherd/Servant', 'Bethlehem', 'Ya'],
+      [1, 'Budi Santoso', 'Budi', '081200090101', 'Shepherd/Servant', 'Bethlehem', 'Ya'],
     ]
     const result = detectHeaderRow(rawRows)
     expect(result.ok).toBe(true)
@@ -111,7 +111,7 @@ describe('extractDataRows', () => {
     const rawRows: unknown[][] = [
       [null, null, 55, 43],
       ['No', 'Nama Lengkap', 'Nomor HP', 'Nama Panggilan', CONSENT_HEADER],
-      [1, 'Adhitya wilnanda', '081808247576', 'Adhit', 'Ya'],
+      [1, 'Budi Santoso', '081200090101', 'Budi', 'Ya'],
       [2, 'Second Person', '081234567890', null, 'Tidak'],
     ]
     const headerResult = detectHeaderRow(rawRows)
@@ -129,7 +129,7 @@ describe('extractDataRows', () => {
     const rawRows: unknown[][] = [
       [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 55, 43, 57, 42, 48, 0, 0, 0, 0, 0, 0, 0, null],
       ['No', 'Nama Lengkap', 'Nama Panggilan', 'Nomor HP', 'Kepanitiaan', 'Tribe', 'Tempat Lahir', 'Tanggal Lahir', 'Usia', 'Asal Paroki', 'Status Pernikahan', 'Tanggal Wedding Anniversary', 'Nama Pasangan', 'Apakah memiliki Anak?', 'Nama & Tanggal Lahir Anak', CONSENT_HEADER],
-      [1, 'Adhitya wilnanda', 'Adhit', '081808247576', null, null, null, null, null, null, null, null, null, null, null, 'Ya'],
+      [1, 'Budi Santoso', 'Budi', '081200090101', null, null, null, null, null, null, null, null, null, null, null, 'Ya'],
     ]
     const headerResult = detectHeaderRow(rawRows)
     expect(headerResult.ok).toBe(true)

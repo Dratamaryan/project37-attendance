@@ -110,7 +110,7 @@ describe('formatBirthdayDigest', () => {
     const text = formatBirthdayDigest([
       { id: '1', full_name: 'Maria Sitorus', age: 34, consent: true },
       { id: '2', full_name: 'Budi Hartono', age: 41, consent: false },
-      { id: '3', full_name: 'Reno Soedarpo', age: 28, consent: null },
+      { id: '3', full_name: 'Ani Rahayu', age: 28, consent: null },
     ]);
 
     expect(text).toBe(
@@ -118,7 +118,7 @@ describe('formatBirthdayDigest', () => {
         '🎂 Ulang tahun hari ini (3)',
         '  • Maria Sitorus (34)     ✅ boleh diucapkan di grup WA',
         '  • Budi Hartono (41)     🔒 japri saja — tidak setuju publikasi',
-        '  • Reno Soedarpo (28)     ❓ belum ada jawaban — japri saja',
+        '  • Ani Rahayu (28)     ❓ belum ada jawaban — japri saja',
       ].join('\n'),
     );
   });

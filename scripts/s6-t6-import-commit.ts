@@ -185,10 +185,12 @@ function assertFilePathLocked() {
 /** Backstop for the tsx/esbuild ESM-loader bug documented in
  *  memory/feedback_collab.md (Sprint 4 Task 2). Hard-fails before any file
  *  I/O or DB contact if normalizePhone is misbehaving under the current
- *  runtime -- see the RUNTIME WARNING in this file's header comment. */
+ *  runtime -- see the RUNTIME WARNING in this file's header comment. Uses a
+ *  synthetic (non-roster) known-good pair -- only needs to prove
+ *  normalizePhone works correctly under the current runtime. */
 function assertPhoneUtilTrustworthy(): void {
-  const KNOWN_PHONE = '081808247576'
-  const EXPECTED_E164 = '+6281808247576'
+  const KNOWN_PHONE = '081200090101'
+  const EXPECTED_E164 = '+6281200090101'
   const result = normalizePhone(KNOWN_PHONE, 'ID')
   if (!result.ok || result.e164 !== EXPECTED_E164) {
     console.error(
