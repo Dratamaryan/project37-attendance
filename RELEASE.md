@@ -159,3 +159,5 @@ branch-expected ref for remote ops.
 - S7-T2 PII fixture cleanup: verified live on fd14a7c — preflight OK, gitleaks baseline-only,
   grep 0 fixture hits, 897/897, preflight:selftest 8/8, Vercel dpl_EHBjbks7… READY sin1.
   Forward-fix only; history residual accepted (revisit post-S11). See docs/sprint-7-task-2-verify.md.
+- S7-T4 mobile check-in layout verified live + real-device (iOS) on f33f619 — dpl_3qmhJYa…,
+  sin1. Native date-input empty-height accepted as known issue (backlog).
