@@ -370,7 +370,12 @@ export function NewPersonForm({
                 aria-invalid={!!state.fieldErrors.nickname}
               />
             </div>
-            <div>
+            {/* min-w-0 on the grid item itself: WebKit's native date-input shadow
+                control (day/month/year segments + picker icon) reports a larger
+                min-content floor than Chromium's, so the grid's default
+                min-width:auto on this cell won't shrink below it on iOS Safari/
+                Chrome even though the input's own w-full has room to. */}
+            <div className="min-w-0">
               <label className="block text-xs font-medium text-charcoal mb-1">
                 {t('birth_date_label')}
                 <span className="text-[#A85959] ml-0.5">*</span>
@@ -381,7 +386,7 @@ export function NewPersonForm({
                 onChange={(e) => dispatch({ type: 'SET_TEXT_FIELD', field: 'birth_date', value: e.target.value })}
                 min="1900-01-01"
                 max={new Date().toISOString().split('T')[0]}
-                className={fieldClass('birth_date')}
+                className={`${fieldClass('birth_date')} min-h-[44px]`}
                 aria-label={t('birth_date_label')}
                 aria-required="true"
                 aria-invalid={!!state.fieldErrors.birth_date}
