@@ -523,7 +523,8 @@ export function NewPersonForm({
         </div>
 
         {/* Sticky action row */}
-        <div className="sticky bottom-0 px-5 py-4 bg-cream-2 border-t border-line flex flex-col sm:flex-row gap-3">
+        {/* bottom-14 clears the h-14 fixed bottom nav (AppNavLinks) on mobile */}
+        <div className="sticky bottom-14 md:bottom-0 z-30 px-5 py-4 bg-cream-2 border-t border-line flex flex-col sm:flex-row gap-3">
           <button
             type="submit"
             disabled={isPending || state.parishCreating}

@@ -65,7 +65,7 @@ export function PhoneInput({ value, country, onPhoneChange, inputRef }: Props) {
           placeholder={t('phone_placeholder')}
           autoFocus
           autoComplete="tel"
-          className="flex-1 px-5 py-4 bg-cream border border-line rounded-sm font-heading text-2xl tracking-wide transition-all focus:outline-none focus:border-gold focus:bg-white focus:shadow-[0_0_0_3px_#F5EFD9] placeholder:text-[#9A9183]"
+          className="flex-1 min-w-0 px-5 py-4 bg-cream border border-line rounded-sm font-heading text-2xl tracking-wide transition-all focus:outline-none focus:border-gold focus:bg-white focus:shadow-[0_0_0_3px_#F5EFD9] placeholder:text-[#9A9183]"
         />
       </div>
     </div>

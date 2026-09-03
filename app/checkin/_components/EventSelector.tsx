@@ -102,7 +102,7 @@ export function EventSelector({ instances, isAdmin, onInstanceChange }: Props) {
         <ul
           role="listbox"
           aria-label={t('select_event')}
-          className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-[#E8E2D3] rounded-[4px] shadow-[0_4px_12px_rgba(0,0,0,0.08)] overflow-hidden"
+          className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-[#E8E2D3] rounded-[4px] shadow-[0_4px_12px_rgba(0,0,0,0.08)] max-h-[50vh] overflow-y-auto"
         >
           {others.map((inst) => {
             const instTime = formatJakarta(new Date(inst.scheduled_at), 'd MMM yyyy · HH:mm')
