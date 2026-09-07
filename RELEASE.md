@@ -161,3 +161,5 @@ branch-expected ref for remote ops.
   Forward-fix only; history residual accepted (revisit post-S11). See docs/sprint-7-task-2-verify.md.
 - S7-T4 mobile check-in layout verified live + real-device (iOS) on f33f619 — dpl_3qmhJYa…,
   sin1. Native date-input empty-height accepted as known issue (backlog).
+- S7-T5 check-in by name verified live + real-device (iOS) on c3dfe78 — dpl_7xfMHdvM…, sin1.
+  Confirm step (select→PersonCard→explicit Check in) added; no-undo gap logged to backlog.
