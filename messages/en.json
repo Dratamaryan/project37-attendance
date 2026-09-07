@@ -296,8 +296,6 @@
         "trend_title": "Attendance Trend",
         "trend_note": "This chart reflects all parishes",
         "trend_y": "Attendees",
-        "parish_title": "Parish Breakdown",
-        "parish_note": "This chart reflects all-time roster data",
         "nvr_title": "New vs Returning",
         "nvr_note": "This chart reflects all parishes and event types",
         "nvr_new": "New",

@@ -3,7 +3,6 @@ import { parseAnalyticsFilters } from '@/lib/actions/analytics.types'
 import {
   getKpiSummary,
   getEventAttendanceTrend,
-  getParishBreakdown,
   getTopAttendees,
   getNewVsReturningMonthly,
 } from '@/lib/actions/analytics'
@@ -21,18 +20,16 @@ export default async function AdminAnalyticsPage({ searchParams }: Props) {
   const filters = parseAnalyticsFilters(params)
   const t = await getTranslations('admin.analytics')
 
-  const [kpiResult, trendResult, parishResult, nvrResult, topResult] =
+  const [kpiResult, trendResult, nvrResult, topResult] =
     await Promise.all([
       getKpiSummary(filters),
       getEventAttendanceTrend(filters),
-      getParishBreakdown(filters),
       getNewVsReturningMonthly(filters),
       getTopAttendees(filters, 10),
     ])
 
   const kpi         = kpiResult.status === 'ok'    ? kpiResult.data    : null
   const trend       = trendResult.status === 'ok'  ? trendResult.data  : null
-  const parish      = parishResult.status === 'ok' ? parishResult.data : null
   const nvr         = nvrResult.status === 'ok'    ? nvrResult.data    : null
   const top         = topResult.status === 'ok'    ? topResult.data    : null
 
@@ -55,16 +52,12 @@ export default async function AdminAnalyticsPage({ searchParams }: Props) {
         <AnalyticsCharts
           trend={trend}
           trendHasError={trendResult.status === 'error'}
-          parish={parish}
-          parishHasError={parishResult.status === 'error'}
           nvr={nvr}
           nvrHasError={nvrResult.status === 'error'}
           labels={{
             trendTitle:   t('chart.trend_title'),
             trendNote:    t('chart.trend_note'),
             trendY:       t('chart.trend_y'),
-            parishTitle:  t('chart.parish_title'),
-            parishNote:   t('chart.parish_note'),
             nvrTitle:     t('chart.nvr_title'),
             nvrNote:      t('chart.nvr_note'),
             nvrNew:       t('chart.nvr_new'),

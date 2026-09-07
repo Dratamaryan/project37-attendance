@@ -6,7 +6,7 @@
 // and passes already-fetched data as props; no client-side data fetching here.
 
 import dynamic from 'next/dynamic'
-import type { TrendRow, ParishRow, NewVsReturningRow } from '@/lib/actions/analytics.types'
+import type { TrendRow, NewVsReturningRow } from '@/lib/actions/analytics.types'
 
 const AttendanceTrendChart = dynamic(
   () => import('./AttendanceTrendChart'),
@@ -14,16 +14,6 @@ const AttendanceTrendChart = dynamic(
     ssr: false,
     loading: () => (
       <div className="bg-cream-2 border border-line rounded-sm animate-pulse" style={{ height: 280 }} />
-    ),
-  },
-)
-
-const ParishBreakdownChart = dynamic(
-  () => import('./ParishBreakdownChart'),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="bg-cream-2 border border-line rounded-sm animate-pulse" style={{ height: 200 }} />
     ),
   },
 )
@@ -42,8 +32,6 @@ type ChartLabels = {
   trendTitle: string
   trendNote: string
   trendY: string
-  parishTitle: string
-  parishNote: string
   nvrTitle: string
   nvrNote: string
   nvrNew: string
@@ -55,8 +43,6 @@ type ChartLabels = {
 type Props = {
   trend: TrendRow[] | null
   trendHasError: boolean
-  parish: ParishRow[] | null
-  parishHasError: boolean
   nvr: NewVsReturningRow[] | null
   nvrHasError: boolean
   labels: ChartLabels
@@ -65,8 +51,6 @@ type Props = {
 export function AnalyticsCharts({
   trend,
   trendHasError,
-  parish,
-  parishHasError,
   nvr,
   nvrHasError,
   labels,
@@ -84,19 +68,6 @@ export function AnalyticsCharts({
           emptyMessage={labels.empty}
           errorMessage={labels.error}
           hasError={trendHasError}
-        />
-      </section>
-
-      <section>
-        <h2 className="font-heading text-xl font-semibold text-charcoal mb-1">
-          {labels.parishTitle}
-        </h2>
-        <p className="text-xs text-muted mb-4">{labels.parishNote}</p>
-        <ParishBreakdownChart
-          data={parish}
-          emptyMessage={labels.empty}
-          errorMessage={labels.error}
-          hasError={parishHasError}
         />
       </section>
 

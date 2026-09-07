@@ -296,8 +296,6 @@
         "trend_title": "Tren Kehadiran",
         "trend_note": "Grafik ini mencerminkan semua paroki",
         "trend_y": "Peserta",
-        "parish_title": "Distribusi Paroki",
-        "parish_note": "Grafik ini mencerminkan data anggota sepanjang waktu",
         "nvr_title": "Anggota Baru vs Kembali",
         "nvr_note": "Grafik ini mencerminkan semua paroki dan jenis acara",
         "nvr_new": "Baru",
