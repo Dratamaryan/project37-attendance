@@ -75,7 +75,11 @@ depends on nothing that a broken build could disable.
   "version": 1,
   "prodRef": "bftifxgdcmisasgvobuf",
   "denyByDefault": true,
-  "branches": { "main": "bftifxgdcmisasgvobuf", "release/*": "bftifxgdcmisasgvobuf" }
+  "branches": {
+    "main": "bftifxgdcmisasgvobuf",
+    "release/*": "bftifxgdcmisasgvobuf",
+    "staging": "sijfyvaodqkawbeuyrpu"
+  }
 }
 ```
 
@@ -148,9 +152,17 @@ branch-expected ref for remote ops.
 - **Catch-all glob ordering (S8).** `matchBranchRef` returns the first matching
   entry in map order. When S8 adds a `*` staging catch-all, order specific globs
   before the catch-all, or switch to longest-prefix matching.
-- **Map extension (S8).** Add staging (`sijfyvaodqkawbeuyrpu`) entries for feature
-  branches once staging is adopted, so feature work can target staging instead of
-  being denied all remote ops.
+- **Map extension (S8) — partially done.** `staging` (`sijfyvaodqkawbeuyrpu`) is now
+  in the map as an exact-match branch key (S8-T7, see §8). Feature branches are
+  still deny-by-default — routing feature work to staging (e.g. via a `*`
+  catch-all) is not yet wired; see the catch-all-ordering note below when it lands.
+- **Bare `npm run preflight` doesn't resolve.** With no `--op`, ref resolution
+  takes the Node-write-op path (authoritative on `NEXT_PUBLIC_SUPABASE_URL` in
+  `process.env`), which plain `node` never populates from `.env.local` — so the
+  standalone diagnostic aborts with `remote-write-op-no-resolvable-ref` even
+  though `supabase/.temp/project-ref` already agrees with the branch-expected
+  ref. `db:push` / `migrate:up` are unaffected (they pass `--op=`). Consider
+  defaulting the bare script to `--op=migrate-up` for a true one-command sanity.
 
 ---
 
@@ -165,3 +177,15 @@ branch-expected ref for remote ops.
   Confirm step (select→PersonCard→explicit Check in) added; no-undo gap logged to backlog.
 - S7-T6 hide parish/city/area + admin birthdate/consent verified live + real-device (iOS) on
   d426ae3 — dpl_8RqHSpez…, sin1. Sprint 7 complete.
+
+---
+
+## 8. S8 task log
+
+- S8-T7 guard map: staging (`sijfyvaodqkawbeuyrpu`) added to preflight branch→ref
+  map as an exact key; deny-by-default and main/release→prod unchanged. selftest
+  extended to 10 cases (added staging positive + staging→prod mismatch). Verified:
+  full gate green (930/930); real-machine resolve OK for main under db-push/
+  migrate-up. Behavior-neutral for the deployed app (map not in build output).
+  Backlog: bare `npm run preflight` (no --op) aborts no-resolvable-ref — consider
+  defaulting to --op=migrate-up for a true one-command sanity. Live verify pending.
