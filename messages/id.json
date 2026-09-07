@@ -54,6 +54,18 @@
     "lookup_too_short": "Lanjutkan mengetik...",
     "lookup_error": "Terjadi kesalahan. Coba lagi.",
     "add_new_person": "Tambah orang baru",
+    "name_search": {
+      "mode_label": "Metode pencarian",
+      "mode_phone": "Cari dengan nomor",
+      "mode_name": "Cari dengan nama",
+      "name_label": "Nama",
+      "name_placeholder": "mis. Budi",
+      "too_short": "Ketik minimal 3 huruf...",
+      "matches_label": "Ketuk nama untuk mencatat kehadiran",
+      "has_more": "Lebih dari 5 hasil — lanjutkan mengetik untuk mempersempit",
+      "none": "Tidak ada nama yang cocok.",
+      "none_hint": "Cari dengan nomor telepon saja"
+    },
     "check_in_button": "Daftar Hadir",
     "check_in_button_pending": "Mencatat...",
     "recent_title": "Daftar Hadir Terbaru",

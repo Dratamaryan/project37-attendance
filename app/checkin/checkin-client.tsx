@@ -2,15 +2,17 @@
 
 import { useState, useEffect, useRef, useTransition } from 'react'
 import { useTranslations, useLocale } from 'next-intl'
-import { lookupByPhone } from '@/lib/actions/people'
+import { lookupByPhone, lookupByName } from '@/lib/actions/people'
 import { createAttendance, listRecentAttendanceForInstance } from '@/lib/actions/attendance'
 import { formatJakarta } from '@/lib/events/timezone'
 import { DEFAULT_COUNTRY, type SupportedCountry } from '@/lib/utils/phone'
+import { sanitizeNameQuery, NAME_QUERY_MIN_LENGTH } from '@/lib/utils/name-query'
 import type { PersonSummary, PhoneNormalizationError } from '@/lib/actions/people.types'
 import type { NearestInstanceRow } from '@/lib/actions/events.types'
 import type { AttendanceWithPerson } from '@/lib/actions/attendance.types'
 import { PhoneInput } from './phone-input'
 import { PersonCard } from './person-card'
+import { NameMatchList } from './name-match-list'
 import { NewPersonTrigger } from './new-person-trigger'
 import { NewPersonForm } from './new-person-form'
 import { RecentPanel } from './recent-panel'
@@ -25,6 +27,20 @@ type ServerResult =
   | { phase: 'error'; message: string }
 
 type DisplayPhase = 'idle' | 'too_short' | 'searching' | ServerResult['phase']
+
+// Which lookup surface is active. Both resolve to a PersonSummary and hand it to
+// the same performCheckIn — the mode only changes how the person is found.
+type LookupMode = 'phone' | 'name'
+
+// Name-lookup terminal states. Stored alongside the query they belong to so
+// 'searching' can be derived at render time (same no-setState-in-effect
+// discipline as the phone lookup) rather than tracked as its own state.
+type NameServerResult =
+  | { phase: 'matches'; people: PersonSummary[]; hasMore: boolean }
+  | { phase: 'none' }
+  | { phase: 'name_error' }
+
+type NameDisplayPhase = 'idle' | 'name_too_short' | 'searching' | NameServerResult['phase']
 
 // Feedback banner for createAttendance results. success auto-clears after 5s;
 // warning (already checked in) and error persist until dismissed or next attempt.
@@ -70,9 +86,15 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
   // display state doesn't flicker on during check-in.
   const [checkinPending, startCheckinTransition] = useTransition()
 
+  const [mode, setMode] = useState<LookupMode>('phone')
   const [rawPhone, setRawPhone] = useState('')
+  const [rawName, setRawName] = useState('')
   const [country, setCountry] = useState<SupportedCountry>(DEFAULT_COUNTRY)
   const [serverResult, setServerResult] = useState<ServerResult | null>(null)
+  // Tagged with the query it answers so a result is never shown for a newer input.
+  const [nameResult, setNameResult] = useState<
+    { forQuery: string; result: NameServerResult } | null
+  >(null)
   const [attendances, setAttendances] = useState<AttendanceWithPerson[]>([])
   const [showForm, setShowForm] = useState(false)
   const [photoUploadFailed, setPhotoUploadFailed] = useState(false)
@@ -83,14 +105,21 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
   )
 
   const inputRef = useRef<HTMLInputElement>(null)
+  const nameInputRef = useRef<HTMLInputElement>(null)
   // Incremented before each lookup; stale results are discarded when the id no longer matches.
   const requestIdRef = useRef(0)
+  // Same cancellation-ref guard for the name lookup. Deliberately NOT
+  // startTransition(async) inside useEffect — React 19 may silently drop an
+  // async transition that wasn't initiated from an event handler (see the
+  // doFetchAttendances note below, same failure mode).
+  const nameRequestIdRef = useRef(0)
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Attendance fetch race-condition guard — prevents stale responses from overwriting newer ones.
   // Uses a counter rather than AbortController because server actions don't expose a fetch signal.
   const attendanceFetchIdRef = useRef(0)
 
   const [debouncedPhone, debouncedFireCount] = useDebounce(rawPhone, 300)
+  const [debouncedName, debouncedNameFireCount] = useDebounce(rawName, 300)
 
   // Derive the event name for the current instance (locale-aware).
   const currentInstance = instances.find((i) => i.id === eventInstanceId) ?? null
@@ -151,12 +180,75 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
     })
   }, [debouncedPhone, debouncedFireCount, country])
 
+  // Name lookup — direct promise + cancellation ref, no setState in the effect
+  // body. The sanitized-length gate mirrors the server's, which is the real
+  // enforcement point; this one only avoids a round-trip that would return
+  // query_too_short anyway.
+  useEffect(() => {
+    if (mode !== 'name') return
+    if (sanitizeNameQuery(debouncedName).length < NAME_QUERY_MIN_LENGTH) return
+
+    const myId = ++nameRequestIdRef.current
+    const forQuery = debouncedName
+
+    lookupByName(forQuery).then((result) => {
+      if (nameRequestIdRef.current !== myId) return
+
+      switch (result.status) {
+        case 'matches':
+          setNameResult({
+            forQuery,
+            result: { phase: 'matches', people: result.people, hasMore: result.hasMore },
+          })
+          break
+        case 'none':
+          setNameResult({ forQuery, result: { phase: 'none' } })
+          break
+        case 'query_too_short':
+          // Client gate should have caught this; treat as idle rather than an error.
+          setNameResult(null)
+          break
+        case 'error':
+          console.error('[checkin] lookupByName error:', result.message)
+          setNameResult({ forQuery, result: { phase: 'name_error' } })
+          break
+      }
+    })
+  }, [debouncedName, debouncedNameFireCount, mode])
+
   function resetToLookup() {
     setRawPhone('')
+    setRawName('')
     setServerResult(null)
+    setNameResult(null)
     setShowForm(false)
     setPhotoUploadFailed(false)
-    setTimeout(() => inputRef.current?.focus(), 0)
+    // Return focus to whichever surface the organizer is actually using.
+    setTimeout(() => {
+      if (mode === 'name') nameInputRef.current?.focus()
+      else inputRef.current?.focus()
+    }, 0)
+  }
+
+  /**
+   * Switching surfaces clears the other one's input and result so a stale card
+   * or match list can never outlive the mode that produced it. Invalidates any
+   * in-flight lookup of the mode being left.
+   */
+  function handleModeChange(next: LookupMode) {
+    if (next === mode) return
+    requestIdRef.current++
+    nameRequestIdRef.current++
+    setMode(next)
+    setRawPhone('')
+    setRawName('')
+    setServerResult(null)
+    setNameResult(null)
+    setShowForm(false)
+    setTimeout(() => {
+      if (next === 'name') nameInputRef.current?.focus()
+      else inputRef.current?.focus()
+    }, 0)
   }
 
   function showFeedback(kind: CheckinFeedback['kind'], message: string) {
@@ -265,6 +357,23 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
     return 'idle'
   })()
 
+  // Same derivation discipline as displayPhase: everything is computed from the
+  // raw input, the debounced input, and the tagged result — no separate
+  // 'searching' state to fall out of sync.
+  const nameDisplayPhase: NameDisplayPhase = (() => {
+    if (mode !== 'name') return 'idle'
+    const safeRaw = sanitizeNameQuery(rawName)
+    if (safeRaw.length === 0) return 'idle'
+    if (safeRaw.length < NAME_QUERY_MIN_LENGTH) return 'name_too_short'
+    // Still inside the debounce window — the user hasn't stopped typing yet
+    if (rawName !== debouncedName) return 'searching'
+    if (nameResult && nameResult.forQuery === debouncedName) return nameResult.result.phase
+    return 'searching'
+  })()
+
+  const nameMatches =
+    nameResult?.result.phase === 'matches' ? nameResult.result : null
+
   const feedbackStyles: Record<CheckinFeedback['kind'], string> = {
     success: 'text-[#5C8A6B] bg-[#F0F6F1] border-[#D8E8DC]',
     warning: 'text-[#8B7635] bg-[#FBF6E8] border-[#F5EFD9]',
@@ -319,39 +428,105 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
         )}
 
         <div className="bg-white border border-line rounded-[4px] p-6 shadow-[0_4px_6px_-1px_rgba(26,26,26,.06),0_2px_4px_-2px_rgba(26,26,26,.04)]">
-          <PhoneInput
-            value={rawPhone}
-            country={country}
-            onPhoneChange={handlePhoneChange}
-            inputRef={inputRef}
-          />
+          {/* Lookup-surface toggle. min-w-0 on each flex child so the two labels
+              shrink together instead of overflowing a 360px row (T4). */}
+          <div
+            role="tablist"
+            aria-label={t('name_search.mode_label')}
+            data-testid="lookup-mode-toggle"
+            className="flex gap-2 mb-5"
+          >
+            {(['phone', 'name'] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                role="tab"
+                aria-selected={mode === m}
+                onClick={() => handleModeChange(m)}
+                className={`flex-1 min-w-0 px-3 py-2 min-h-[44px] text-sm font-medium rounded-sm border transition-colors ${
+                  mode === m
+                    ? 'bg-charcoal text-cream border-charcoal'
+                    : 'bg-cream text-ink-2 border-line hover:border-gold'
+                }`}
+              >
+                {m === 'phone' ? t('name_search.mode_phone') : t('name_search.mode_name')}
+              </button>
+            ))}
+          </div>
+
+          {mode === 'phone' ? (
+            <PhoneInput
+              value={rawPhone}
+              country={country}
+              onPhoneChange={handlePhoneChange}
+              inputRef={inputRef}
+            />
+          ) : (
+            // min-w-0 on the wrapper, not just the input — a bare block wrapper
+            // inside a flex/grid parent otherwise floors at min-content (T4).
+            <div className="min-w-0">
+              <label
+                htmlFor="checkin-name-input"
+                className="block text-xs uppercase tracking-widest text-muted font-semibold mb-2"
+              >
+                {t('name_search.name_label')}
+              </label>
+              <input
+                id="checkin-name-input"
+                ref={nameInputRef}
+                type="text"
+                autoComplete="off"
+                aria-label={t('name_search.name_label')}
+                value={rawName}
+                onChange={(e) => setRawName(e.target.value)}
+                placeholder={t('name_search.name_placeholder')}
+                className="w-full min-w-0 px-5 py-4 bg-cream border border-line rounded-sm font-heading text-2xl tracking-wide transition-all focus:outline-none focus:border-gold focus:bg-white focus:shadow-[0_0_0_3px_#F5EFD9] placeholder:text-[#9A9183]"
+              />
+            </div>
+          )}
 
           {/* Inline status below the input */}
           <div className="mt-3 min-h-[1.25rem]">
-            {displayPhase === 'searching' && (
-              <p className="text-xs text-muted animate-pulse">{t('lookup_searching')}</p>
-            )}
-            {displayPhase === 'too_short' && (
-              <p className="text-xs text-muted">{t('lookup_too_short')}</p>
-            )}
-            {displayPhase === 'invalid_phone' && (
-              <p className="text-xs text-[#A85959]">
-                {serverResult?.phase === 'invalid_phone' && serverResult.reason === 'too_short'
-                  ? t('lookup_too_short')
-                  : t('lookup_invalid_phone')}
-              </p>
-            )}
-            {displayPhase === 'error' && (
-              <p className="text-xs text-[#A85959]">{t('lookup_error')}</p>
-            )}
-            {displayPhase === 'found' && (
-              <p className="text-xs text-[#5C8A6B] font-medium">{t('lookup_found')}</p>
+            {mode === 'phone' ? (
+              <>
+                {displayPhase === 'searching' && (
+                  <p className="text-xs text-muted animate-pulse">{t('lookup_searching')}</p>
+                )}
+                {displayPhase === 'too_short' && (
+                  <p className="text-xs text-muted">{t('lookup_too_short')}</p>
+                )}
+                {displayPhase === 'invalid_phone' && (
+                  <p className="text-xs text-[#A85959]">
+                    {serverResult?.phase === 'invalid_phone' && serverResult.reason === 'too_short'
+                      ? t('lookup_too_short')
+                      : t('lookup_invalid_phone')}
+                  </p>
+                )}
+                {displayPhase === 'error' && (
+                  <p className="text-xs text-[#A85959]">{t('lookup_error')}</p>
+                )}
+                {displayPhase === 'found' && (
+                  <p className="text-xs text-[#5C8A6B] font-medium">{t('lookup_found')}</p>
+                )}
+              </>
+            ) : (
+              <>
+                {nameDisplayPhase === 'searching' && (
+                  <p className="text-xs text-muted animate-pulse">{t('lookup_searching')}</p>
+                )}
+                {nameDisplayPhase === 'name_too_short' && (
+                  <p className="text-xs text-muted">{t('name_search.too_short')}</p>
+                )}
+                {nameDisplayPhase === 'name_error' && (
+                  <p className="text-xs text-[#A85959]">{t('lookup_error')}</p>
+                )}
+              </>
             )}
           </div>
         </div>
 
         {/* Result cards — only shown once the debounce has settled */}
-        {displayPhase === 'found' && serverResult?.phase === 'found' && (
+        {mode === 'phone' && displayPhase === 'found' && serverResult?.phase === 'found' && (
           <PersonCard
             person={serverResult.person}
             onCheckIn={handleCheckIn}
@@ -359,7 +534,7 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
             checkInDisabled={!eventInstanceId}
           />
         )}
-        {displayPhase === 'not_found' && serverResult?.phase === 'not_found' && (
+        {mode === 'phone' && displayPhase === 'not_found' && serverResult?.phase === 'not_found' && (
           showForm ? (
             <NewPersonForm
               normalizedE164={serverResult.normalized_e164}
@@ -375,6 +550,35 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
               onAdd={() => setShowForm(true)}
             />
           )
+        )}
+
+        {/* Name-search results. Tapping a match uses the exact same
+            performCheckIn hand-off as PersonCard's onCheckIn. */}
+        {mode === 'name' && nameDisplayPhase === 'matches' && nameMatches && (
+          <NameMatchList
+            people={nameMatches.people}
+            hasMore={nameMatches.hasMore}
+            onSelect={handleCheckIn}
+            checkInPending={checkinPending}
+            checkInDisabled={!eventInstanceId}
+          />
+        )}
+        {mode === 'name' && nameDisplayPhase === 'none' && (
+          // No "add new person" here on purpose: registration is phone-anchored
+          // (phone is the unique key), so a name miss routes back to phone search.
+          <div
+            data-testid="name-no-match"
+            className="mt-4 p-5 bg-white border border-line rounded-[4px]"
+          >
+            <p className="text-sm text-charcoal">{t('name_search.none')}</p>
+            <button
+              type="button"
+              onClick={() => handleModeChange('phone')}
+              className="mt-3 text-sm text-gold-dark font-medium underline underline-offset-2 min-h-[44px]"
+            >
+              {t('name_search.none_hint')}
+            </button>
+          </div>
         )}
       </div>
 

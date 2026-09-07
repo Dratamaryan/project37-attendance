@@ -88,3 +88,16 @@ export function formatPhoneForDisplay(e164: string): string {
     return e164
   }
 }
+
+/**
+ * Masks all but the last four digits of a phone number (e.g. "…2609").
+ * Used by the name-search match list, where several people can share a name and
+ * the tail is the disambiguator — showing the full number there would expose
+ * more PII than the task needs. Pure string handling on purpose: no
+ * libphonenumber-js parse, so it never throws on a malformed or partial value.
+ */
+export function maskPhoneTail(e164: string): string {
+  const digits = (e164 ?? '').replace(/\D/g, '')
+  if (digits.length < 4) return '…'
+  return `…${digits.slice(-4)}`
+}

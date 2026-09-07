@@ -30,6 +30,22 @@ export type LookupResult =
   | { status: 'invalid_phone'; reason: PhoneNormalizationError }
   | { status: 'error';         message: string }
 
+// ── lookupByName ─────────────────────────────────────────────────
+
+// S7-T5 check-in by name. Same auth posture as lookupByPhone (user-session
+// client, RLS-scoped — no application-layer admin gate), and the resolved
+// person feeds the identical createAttendance write path.
+//
+// Unlike phone, a name is not unique, so the result is a short candidate list
+// the organizer disambiguates by tapping. At most NAME_MATCH_LIMIT (5) people
+// are returned; hasMore signals that a 6th row existed and the organizer should
+// keep typing rather than scroll.
+export type LookupByNameResult =
+  | { status: 'matches'; people: PersonSummary[]; hasMore: boolean }
+  | { status: 'none' }
+  | { status: 'query_too_short' }
+  | { status: 'error'; message: string }
+
 // ── createPerson ─────────────────────────────────────────────────
 
 export type CreatePersonInput = {

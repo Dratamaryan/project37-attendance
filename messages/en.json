@@ -54,6 +54,18 @@
     "lookup_too_short": "Keep typing...",
     "lookup_error": "Something went wrong. Try again.",
     "add_new_person": "Add new person",
+    "name_search": {
+      "mode_label": "Search method",
+      "mode_phone": "Search by phone",
+      "mode_name": "Search by name",
+      "name_label": "Name",
+      "name_placeholder": "e.g. Budi",
+      "too_short": "Type at least 3 letters...",
+      "matches_label": "Tap a name to check in",
+      "has_more": "More than 5 matches — keep typing to narrow",
+      "none": "No one found with that name.",
+      "none_hint": "Search by phone number instead"
+    },
     "check_in_button": "Check in",
     "check_in_button_pending": "Checking in...",
     "recent_title": "Recent Check-Ins",

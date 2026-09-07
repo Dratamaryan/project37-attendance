@@ -3,10 +3,12 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { normalizePhone } from '../utils/phone'
+import { sanitizeNameQuery, NAME_QUERY_MIN_LENGTH } from '../utils/name-query'
 import { logAudit, AUDIT_ACTIONS } from '../audit'
 import { requireActiveAdmin } from '../auth/require-admin'
 import type {
   LookupResult,
+  LookupByNameResult,
   CreatePersonInput,
   CreateResult,
   UpdatePersonInput,
@@ -55,6 +57,60 @@ export async function impl_lookupByPhone(
   }
 
   return { status: 'found', person: data as PersonSummary }
+}
+
+// ── lookupByName ─────────────────────────────────────────────────────────────
+
+/** Rows returned to the caller. A 6th row is fetched only to set hasMore. */
+const NAME_MATCH_LIMIT = 5
+
+/**
+ * S7-T5 check-in by name.
+ *
+ * Auth posture mirrors impl_lookupByPhone exactly: the caller's own user-session
+ * client, RLS as the enforcement layer, no application-layer role gate. The RLS
+ * matrix already grants organizers read-all on `people`, so this is reachable by
+ * every check-in user without widening anything. (impl_listPeople's admin-only
+ * gate is an application-layer restriction specific to the admin roster page —
+ * deliberately not reused here.)
+ *
+ * The query string is sanitized to a letters/space/hyphen/apostrophe whitelist
+ * BEFORE it reaches the filter, so neither the PostgREST `.or()` grammar nor the
+ * ILIKE wildcards can be influenced by input. The minimum-length check runs on
+ * the sanitized value, server-side — the client's identical pre-check is a
+ * round-trip saver, not the enforcement point.
+ */
+export async function impl_lookupByName(
+  query: string,
+  supabase: SupabaseClient,
+): Promise<LookupByNameResult> {
+  const safe = sanitizeNameQuery(query)
+  if (safe.length < NAME_QUERY_MIN_LENGTH) {
+    return { status: 'query_too_short' }
+  }
+
+  // limit is LIMIT+1: the extra row is the hasMore probe and is never returned.
+  const { data, error } = await supabase
+    .from('people')
+    .select(SUMMARY_FIELDS)
+    .or(`full_name.ilike.%${safe}%,nickname.ilike.%${safe}%`)
+    .is('deleted_at', null)   // same explicit filter as lookupByPhone — name
+    .order('full_name', { ascending: true })  // check-in never surfaces deleted people
+    .limit(NAME_MATCH_LIMIT + 1)
+
+  if (error) {
+    console.error('[lookupByName]', error)
+    return { status: 'error', message: 'Lookup failed' }
+  }
+
+  const rows = (data ?? []) as unknown as PersonSummary[]
+  if (rows.length === 0) return { status: 'none' }
+
+  return {
+    status:  'matches',
+    people:  rows.slice(0, NAME_MATCH_LIMIT),
+    hasMore: rows.length > NAME_MATCH_LIMIT,
+  }
 }
 
 // ── createPerson ─────────────────────────────────────────────────────────────

@@ -28,6 +28,7 @@ vi.mock('next/image', () => ({
 
 vi.mock('@/lib/actions/people', () => ({
   lookupByPhone: vi.fn(),
+  lookupByName: vi.fn(),
 }))
 
 vi.mock('@/lib/actions/attendance', () => ({
@@ -39,9 +40,10 @@ vi.mock('@/lib/storage/photos', () => ({
   getPhotoSignedUrl: vi.fn().mockResolvedValue({ status: 'no_photo' }),
 }))
 
-import { lookupByPhone } from '@/lib/actions/people'
+import { lookupByPhone, lookupByName } from '@/lib/actions/people'
 import { createAttendance, listRecentAttendanceForInstance } from '@/lib/actions/attendance'
 const mockLookup = vi.mocked(lookupByPhone)
+const mockLookupByName = vi.mocked(lookupByName)
 const mockCreateAttendance = vi.mocked(createAttendance)
 const mockListRecent = vi.mocked(listRecentAttendanceForInstance)
 
@@ -523,6 +525,91 @@ describe('CheckinClient', () => {
 
     // Verify the fetch was invoked with the new instance id
     expect(mockListRecent).toHaveBeenCalledWith({ eventInstanceId: 'inst-002' })
+  })
+
+  // ── S7-T5: check-in by name ─────────────────────────────────────────────────
+
+  it('CC-12: tapping a name match calls createAttendance with the same shape as phone check-in', async () => {
+    const SECOND_PERSON = { ...FOUND_PERSON, id: 'person-002', full_name: 'Budi Prakoso', phone_e164: '+6282185352609' }
+    mockLookupByName.mockResolvedValue({
+      status: 'matches',
+      people: [FOUND_PERSON, SECOND_PERSON],
+      hasMore: false,
+    })
+
+    const user = userEvent.setup({ delay: null })
+    render(<CheckinClient instances={INSTANCES} />)
+
+    // Switch to name mode
+    await user.click(screen.getByRole('tab', { name: 'name_search.mode_name' }))
+    const nameInput = screen.getByRole('textbox', { name: 'name_search.name_label' })
+    await user.type(nameInput, 'Budi')
+
+    // Both candidates render; tap the second to prove the tapped person is the
+    // one written (not simply the first match).
+    const list = await screen.findByTestId('name-match-list', {}, { timeout: 1000 })
+    await waitFor(() => expect(within(list).getByText('Budi Prakoso')).toBeInTheDocument())
+    await user.click(within(list).getByText('Budi Prakoso'))
+
+    // Identical call shape to the phone path (see the phone check-in test above):
+    // { personId, eventInstanceId } — no extra fields, no separate write path.
+    await waitFor(() => expect(mockCreateAttendance).toHaveBeenCalledWith({
+      personId: 'person-002',
+      eventInstanceId: 'inst-001',
+    }), { timeout: 1000 })
+    expect(mockCreateAttendance).toHaveBeenCalledTimes(1)
+  })
+
+  it('CC-13: name lookup does not fire until 3 sanitized characters', async () => {
+    const user = userEvent.setup({ delay: null })
+    render(<CheckinClient instances={INSTANCES} />)
+
+    await user.click(screen.getByRole('tab', { name: 'name_search.mode_name' }))
+    const nameInput = screen.getByRole('textbox', { name: 'name_search.name_label' })
+
+    // Two letters plus punctuation that sanitizes away → still below the gate
+    await user.type(nameInput, 'Bu%.')
+    await act(async () => { await new Promise((r) => setTimeout(r, 400)) })
+    expect(mockLookupByName).not.toHaveBeenCalled()
+    expect(screen.getByText('name_search.too_short')).toBeInTheDocument()
+
+    // Third letter crosses it
+    await user.type(nameInput, 'd')
+    await waitFor(() => expect(mockLookupByName).toHaveBeenCalledTimes(1), { timeout: 1000 })
+  })
+
+  it('CC-14: hasMore renders the narrow-your-search hint', async () => {
+    mockLookupByName.mockResolvedValue({
+      status: 'matches',
+      people: Array.from({ length: 5 }, (_, i) => ({ ...FOUND_PERSON, id: `p-${i}`, full_name: `Budi ${i}` })),
+      hasMore: true,
+    })
+
+    const user = userEvent.setup({ delay: null })
+    render(<CheckinClient instances={INSTANCES} />)
+    await user.click(screen.getByRole('tab', { name: 'name_search.mode_name' }))
+    await user.type(screen.getByRole('textbox', { name: 'name_search.name_label' }), 'Budi')
+
+    const hint = await screen.findByTestId('name-match-has-more', {}, { timeout: 1000 })
+    expect(hint).toHaveTextContent('name_search.has_more')
+  })
+
+  it('CC-15: none shows the miss message and offers phone search, never add-new-person', async () => {
+    mockLookupByName.mockResolvedValue({ status: 'none' })
+
+    const user = userEvent.setup({ delay: null })
+    render(<CheckinClient instances={INSTANCES} />)
+    await user.click(screen.getByRole('tab', { name: 'name_search.mode_name' }))
+    await user.type(screen.getByRole('textbox', { name: 'name_search.name_label' }), 'Zzzz')
+
+    const miss = await screen.findByTestId('name-no-match', {}, { timeout: 1000 })
+    expect(miss).toHaveTextContent('name_search.none')
+    // Registration stays phone-anchored — no add-new-person from a name miss
+    expect(screen.queryByText('add_new_person')).not.toBeInTheDocument()
+
+    // The nudge switches back to phone mode
+    await user.click(within(miss).getByText('name_search.none_hint'))
+    expect(screen.getByRole('textbox', { name: 'phone_label' })).toBeInTheDocument()
   })
 
   it('CC-11: panel heading updates to show selected event name on instance switch', async () => {

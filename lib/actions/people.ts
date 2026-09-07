@@ -3,6 +3,7 @@
 import { createClient } from '../supabase/server'
 import {
   impl_lookupByPhone,
+  impl_lookupByName,
   impl_createPerson,
   impl_updatePerson,
   impl_softDeletePerson,
@@ -13,6 +14,7 @@ import {
 } from './people.impl'
 import type {
   LookupResult,
+  LookupByNameResult,
   CreatePersonInput,
   CreateResult,
   UpdatePersonInput,
@@ -31,6 +33,11 @@ export async function lookupByPhone(
 ): Promise<LookupResult> {
   const supabase = await createClient()
   return impl_lookupByPhone(rawPhone, country, supabase)
+}
+
+export async function lookupByName(query: string): Promise<LookupByNameResult> {
+  const supabase = await createClient()
+  return impl_lookupByName(query, supabase)
 }
 
 export async function createPerson(input: CreatePersonInput): Promise<CreateResult> {
