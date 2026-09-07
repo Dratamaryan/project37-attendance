@@ -11,7 +11,7 @@ const map = {
   version: 1,
   prodRef: PROD_REF,
   denyByDefault: true,
-  branches: { main: PROD_REF, 'release/*': PROD_REF },
+  branches: { main: PROD_REF, 'release/*': PROD_REF, staging: STAGING_REF },
 }
 
 function resolved(ref, overrides = {}) {
@@ -58,6 +58,16 @@ const cases = [
     name: 'branch=feature/x, op=roster-apply, resolved=local(127.0.0.1) => ok (local bypasses branch-deny)',
     input: { branch: 'feature/x', op: 'roster-apply', resolved: resolved('127.0.0.1', { local: true }), map },
     check: (r) => r.ok === true,
+  },
+  {
+    name: 'branch=staging, op=db-push, resolved=staging => ok',
+    input: { branch: 'staging', op: 'db-push', resolved: resolved(STAGING_REF), map },
+    check: (r) => r.ok === true,
+  },
+  {
+    name: 'branch=staging, resolved=prod => abort (resolved-ref-mismatch)',
+    input: { branch: 'staging', op: 'db-push', resolved: resolved(PROD_REF), map },
+    check: (r) => r.ok === false && r.reason === 'resolved-ref-mismatch',
   },
 ]
 

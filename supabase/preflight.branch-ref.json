@@ -4,6 +4,7 @@
   "denyByDefault": true,
   "branches": {
     "main": "bftifxgdcmisasgvobuf",
-    "release/*": "bftifxgdcmisasgvobuf"
+    "release/*": "bftifxgdcmisasgvobuf",
+    "staging": "sijfyvaodqkawbeuyrpu"
   }
 }
