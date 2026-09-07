@@ -163,3 +163,5 @@ branch-expected ref for remote ops.
   sin1. Native date-input empty-height accepted as known issue (backlog).
 - S7-T5 check-in by name verified live + real-device (iOS) on c3dfe78 — dpl_7xfMHdvM…, sin1.
   Confirm step (select→PersonCard→explicit Check in) added; no-undo gap logged to backlog.
+- S7-T6 hide parish/city/area + admin birthdate/consent verified live + real-device (iOS) on
+  d426ae3 — dpl_8RqHSpez…, sin1. Sprint 7 complete.
