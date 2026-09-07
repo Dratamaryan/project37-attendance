@@ -4,7 +4,14 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { formatPhoneForDisplay } from '@/lib/utils/phone'
+import { formatDateOnly } from '@/lib/utils/date-display'
 import type { PersonListItem } from '@/lib/actions/people.types'
+
+const CONSENT_LABEL_KEY: Record<'granted' | 'refused' | 'unknown', string> = {
+  granted: 'row.consent_granted',
+  refused: 'row.consent_refused',
+  unknown: 'row.consent_unknown',
+}
 
 // Deterministic color from full_name hash — same person always gets same color.
 const AVATAR_COLORS = [
@@ -86,9 +93,14 @@ export function PersonRow({ person }: Props) {
         {formatPhoneForDisplay(person.phone_e164)}
       </td>
 
-      {/* Parish */}
+      {/* Birth date */}
       <td className="px-4 py-3 whitespace-nowrap text-sm text-muted">
-        {person.origin_parish ?? t('row.no_parish')}
+        {formatDateOnly(person.birth_date) || t('row.no_birth_date')}
+      </td>
+
+      {/* Consent */}
+      <td className="px-4 py-3 whitespace-nowrap text-sm text-muted">
+        {t(CONSENT_LABEL_KEY[person.photo_consent_state])}
       </td>
 
       {/* Status / deleted badge */}

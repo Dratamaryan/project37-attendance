@@ -21,12 +21,11 @@ export default async function AdminAnalyticsPage({ searchParams }: Props) {
   const filters = parseAnalyticsFilters(params)
   const t = await getTranslations('admin.analytics')
 
-  const [kpiResult, trendResult, parishResult, parishOptionsResult, nvrResult, topResult] =
+  const [kpiResult, trendResult, parishResult, nvrResult, topResult] =
     await Promise.all([
       getKpiSummary(filters),
       getEventAttendanceTrend(filters),
       getParishBreakdown(filters),
-      getParishBreakdown({}),        // always full list for dropdown options
       getNewVsReturningMonthly(filters),
       getTopAttendees(filters, 10),
     ])
@@ -34,9 +33,6 @@ export default async function AdminAnalyticsPage({ searchParams }: Props) {
   const kpi         = kpiResult.status === 'ok'    ? kpiResult.data    : null
   const trend       = trendResult.status === 'ok'  ? trendResult.data  : null
   const parish      = parishResult.status === 'ok' ? parishResult.data : null
-  const parishOptions = parishOptionsResult.status === 'ok'
-    ? parishOptionsResult.data.map(r => r.parish)
-    : []
   const nvr         = nvrResult.status === 'ok'    ? nvrResult.data    : null
   const top         = topResult.status === 'ok'    ? topResult.data    : null
 
@@ -49,7 +45,6 @@ export default async function AdminAnalyticsPage({ searchParams }: Props) {
 
         <AnalyticsFiltersControls
           currentFilters={filters}
-          parishOptions={parishOptions}
         />
 
         <KpiCards
@@ -88,7 +83,6 @@ export default async function AdminAnalyticsPage({ searchParams }: Props) {
             data={top}
             labels={{
               colName:    t('table.col_name'),
-              colParish:  t('table.col_parish'),
               colTotal:   t('table.col_total'),
               colEvents:  t('table.col_events'),
               colLast:    t('table.col_last'),

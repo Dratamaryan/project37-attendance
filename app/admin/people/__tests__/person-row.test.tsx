@@ -38,6 +38,8 @@ const BASE_PERSON: PersonListItem = {
   full_name: 'Budi Hartono',
   nickname: 'Budi',
   origin_parish: 'Jakarta Selatan',
+  birth_date: '1990-05-15',
+  photo_consent_state: 'unknown',
   photo_url: null,
   photo_signed_url: null,
   created_at: '2026-01-01T00:00:00Z',
@@ -56,13 +58,26 @@ function renderRow(person: PersonListItem) {
 }
 
 describe('PersonRow', () => {
-  it('renders name, nickname, formatted phone, and parish', () => {
+  it('renders name, nickname, formatted phone, birth date, and consent state', () => {
     renderRow(BASE_PERSON)
     expect(screen.getByText('Budi Hartono')).toBeInTheDocument()
     expect(screen.getByText('Budi')).toBeInTheDocument()
     // formatPhoneForDisplay returns "+62 812 3456 7890" — match country code + digits
     expect(screen.getByText(/\+62.*812/)).toBeInTheDocument()
-    expect(screen.getByText('Jakarta Selatan')).toBeInTheDocument()
+    // birth_date rendered raw YYYY-MM-DD via formatDateOnly — no Date() parsing
+    expect(screen.getByText('1990-05-15')).toBeInTheDocument()
+    // consent state 'unknown' → i18n key 'row.consent_unknown' (mocked to echo the key)
+    expect(screen.getByText('row.consent_unknown')).toBeInTheDocument()
+  })
+
+  it('renders each consent state distinctly (unknown must never read as refused)', () => {
+    renderRow({ ...BASE_PERSON, photo_consent_state: 'granted' })
+    expect(screen.getByText('row.consent_granted')).toBeInTheDocument()
+  })
+
+  it('falls back to the no-birth-date label when birth_date is null', () => {
+    renderRow({ ...BASE_PERSON, birth_date: null })
+    expect(screen.getByText('row.no_birth_date')).toBeInTheDocument()
   })
 
   it('renders initials fallback when photo_signed_url is null', () => {

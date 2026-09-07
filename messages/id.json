@@ -104,12 +104,6 @@
       "marital_status_label": "Status Pernikahan",
       "marital_single": "Lajang",
       "marital_married": "Menikah",
-      "origin_parish_label": "Paroki Asal",
-      "parish_search_placeholder": "Cari paroki...",
-      "parish_add_new": "Tambah \"{name}\" sebagai paroki baru",
-      "parish_pending_badge": "menunggu",
-      "current_city_label": "Kota Tinggal",
-      "current_area_label": "Wilayah",
       "photo_label": "Foto",
       "photo_upload_button": "Pilih foto",
       "photo_remove_button": "Hapus",
@@ -289,8 +283,6 @@
         "event_type_sunday_monthly": "Minggu bulanan",
         "event_type_adhoc": "Satu kali",
         "event_type_other_recurring": "Berulang lainnya",
-        "parish": "Paroki",
-        "parish_all": "Semua paroki",
         "clear": "Hapus filter",
         "export": "Ekspor ke Excel"
       },
@@ -315,7 +307,6 @@
         "top_title": "Anggota Paling Aktif",
         "top_note": "Mencerminkan kehadiran sepanjang waktu untuk semua jenis acara",
         "col_name": "Nama",
-        "col_parish": "Paroki",
         "col_total": "Kehadiran",
         "col_events": "Acara",
         "col_last": "Terakhir hadir",
@@ -534,11 +525,18 @@
         "prev": "Sebelumnya",
         "next": "Selanjutnya"
       },
+      "table": {
+        "col_birth_date": "Tanggal Lahir",
+        "col_consent": "Persetujuan"
+      },
       "row": {
         "edit": "Edit",
         "edit_deleted": "Lihat",
         "deleted_badge": "Dihapus {date}",
-        "no_parish": "—"
+        "no_birth_date": "—",
+        "consent_granted": "Disetujui",
+        "consent_refused": "Ditolak",
+        "consent_unknown": "Tidak diketahui"
       },
       "edit": {
         "title": "Edit Anggota",
@@ -547,7 +545,6 @@
         "section": {
           "personal": "Informasi pribadi",
           "contact": "Kontak",
-          "community": "Komunitas",
           "admin_only": "Kolom admin",
           "admin_only_help": "Hanya terlihat oleh admin",
           "photo": "Foto & izin"
@@ -568,7 +565,11 @@
           "label": "Izinkan foto ini digunakan di materi publik",
           "granted_at": "Izin diberikan {date}",
           "revoked_at": "Izin dicabut {date}",
-          "version": "Versi kebijakan {version}"
+          "version": "Versi kebijakan {version}",
+          "state_label": "Status persetujuan",
+          "state_granted": "Disetujui",
+          "state_refused": "Ditolak",
+          "state_unknown": "Tidak diketahui"
         },
         "save_button": "Simpan perubahan",
         "save_button_pending": "Menyimpan...",

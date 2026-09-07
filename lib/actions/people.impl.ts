@@ -440,7 +440,8 @@ export async function impl_setPhotoConsent(
 // ── listPeople ────────────────────────────────────────────────────────────────
 
 const LIST_FIELDS =
-  'id, phone_e164, full_name, nickname, origin_parish, photo_url, created_at, updated_at, deleted_at'
+  'id, phone_e164, full_name, nickname, origin_parish, birth_date, photo_consent_state, ' +
+  'photo_url, created_at, updated_at, deleted_at'
 
 // Phone-only pattern: optional leading +, then digits only.
 // Used to decide whether to search phone_e164 vs full_name/nickname.
@@ -521,7 +522,7 @@ export async function impl_listPeople(
 const FULL_FIELDS =
   'id, phone_e164, full_name, nickname, email, birth_place, birth_date, gender, ' +
   'origin_parish, marital_status, kepanitiaan, tribe, notes, current_city, current_area, ' +
-  'photo_url, photo_publish_consent, photo_consent_at, photo_consent_version, ' +
+  'photo_url, photo_publish_consent, photo_consent_at, photo_consent_version, photo_consent_state, ' +
   'created_at, updated_at, deleted_at'
 
 export async function impl_getPersonById(

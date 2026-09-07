@@ -135,6 +135,8 @@ export type PersonListItem = {
   full_name: string
   nickname: string
   origin_parish: string | null
+  birth_date: string | null      // ISO date (YYYY-MM-DD); render via lib/utils/date-display, never new Date()
+  photo_consent_state: 'granted' | 'refused' | 'unknown'
   photo_url: string | null       // raw DB path or legacy GDrive URL
   photo_signed_url: string | null // pre-resolved server-side (null when no photo or URL error)
   created_at: string
@@ -172,6 +174,10 @@ export type PersonFull = {
   photo_publish_consent: boolean
   photo_consent_at: string | null
   photo_consent_version: string | null
+  // True 3-state consent (granted/refused/unknown) — photo_publish_consent above
+  // is a derived boolean (true iff this is 'granted') that cannot express
+  // "never asked". Render this field for the 3-state label, never the boolean.
+  photo_consent_state: 'granted' | 'refused' | 'unknown'
   created_at: string
   updated_at: string
   deleted_at: string | null

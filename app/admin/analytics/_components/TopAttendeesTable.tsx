@@ -4,7 +4,6 @@ import type { TopAttendeeRow } from '@/lib/actions/analytics.types'
 
 type Labels = {
   colName: string
-  colParish: string
   colTotal: string
   colEvents: string
   colLast: string
@@ -42,7 +41,6 @@ export function TopAttendeesTable({ data, labels, emptyMessage, errorMessage, ha
           <tr className="border-b border-line">
             <th className="text-left py-2 px-3 text-xs font-medium text-muted">#</th>
             <th className="text-left py-2 px-3 text-xs font-medium text-muted">{labels.colName}</th>
-            <th className="text-left py-2 px-3 text-xs font-medium text-muted">{labels.colParish}</th>
             <th className="text-right py-2 px-3 text-xs font-medium text-muted">{labels.colTotal}</th>
             <th className="text-right py-2 px-3 text-xs font-medium text-muted">{labels.colEvents}</th>
             <th className="text-left py-2 px-3 text-xs font-medium text-muted">{labels.colLast}</th>
@@ -58,7 +56,6 @@ export function TopAttendeesTable({ data, labels, emptyMessage, errorMessage, ha
                   <span className="text-muted font-normal ml-1">({row.nickname})</span>
                 ) : null}
               </td>
-              <td className="py-2 px-3 text-muted">{row.origin_parish ?? labels.parishNone}</td>
               <td className="py-2 px-3 text-right text-charcoal">{row.total_attendance}</td>
               <td className="py-2 px-3 text-right text-muted">{row.distinct_events}</td>
               <td className="py-2 px-3 text-muted">

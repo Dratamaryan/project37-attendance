@@ -37,11 +37,6 @@ vi.mock('@/lib/actions/people', () => ({
   setPhotoConsent:  vi.fn(),
 }))
 
-vi.mock('@/lib/actions/parishes', () => ({
-  searchParishes:       vi.fn().mockResolvedValue({ status: 'success', parishes: [] }),
-  createPendingParish:  vi.fn(),
-}))
-
 vi.mock('@/lib/storage/photos', () => ({
   uploadPhoto: vi.fn(),
   deletePhoto: vi.fn(),
@@ -82,6 +77,7 @@ const BASE_PERSON: PersonFull = {
   photo_publish_consent: false,
   photo_consent_at:      null,
   photo_consent_version: null,
+  photo_consent_state:   'unknown',
   created_at:            '2026-01-01T00:00:00Z',
   updated_at:            '2026-06-01T00:00:00Z',
   deleted_at:            null,
@@ -132,9 +128,19 @@ describe('EditPersonForm', () => {
     setup()
     expect(screen.getByText('section.personal')).toBeInTheDocument()
     expect(screen.getByText('section.contact')).toBeInTheDocument()
-    expect(screen.getByText('section.community')).toBeInTheDocument()
     expect(screen.getByText('section.admin_only')).toBeInTheDocument()
     expect(screen.getByText('section.photo')).toBeInTheDocument()
+  })
+
+  it('renders the 3-state consent status label (unknown must never read as refused)', () => {
+    setup({ ...BASE_PERSON, photo_consent_state: 'unknown' })
+    expect(screen.getByText('consent.state_unknown')).toBeInTheDocument()
+    expect(screen.queryByText('consent.state_refused')).not.toBeInTheDocument()
+  })
+
+  it('consent status label reflects granted/refused distinctly', () => {
+    setup({ ...BASE_PERSON, photo_consent_state: 'refused' })
+    expect(screen.getByText('consent.state_refused')).toBeInTheDocument()
   })
 
   it('phone_e164 field is read-only with help text', () => {

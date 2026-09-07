@@ -6,7 +6,6 @@ import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { updatePerson, softDeletePerson, restorePerson, setPhotoConsent } from '@/lib/actions/people'
 import { uploadPhoto, deletePhoto } from '@/lib/storage/photos'
-import { ParishAutocomplete } from '@/app/checkin/parish-autocomplete'
 import { formatPhoneForDisplay } from '@/lib/utils/phone'
 import type { PersonFull } from '@/lib/actions/people.types'
 
@@ -19,7 +18,7 @@ type Props = {
 
 type TextField =
   | 'full_name' | 'nickname' | 'email' | 'birth_place' | 'birth_date'
-  | 'current_city' | 'current_area' | 'kepanitiaan' | 'tribe' | 'notes'
+  | 'kepanitiaan' | 'tribe' | 'notes'
 
 type EditFormState = {
   full_name: string
@@ -27,14 +26,11 @@ type EditFormState = {
   email: string
   birth_place: string
   birth_date: string
-  current_city: string
-  current_area: string
   kepanitiaan: string
   tribe: string
   notes: string
   gender: 'male' | 'female' | null
   marital_status: 'married' | 'single' | null
-  origin_parish: string | null
   // photo
   photoFile: File | null
   photoPreviewUrl: string | null
@@ -57,7 +53,6 @@ type EditFormAction =
   | { type: 'SET_TEXT'; field: TextField; value: string }
   | { type: 'SET_GENDER'; value: 'male' | 'female' | null }
   | { type: 'SET_MARITAL'; value: 'married' | 'single' | null }
-  | { type: 'SET_PARISH'; value: string | null }
   | { type: 'STAGE_PHOTO'; file: File; previewUrl: string }
   | { type: 'CANCEL_STAGED_PHOTO' }
   | { type: 'MARK_REMOVE_PHOTO' }
@@ -75,20 +70,17 @@ type EditFormAction =
 type Baseline = {
   full_name: string; nickname: string; email: string
   birth_place: string; birth_date: string
-  current_city: string; current_area: string
   kepanitiaan: string; tribe: string; notes: string
   gender: 'male' | 'female' | null
   marital_status: 'married' | 'single' | null
-  origin_parish: string | null
 }
 
 function buildBaseline(s: Pick<EditFormState, keyof Baseline>): Baseline {
   return {
     full_name: s.full_name, nickname: s.nickname, email: s.email,
     birth_place: s.birth_place, birth_date: s.birth_date,
-    current_city: s.current_city, current_area: s.current_area,
     kepanitiaan: s.kepanitiaan, tribe: s.tribe, notes: s.notes,
-    gender: s.gender, marital_status: s.marital_status, origin_parish: s.origin_parish,
+    gender: s.gender, marital_status: s.marital_status,
   }
 }
 
@@ -108,14 +100,11 @@ function buildInitialState(person: PersonFull): EditFormState {
     email:          person.email ?? '',
     birth_place:    person.birth_place ?? '',
     birth_date:     person.birth_date ?? '',
-    current_city:   person.current_city ?? '',
-    current_area:   person.current_area ?? '',
     kepanitiaan:    person.kepanitiaan ?? '',
     tribe:          person.tribe ?? '',
     notes:          person.notes ?? '',
     gender:         person.gender,
     marital_status: person.marital_status,
-    origin_parish:  person.origin_parish,
   }
   return {
     ...base,
@@ -143,8 +132,6 @@ function reducer(state: EditFormState, action: EditFormAction): EditFormState {
       return { ...state, gender: action.value }
     case 'SET_MARITAL':
       return { ...state, marital_status: action.value }
-    case 'SET_PARISH':
-      return { ...state, origin_parish: action.value }
     case 'STAGE_PHOTO': {
       if (state.photoPreviewUrl) URL.revokeObjectURL(state.photoPreviewUrl)
       return { ...state, photoFile: action.file, photoPreviewUrl: action.previewUrl, removePhoto: false }
@@ -223,6 +210,14 @@ function initials(name: string): string {
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+// True 3-state consent (photo_consent_state) — distinct from the derived
+// photo_publish_consent boolean toggled below, which cannot express "unknown".
+const CONSENT_STATE_LABEL_KEY: Record<'granted' | 'refused' | 'unknown', string> = {
+  granted: 'consent.state_granted',
+  refused: 'consent.state_refused',
+  unknown: 'consent.state_unknown',
 }
 
 const FIELD_BASE = 'w-full px-3 py-2 text-sm bg-white border rounded-sm focus:outline-none focus:border-charcoal placeholder:text-muted transition-colors'
@@ -355,9 +350,6 @@ export function EditPersonForm({ person, signedPhotoUrl }: Props) {
       if (state.birth_date !== baseline.birth_date)         diff.birth_date      = state.birth_date || null
       if (state.gender !== baseline.gender)                 diff.gender          = state.gender
       if (state.marital_status !== baseline.marital_status) diff.marital_status  = state.marital_status
-      if (state.origin_parish !== baseline.origin_parish)   diff.origin_parish   = state.origin_parish
-      if (state.current_city !== baseline.current_city)     diff.current_city    = state.current_city.trim() || null
-      if (state.current_area !== baseline.current_area)     diff.current_area    = state.current_area.trim() || null
       if (state.kepanitiaan !== baseline.kepanitiaan)       diff.kepanitiaan     = state.kepanitiaan.trim() || null
       if (state.tribe !== baseline.tribe)                   diff.tribe           = state.tribe.trim() || null
       if (state.notes !== baseline.notes)                   diff.notes           = state.notes.trim() || null
@@ -653,52 +645,6 @@ export function EditPersonForm({ person, signedPhotoUrl }: Props) {
               className={fieldClass('email')}
             />
           </div>
-          <div>
-            <label className="block text-xs font-medium text-charcoal mb-1">Current City</label>
-            <input
-              type="text"
-              value={state.current_city}
-              onChange={e => safeDispatch({ type: 'SET_TEXT', field: 'current_city', value: e.target.value })}
-              readOnly={isDeleted}
-              className={fieldClass('current_city')}
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-charcoal mb-1">Area</label>
-            <input
-              type="text"
-              value={state.current_area}
-              onChange={e => safeDispatch({ type: 'SET_TEXT', field: 'current_area', value: e.target.value })}
-              readOnly={isDeleted}
-              className={fieldClass('current_area')}
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* ── Section: Community ────────────────────────────────────────────── */}
-      <section className="mb-6">
-        <h2 className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">
-          {t('section.community')}
-        </h2>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="sm:col-span-2">
-            <label className="block text-xs font-medium text-charcoal mb-1">Origin Parish</label>
-            {isDeleted ? (
-              <input
-                type="text"
-                value={state.origin_parish ?? ''}
-                readOnly
-                className={`${FIELD_BASE} ${FIELD_READONLY}`}
-              />
-            ) : (
-              <ParishAutocomplete
-                value={state.origin_parish}
-                onChange={val => safeDispatch({ type: 'SET_PARISH', value: val })}
-                onCreatingChange={() => {}}
-              />
-            )}
-          </div>
         </div>
       </section>
 
@@ -851,6 +797,15 @@ export function EditPersonForm({ person, signedPhotoUrl }: Props) {
             </div>
           </div>
         )}
+
+        {/* Consent status (3-state, from photo_consent_state) — always visible,
+            independent of the publish-consent toggle and its photo gating above */}
+        <p className="text-xs text-muted mt-3 pt-3 border-t border-line/50">
+          {t('consent.state_label')}{': '}
+          <span className="text-charcoal font-medium">
+            {t(CONSENT_STATE_LABEL_KEY[person.photo_consent_state])}
+          </span>
+        </p>
       </section>
 
       {/* ── Soft-delete ───────────────────────────────────────────────────── */}

@@ -1,10 +1,9 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, act, within, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor, act, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NewPersonForm } from '../new-person-form'
 import type { PersonSummary, CreateResult } from '@/lib/actions/people.types'
-import type { SearchResult } from '@/lib/actions/parishes.types'
 import type { UploadResult } from '@/lib/storage/photos.types'
 
 // ── Mocks ──────────────────────────────────────────────────────────────────────
@@ -26,22 +25,15 @@ vi.mock('@/lib/actions/people', () => ({
   lookupByPhone: vi.fn(),
 }))
 
-vi.mock('@/lib/actions/parishes', () => ({
-  searchParishes: vi.fn(),
-  createPendingParish: vi.fn(),
-}))
-
 vi.mock('@/lib/storage/photos', () => ({
   uploadPhoto: vi.fn(),
 }))
 
 import { createPerson, updatePerson } from '@/lib/actions/people'
-import { searchParishes } from '@/lib/actions/parishes'
 import { uploadPhoto } from '@/lib/storage/photos'
 
 const mockCreate = vi.mocked(createPerson)
 const mockUpdate = vi.mocked(updatePerson)
-const mockSearch = vi.mocked(searchParishes)
 const mockUpload = vi.mocked(uploadPhoto)
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -63,14 +55,6 @@ const MOCK_PERSON: PersonSummary = {
   photo_publish_consent: false,
   created_at: '2026-01-01T00:00:00Z',
 }
-
-const PARISH_RESULTS = [
-  { id: 'p-1', name: 'Paroki Santo Yusuf', city: 'Jakarta', region: 'DKI Jakarta', status: 'approved' as const },
-  { id: 'p-2', name: 'Paroki Santa Maria', city: 'Bekasi', region: 'Jawa Barat', status: 'pending' as const },
-]
-
-const EMPTY_SEARCH: SearchResult = { status: 'success', parishes: [] }
-const PARISH_SEARCH: SearchResult = { status: 'success', parishes: PARISH_RESULTS }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -108,8 +92,6 @@ async function fillRequired(user: ReturnType<typeof userEvent.setup>) {
 describe('NewPersonForm', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    // Default: empty search results
-    mockSearch.mockResolvedValue(EMPTY_SEARCH)
   })
 
   // ── Form rendering ──────────────────────────────────────────────────────────
@@ -189,82 +171,6 @@ describe('NewPersonForm', () => {
     expect(mockCreate).not.toHaveBeenCalled()
     await waitFor(() => {
       expect(screen.getByRole('alert')).toBeInTheDocument()
-    })
-  })
-
-  // ── Parish autocomplete ─────────────────────────────────────────────────────
-
-  it('shows results when parish input is focused with empty query', async () => {
-    mockSearch.mockResolvedValue(PARISH_SEARCH)
-    const { user } = setup()
-    const parishInput = screen.getByRole('combobox', { name: 'origin_parish_label' })
-    await act(async () => {
-      await user.click(parishInput)
-    })
-    await waitFor(() => {
-      expect(mockSearch).toHaveBeenCalledWith('', { includePending: true })
-      expect(screen.getByRole('listbox')).toBeInTheDocument()
-      expect(screen.getByText('Paroki Santo Yusuf')).toBeInTheDocument()
-    })
-  })
-
-  it('debounces searchParishes — only one call after rapid typing', async () => {
-    const { user } = setup()
-    const parishInput = screen.getByRole('combobox', { name: 'origin_parish_label' })
-    // Rapidly type multiple characters
-    await act(async () => {
-      await user.type(parishInput, 'Santo')
-    })
-    // After typing finishes, wait for debounce to settle
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 300))
-    })
-    // Should only have been called once for the final value (plus the initial focus call)
-    const searchCalls = mockSearch.mock.calls.filter(([q]) => q === 'Santo')
-    expect(searchCalls.length).toBe(1)
-  })
-
-  it('"Add new parish" affordance appears when typed value has no exact match', async () => {
-    mockSearch.mockResolvedValue(EMPTY_SEARCH)
-    const { user } = setup()
-    const parishInput = screen.getByRole('combobox', { name: 'origin_parish_label' })
-    await act(async () => {
-      await user.type(parishInput, 'Paroki Baru')
-    })
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 300))
-    })
-    await waitFor(() => {
-      expect(screen.getByText(/parish_add_new/)).toBeInTheDocument()
-    })
-  })
-
-  it('selecting a parish populates origin_parish with the name string', async () => {
-    mockSearch.mockResolvedValue(PARISH_SEARCH)
-    const { user } = setup()
-    const parishInput = screen.getByRole('combobox', { name: 'origin_parish_label' })
-    await act(async () => {
-      await user.click(parishInput)
-    })
-    await waitFor(() => screen.getByText('Paroki Santo Yusuf'))
-    await act(async () => {
-      await user.click(screen.getByText('Paroki Santo Yusuf'))
-    })
-    // After selection the input shows the parish name
-    expect(parishInput).toHaveValue('Paroki Santo Yusuf')
-  })
-
-  it('pending badge renders for status=pending results', async () => {
-    mockSearch.mockResolvedValue(PARISH_SEARCH)
-    const { user } = setup()
-    const parishInput = screen.getByRole('combobox', { name: 'origin_parish_label' })
-    await act(async () => {
-      await user.click(parishInput)
-    })
-    await waitFor(() => {
-      // PARISH_RESULTS[1] has status='pending'
-      const listbox = screen.getByRole('listbox')
-      expect(within(listbox).getByText('parish_pending_badge')).toBeInTheDocument()
     })
   })
 

@@ -104,12 +104,6 @@
       "marital_status_label": "Marital Status",
       "marital_single": "Single",
       "marital_married": "Married",
-      "origin_parish_label": "Origin Parish",
-      "parish_search_placeholder": "Search parish...",
-      "parish_add_new": "Add \"{name}\" as a new parish",
-      "parish_pending_badge": "pending",
-      "current_city_label": "Current City",
-      "current_area_label": "Area",
       "photo_label": "Photo",
       "photo_upload_button": "Choose photo",
       "photo_remove_button": "Remove",
@@ -289,8 +283,6 @@
         "event_type_sunday_monthly": "Monthly Sunday",
         "event_type_adhoc": "One-time",
         "event_type_other_recurring": "Other recurring",
-        "parish": "Parish",
-        "parish_all": "All parishes",
         "clear": "Clear filters",
         "export": "Export to Excel"
       },
@@ -315,7 +307,6 @@
         "top_title": "Top Attendees",
         "top_note": "Reflects all-time attendance across all event types",
         "col_name": "Name",
-        "col_parish": "Parish",
         "col_total": "Check-ins",
         "col_events": "Events",
         "col_last": "Last seen",
@@ -534,11 +525,18 @@
         "prev": "Previous",
         "next": "Next"
       },
+      "table": {
+        "col_birth_date": "Birth Date",
+        "col_consent": "Consent"
+      },
       "row": {
         "edit": "Edit",
         "edit_deleted": "View",
         "deleted_badge": "Deleted {date}",
-        "no_parish": "—"
+        "no_birth_date": "—",
+        "consent_granted": "Granted",
+        "consent_refused": "Refused",
+        "consent_unknown": "Unknown"
       },
       "edit": {
         "title": "Edit Person",
@@ -547,7 +545,6 @@
         "section": {
           "personal": "Personal information",
           "contact": "Contact",
-          "community": "Community",
           "admin_only": "Admin fields",
           "admin_only_help": "Visible to admins only",
           "photo": "Photo & consent"
@@ -568,7 +565,11 @@
           "label": "Allow this photo to be used in public materials",
           "granted_at": "Consent granted {date}",
           "revoked_at": "Consent revoked {date}",
-          "version": "Policy version {version}"
+          "version": "Policy version {version}",
+          "state_label": "Consent status",
+          "state_granted": "Granted",
+          "state_refused": "Refused",
+          "state_unknown": "Unknown"
         },
         "save_button": "Save changes",
         "save_button_pending": "Saving...",

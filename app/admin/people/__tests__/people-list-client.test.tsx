@@ -40,6 +40,8 @@ const MOCK_PERSON: PersonListItem = {
   full_name: 'Budi Hartono',
   nickname: 'Budi',
   origin_parish: null,
+  birth_date: null,
+  photo_consent_state: 'unknown',
   photo_url: null,
   photo_signed_url: null,
   created_at: '2026-01-01T00:00:00Z',

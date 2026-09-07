@@ -147,7 +147,10 @@ export function PeopleListClient() {
                     Phone
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-muted uppercase tracking-wider">
-                    Parish
+                    {t('table.col_birth_date')}
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted uppercase tracking-wider">
+                    {t('table.col_consent')}
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-muted uppercase tracking-wider">
                     Status

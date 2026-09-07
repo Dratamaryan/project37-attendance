@@ -79,9 +79,6 @@ export function PersonCard({
           <p className="text-sm text-ink-2 mt-1">
             {formatPhoneForDisplay(person.phone_e164)}
           </p>
-          {person.origin_parish && (
-            <p className="text-xs text-muted mt-0.5">{person.origin_parish}</p>
-          )}
         </div>
       </div>
 

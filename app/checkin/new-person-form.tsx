@@ -5,7 +5,6 @@ import { useTranslations } from 'next-intl'
 import { createPerson, updatePerson, lookupByPhone } from '@/lib/actions/people'
 import { uploadPhoto } from '@/lib/storage/photos'
 import { formatPhoneForDisplay } from '@/lib/utils/phone'
-import { ParishAutocomplete } from './parish-autocomplete'
 import { PhotoUpload } from './photo-upload'
 import type { PersonSummary, SupportedCountry } from '@/lib/actions/people.types'
 
@@ -26,9 +25,6 @@ type FormState = {
   birth_place: string
   gender: 'male' | 'female' | null
   marital_status: 'married' | 'single' | null
-  origin_parish: string | null
-  current_city: string
-  current_area: string
   photoFile: File | null
   photoPreviewUrl: string | null
   consent: boolean
@@ -36,15 +32,12 @@ type FormState = {
   submitError: string | null
   submitErrorType: 'duplicate_phone' | 'validation_error' | 'error' | 'photo_upload' | null
   duplicateExisting: { id: string; full_name: string } | null
-  parishCreating: boolean
 }
 
 type FormAction =
-  | { type: 'SET_TEXT_FIELD'; field: 'full_name' | 'nickname' | 'birth_date' | 'email' | 'birth_place' | 'current_city' | 'current_area'; value: string }
+  | { type: 'SET_TEXT_FIELD'; field: 'full_name' | 'nickname' | 'birth_date' | 'email' | 'birth_place'; value: string }
   | { type: 'SET_GENDER'; value: 'male' | 'female' | null }
   | { type: 'SET_MARITAL'; value: 'married' | 'single' | null }
-  | { type: 'SET_PARISH'; value: string | null }
-  | { type: 'SET_PARISH_CREATING'; value: boolean }
   | { type: 'SET_PHOTO'; file: File; previewUrl: string }
   | { type: 'CLEAR_PHOTO' }
   | { type: 'SET_CONSENT'; value: boolean }
@@ -61,9 +54,6 @@ const INITIAL_STATE: FormState = {
   birth_place: '',
   gender: null,
   marital_status: null,
-  origin_parish: null,
-  current_city: '',
-  current_area: '',
   photoFile: null,
   photoPreviewUrl: null,
   consent: false,
@@ -71,7 +61,6 @@ const INITIAL_STATE: FormState = {
   submitError: null,
   submitErrorType: null,
   duplicateExisting: null,
-  parishCreating: false,
 }
 
 function reducer(state: FormState, action: FormAction): FormState {
@@ -86,10 +75,6 @@ function reducer(state: FormState, action: FormAction): FormState {
       return { ...state, gender: action.value }
     case 'SET_MARITAL':
       return { ...state, marital_status: action.value }
-    case 'SET_PARISH':
-      return { ...state, origin_parish: action.value }
-    case 'SET_PARISH_CREATING':
-      return { ...state, parishCreating: action.value }
     case 'SET_PHOTO':
       if (state.photoPreviewUrl) URL.revokeObjectURL(state.photoPreviewUrl)
       return { ...state, photoFile: action.file, photoPreviewUrl: action.previewUrl }
@@ -126,9 +111,6 @@ function hasChanges(state: FormState): boolean {
     state.birth_place !== INITIAL_STATE.birth_place ||
     state.gender !== INITIAL_STATE.gender ||
     state.marital_status !== INITIAL_STATE.marital_status ||
-    state.origin_parish !== INITIAL_STATE.origin_parish ||
-    state.current_city !== INITIAL_STATE.current_city ||
-    state.current_area !== INITIAL_STATE.current_area ||
     state.photoFile !== INITIAL_STATE.photoFile
   )
 }
@@ -191,9 +173,6 @@ export function NewPersonForm({
         birth_place: state.birth_place.trim() || null,
         gender: state.gender,
         marital_status: state.marital_status,
-        origin_parish: state.origin_parish || null,
-        current_city: state.current_city.trim() || null,
-        current_area: state.current_area.trim() || null,
         photo_publish_consent: state.consent,
         photo_consent_at: state.consent ? new Date().toISOString() : null,
       })
@@ -477,42 +456,6 @@ export function NewPersonForm({
               </div>
             </div>
 
-            {/* Parish — full width */}
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-medium text-charcoal mb-1">
-                {t('origin_parish_label')}
-              </label>
-              <ParishAutocomplete
-                value={state.origin_parish}
-                onChange={(val) => dispatch({ type: 'SET_PARISH', value: val })}
-                onCreatingChange={(creating) => dispatch({ type: 'SET_PARISH_CREATING', value: creating })}
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-charcoal mb-1">
-                {t('current_city_label')}
-              </label>
-              <input
-                type="text"
-                value={state.current_city}
-                onChange={(e) => dispatch({ type: 'SET_TEXT_FIELD', field: 'current_city', value: e.target.value })}
-                className={`${FIELD_CLASSES} ${FIELD_NORMAL}`}
-                aria-label={t('current_city_label')}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-charcoal mb-1">
-                {t('current_area_label')}
-              </label>
-              <input
-                type="text"
-                value={state.current_area}
-                onChange={(e) => dispatch({ type: 'SET_TEXT_FIELD', field: 'current_area', value: e.target.value })}
-                className={`${FIELD_CLASSES} ${FIELD_NORMAL}`}
-                aria-label={t('current_area_label')}
-              />
-            </div>
           </div>
 
           {/* Photo + consent */}
@@ -532,7 +475,7 @@ export function NewPersonForm({
         <div className="sticky bottom-14 md:bottom-0 z-30 px-5 py-4 bg-cream-2 border-t border-line flex flex-col sm:flex-row gap-3">
           <button
             type="submit"
-            disabled={isPending || state.parishCreating}
+            disabled={isPending}
             className="flex-1 py-3 bg-charcoal text-cream text-sm font-medium rounded-sm hover:bg-ink-2 active:translate-y-px transition-all min-h-[44px] disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {isPending ? t('submit_button_pending') : t('submit_button')}
