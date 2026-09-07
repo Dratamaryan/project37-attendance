@@ -95,6 +95,11 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
   const [nameResult, setNameResult] = useState<
     { forQuery: string; result: NameServerResult } | null
   >(null)
+  // The match the organizer tapped, pending explicit confirm — mirrors the phone
+  // flow's serverResult.phase === 'found', which also stops short of writing until
+  // PersonCard's "Check in" button is pressed. Tapping a row only sets this; it
+  // never calls performCheckIn itself.
+  const [selectedNamePerson, setSelectedNamePerson] = useState<PersonSummary | null>(null)
   const [attendances, setAttendances] = useState<AttendanceWithPerson[]>([])
   const [showForm, setShowForm] = useState(false)
   const [photoUploadFailed, setPhotoUploadFailed] = useState(false)
@@ -221,6 +226,7 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
     setRawName('')
     setServerResult(null)
     setNameResult(null)
+    setSelectedNamePerson(null)
     setShowForm(false)
     setPhotoUploadFailed(false)
     // Return focus to whichever surface the organizer is actually using.
@@ -244,6 +250,7 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
     setRawName('')
     setServerResult(null)
     setNameResult(null)
+    setSelectedNamePerson(null)
     setShowForm(false)
     setTimeout(() => {
       if (next === 'name') nameInputRef.current?.focus()
@@ -332,6 +339,24 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
 
   function handleUseExistingPerson(person: PersonSummary) {
     performCheckIn(person, false, 'new')
+  }
+
+  /**
+   * Tapping a name-search match only selects it for review — it never writes.
+   * The PersonCard rendered from selectedNamePerson has the only "Check in"
+   * button on this path, same as the phone flow's found-person card.
+   */
+  function handleNameMatchSelect(person: PersonSummary) {
+    setSelectedNamePerson(person)
+  }
+
+  /**
+   * Returns to the match list without touching rawName or nameResult — the
+   * typed query and its already-tagged result are still valid, so no lookup
+   * re-runs.
+   */
+  function handleBackToResults() {
+    setSelectedNamePerson(null)
   }
 
   function handlePhotoError() {
@@ -552,18 +577,37 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
           )
         )}
 
-        {/* Name-search results. Tapping a match uses the exact same
-            performCheckIn hand-off as PersonCard's onCheckIn. */}
-        {mode === 'name' && nameDisplayPhase === 'matches' && nameMatches && (
+        {/* Name-search confirm step: a tapped match only selects a person for
+            review. The PersonCard below is the SAME component the phone flow
+            renders, and its "Check in" button is the only thing that writes —
+            identical to onCheckIn on the phone path. */}
+        {mode === 'name' && selectedNamePerson && (
+          <>
+            <div className="mt-4 flex items-center gap-3 text-sm">
+              <button
+                type="button"
+                onClick={handleBackToResults}
+                className="text-muted hover:text-charcoal transition-colors underline underline-offset-2 min-h-[44px]"
+              >
+                {t('name_search.back_to_results')}
+              </button>
+            </div>
+            <PersonCard
+              person={selectedNamePerson}
+              onCheckIn={handleCheckIn}
+              checkInPending={checkinPending}
+              checkInDisabled={!eventInstanceId}
+            />
+          </>
+        )}
+        {mode === 'name' && !selectedNamePerson && nameDisplayPhase === 'matches' && nameMatches && (
           <NameMatchList
             people={nameMatches.people}
             hasMore={nameMatches.hasMore}
-            onSelect={handleCheckIn}
-            checkInPending={checkinPending}
-            checkInDisabled={!eventInstanceId}
+            onSelect={handleNameMatchSelect}
           />
         )}
-        {mode === 'name' && nameDisplayPhase === 'none' && (
+        {mode === 'name' && !selectedNamePerson && nameDisplayPhase === 'none' && (
           // No "add new person" here on purpose: registration is phone-anchored
           // (phone is the unique key), so a name miss routes back to phone search.
           <div

@@ -62,6 +62,7 @@
       "name_placeholder": "mis. Budi",
       "too_short": "Ketik minimal 3 huruf...",
       "matches_label": "Ketuk nama untuk mencatat kehadiran",
+      "back_to_results": "← Kembali ke hasil",
       "has_more": "Lebih dari 5 hasil — lanjutkan mengetik untuk mempersempit",
       "none": "Tidak ada nama yang cocok.",
       "none_hint": "Cari dengan nomor telepon saja"

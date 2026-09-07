@@ -529,35 +529,93 @@ describe('CheckinClient', () => {
 
   // ── S7-T5: check-in by name ─────────────────────────────────────────────────
 
-  it('CC-12: tapping a name match calls createAttendance with the same shape as phone check-in', async () => {
+  // Helper: get to the name-mode match list with two candidates rendered.
+  async function setupNameMatches(user: ReturnType<typeof userEvent.setup>) {
     const SECOND_PERSON = { ...FOUND_PERSON, id: 'person-002', full_name: 'Budi Prakoso', phone_e164: '+6282185352609' }
     mockLookupByName.mockResolvedValue({
       status: 'matches',
       people: [FOUND_PERSON, SECOND_PERSON],
       hasMore: false,
     })
-
-    const user = userEvent.setup({ delay: null })
-    render(<CheckinClient instances={INSTANCES} />)
-
-    // Switch to name mode
     await user.click(screen.getByRole('tab', { name: 'name_search.mode_name' }))
     const nameInput = screen.getByRole('textbox', { name: 'name_search.name_label' })
     await user.type(nameInput, 'Budi')
-
-    // Both candidates render; tap the second to prove the tapped person is the
-    // one written (not simply the first match).
     const list = await screen.findByTestId('name-match-list', {}, { timeout: 1000 })
     await waitFor(() => expect(within(list).getByText('Budi Prakoso')).toBeInTheDocument())
+    return { list, nameInput, SECOND_PERSON }
+  }
+
+  it('CC-12a: tapping a name match renders the confirm PersonCard and does NOT call createAttendance', async () => {
+    const user = userEvent.setup({ delay: null })
+    render(<CheckinClient instances={INSTANCES} />)
+    const { list, SECOND_PERSON } = await setupNameMatches(user)
+
     await user.click(within(list).getByText('Budi Prakoso'))
+
+    // The confirm view is the same PersonCard the phone flow renders — full_name,
+    // phone, and an explicit "Check in" button — not an immediate write.
+    expect(await screen.findByText(SECOND_PERSON.full_name)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'check_in_button' })).toBeInTheDocument()
+    expect(screen.queryByTestId('name-match-list')).not.toBeInTheDocument()
+    expect(mockCreateAttendance).not.toHaveBeenCalled()
+  })
+
+  it('CC-12: "Check in" on the confirm PersonCard calls createAttendance for the SELECTED person — identical shape to phone', async () => {
+    const user = userEvent.setup({ delay: null })
+    render(<CheckinClient instances={INSTANCES} />)
+    const { list, SECOND_PERSON } = await setupNameMatches(user)
+
+    // Tap the second candidate — not the first — to prove the selected (not
+    // merely first) person is the one that gets written.
+    await user.click(within(list).getByText('Budi Prakoso'))
+    const checkInBtn = await screen.findByRole('button', { name: 'check_in_button' }, { timeout: 1000 })
+    await user.click(checkInBtn)
 
     // Identical call shape to the phone path (see the phone check-in test above):
     // { personId, eventInstanceId } — no extra fields, no separate write path.
     await waitFor(() => expect(mockCreateAttendance).toHaveBeenCalledWith({
-      personId: 'person-002',
+      personId: SECOND_PERSON.id,
       eventInstanceId: 'inst-001',
     }), { timeout: 1000 })
     expect(mockCreateAttendance).toHaveBeenCalledTimes(1)
+  })
+
+  it('CC-12b: "back to results" returns to the match list with the typed query intact, no createAttendance, no re-lookup', async () => {
+    const user = userEvent.setup({ delay: null })
+    render(<CheckinClient instances={INSTANCES} />)
+    const { list, nameInput } = await setupNameMatches(user)
+
+    await user.click(within(list).getByText('Budi Prakoso'))
+    await screen.findByRole('button', { name: 'check_in_button' }, { timeout: 1000 })
+    expect(mockLookupByName).toHaveBeenCalledTimes(1)
+
+    await user.click(screen.getByText('name_search.back_to_results'))
+
+    // Back at the match list — both candidates still shown, query preserved,
+    // and the lookup was never re-run (reused the tagged nameResult).
+    const listAgain = await screen.findByTestId('name-match-list', {}, { timeout: 1000 })
+    expect(within(listAgain).getByText('Budi Santoso')).toBeInTheDocument()
+    expect(within(listAgain).getByText('Budi Prakoso')).toBeInTheDocument()
+    expect(nameInput).toHaveValue('Budi')
+    expect(mockLookupByName).toHaveBeenCalledTimes(1)
+    expect(mockCreateAttendance).not.toHaveBeenCalled()
+  })
+
+  it('CC-12c: already_checked_in surfaces from the confirm step and keeps the PersonCard visible', async () => {
+    mockCreateAttendance.mockResolvedValue(ALREADY_RESULT)
+    const user = userEvent.setup({ delay: null })
+    render(<CheckinClient instances={INSTANCES} />)
+    const { list } = await setupNameMatches(user)
+
+    await user.click(within(list).getByText('Budi Santoso'))
+    const checkInBtn = await screen.findByRole('button', { name: 'check_in_button' }, { timeout: 1000 })
+    await user.click(checkInBtn)
+
+    const banner = await screen.findByTestId('checkin-feedback', {}, { timeout: 500 })
+    expect(banner).toHaveTextContent('results.already_checked_in')
+    // mode 'existing' (not 'new') — the confirm card stays visible so the
+    // organizer can act on the message, same as the phone flow's CC-02.
+    expect(screen.getByRole('button', { name: 'check_in_button' })).toBeInTheDocument()
   })
 
   it('CC-13: name lookup does not fire until 3 sanitized characters', async () => {

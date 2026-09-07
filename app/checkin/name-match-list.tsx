@@ -9,28 +9,23 @@ type Props = {
   /** True when a 6th match existed — the organizer should narrow, not scroll. */
   hasMore: boolean
   onSelect: (person: PersonSummary) => void
-  /** True while the createAttendance server action is in flight. */
-  checkInPending?: boolean
-  /** True when no event instance is selected — rows disabled with inline notice. */
-  checkInDisabled?: boolean
 }
 
 /**
  * Candidate list for check-in by name. A name is not unique (phone is), so this
- * is the disambiguation step: the organizer taps the right person and that
- * PersonSummary goes into the same performCheckIn hand-off PersonCard uses.
+ * is the disambiguation step: the organizer taps the right person to SELECT
+ * them for review. Selection is not a mutation — tapping only sets the parent's
+ * selectedNamePerson, which renders the same PersonCard the phone flow uses;
+ * that card's own "Check in" button is the only thing that writes. Because a
+ * selection immediately swaps this list out for the confirm card, this
+ * component is never visible while a check-in is in flight or disabled, so
+ * unlike PersonCard it carries no pending/disabled props of its own.
  *
  * The phone is masked to its last four digits — enough to tell two people with
  * the same name apart, without printing full numbers onto a screen that is
  * routinely held up in a crowd.
  */
-export function NameMatchList({
-  people,
-  hasMore,
-  onSelect,
-  checkInPending = false,
-  checkInDisabled = false,
-}: Props) {
+export function NameMatchList({ people, hasMore, onSelect }: Props) {
   const t = useTranslations('checkin')
 
   return (
@@ -48,10 +43,9 @@ export function NameMatchList({
             <button
               type="button"
               onClick={() => onSelect(person)}
-              disabled={checkInPending || checkInDisabled}
               // min-h-[44px] tap target (T4); min-w-0 on the flex text column so a
               // long name shrinks instead of pushing the row past the viewport.
-              className="w-full flex items-center gap-3 text-left px-4 py-3 min-h-[44px] hover:bg-[#FBF6E8] active:bg-[#F5EFD9] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full flex items-center gap-3 text-left px-4 py-3 min-h-[44px] hover:bg-[#FBF6E8] active:bg-[#F5EFD9] transition-colors"
             >
               <div className="min-w-0 flex-1">
                 <p className="font-heading text-lg font-semibold text-charcoal leading-tight truncate">
@@ -75,12 +69,6 @@ export function NameMatchList({
           className="px-4 py-2 text-xs text-muted italic bg-cream border-t border-line"
         >
           {t('name_search.has_more')}
-        </p>
-      )}
-
-      {checkInDisabled && (
-        <p className="px-4 py-2 text-xs text-muted italic border-t border-line">
-          {t('results.no_event_selected')}
         </p>
       )}
     </div>
