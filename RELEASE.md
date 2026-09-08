@@ -189,3 +189,19 @@ branch-expected ref for remote ops.
   migrate-up. Behavior-neutral for the deployed app (map not in build output).
   Backlog: bare `npm run preflight` (no --op) aborts no-resolvable-ref — consider
   defaulting to --op=migrate-up for a true one-command sanity. Live verify pending.
+
+- S8-T7 (staging identity seed): scripts/s8-t7-seed-staging-identities.ts run
+  against staging (sijfyvaodqkawbeuyrpu). Created 2 synthetic login-capable
+  identities — admin@example.com (admin) + organizer@example.com (organizer),
+  email_confirmed, active. Guard + staging-pin enforced at run. Idempotent
+  (stale-by-email reconcile). No real PII.
+
+- S8-T7 COMPLETE: staging Supabase project live end-to-end. 21 migrations applied;
+  schema parity with prod verified via information_schema digests (columns/enums/
+  RLS all identical). Preview env isolated — every prod secret Production-scoped,
+  every staging secret Preview-scoped (D2 closed, no All-Environments leak).
+  Vercel git auto-deploy for `staging` enabled; stable alias
+  project37-attendance-git-staging-*.vercel.app; NEXT_PUBLIC_APP_URL pinned.
+  App boots and authenticates: magic-link login as staging admin → /dashboard.
+  Backlog: (a) /auth/confirm doesn't validate `type` before verifyOtp (input-trust,
+  minor); (b) redundant manual alias project37-staging.vercel.app can be dropped.
