@@ -196,6 +196,19 @@ async function ensureAuthUser(
 }
 
 async function reconcileAppUser(supabase: SupabaseClient, id: string, spec: IdentitySpec): Promise<void> {
+  // No DB-level FK from app_users.id -> auth.users.id (verified live: only a
+  // self-ref FK on invited_by exists), so auth.users and app_users can drift.
+  // app_users.email is UNIQUE, and we upsert on `id` — so a stale row owning
+  // this email under a DIFFERENT id (e.g. an auth user deleted + recreated)
+  // would collide on the email unique constraint instead of reconciling.
+  // Delete any such stale-by-email row first to keep this script re-runnable.
+  const { error: delErr } = await supabase
+    .from('app_users')
+    .delete()
+    .eq('email', spec.email)
+    .neq('id', id)
+  if (delErr) throw new Error(`stale app_users cleanup failed: ${delErr.message}`)
+
   const { error } = await supabase
     .from('app_users')
     .upsert(
