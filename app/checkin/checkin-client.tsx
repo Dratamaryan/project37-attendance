@@ -4,15 +4,20 @@ import { useState, useEffect, useRef, useTransition } from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import { lookupByPhone, lookupByName } from '@/lib/actions/people'
 import { createAttendance, listRecentAttendanceForInstance } from '@/lib/actions/attendance'
+import { createChildAttendance } from '@/lib/actions/child-attendance'
+import { listChildrenByParent, lookupChildByName } from '@/lib/actions/children'
 import { formatJakarta } from '@/lib/events/timezone'
 import { DEFAULT_COUNTRY, type SupportedCountry } from '@/lib/utils/phone'
 import { sanitizeNameQuery, NAME_QUERY_MIN_LENGTH } from '@/lib/utils/name-query'
 import type { PersonSummary, PhoneNormalizationError } from '@/lib/actions/people.types'
 import type { NearestInstanceRow } from '@/lib/actions/events.types'
 import type { AttendanceWithPerson } from '@/lib/actions/attendance.types'
+import type { ChildSummary, ChildWithParentSummary } from '@/lib/actions/children.types'
 import { PhoneInput } from './phone-input'
 import { PersonCard } from './person-card'
 import { NameMatchList } from './name-match-list'
+import { ChildMatchList } from './child-match-list'
+import { ChildCard } from './child-card'
 import { NewPersonTrigger } from './new-person-trigger'
 import { NewPersonForm } from './new-person-form'
 import { RecentPanel } from './recent-panel'
@@ -28,9 +33,33 @@ type ServerResult =
 
 type DisplayPhase = 'idle' | 'too_short' | 'searching' | ServerResult['phase']
 
-// Which lookup surface is active. Both resolve to a PersonSummary and hand it to
-// the same performCheckIn — the mode only changes how the person is found.
-type LookupMode = 'phone' | 'name'
+// Which lookup surface is active. 'phone' and 'name' resolve to a PersonSummary
+// and hand it to the same performCheckIn — the mode only changes how the person
+// is found. 'child' (S8-T2) resolves to a child and writes through the separate
+// performChildCheckIn; it never reaches performCheckIn.
+type LookupMode = 'phone' | 'name' | 'child'
+
+// How a child is found inside child mode. Parent-first (D1): the parent is
+// found with the SAME phone/name lookup state and effects the adult modes use,
+// then their children are listed. 'child_name' is the secondary search (D2).
+type ChildFindMode = 'parent_phone' | 'parent_name' | 'child_name'
+
+// Children-of-parent terminal states. Raw ChildSummary rows are stored and
+// paired with the parent's name at render time.
+type ChildrenServerResult =
+  | { phase: 'children'; children: ChildSummary[] }
+  | { phase: 'none' }
+  | { phase: 'children_error' }
+
+type ChildrenDisplayPhase = 'idle' | 'loading' | ChildrenServerResult['phase']
+
+// Child-name lookup terminal states, tagged with their query like NameServerResult.
+type ChildNameServerResult =
+  | { phase: 'matches'; children: ChildWithParentSummary[]; hasMore: boolean }
+  | { phase: 'none' }
+  | { phase: 'child_name_error' }
+
+type ChildNameDisplayPhase = 'idle' | 'name_too_short' | 'searching' | ChildNameServerResult['phase']
 
 // Name-lookup terminal states. Stored alongside the query they belong to so
 // 'searching' can be derived at render time (same no-setState-in-effect
@@ -108,9 +137,23 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
   const [eventInstanceId, setEventInstanceId] = useState<string | null>(
     instances[0]?.id ?? null,
   )
+  // ── Child mode (S8-T2) ──
+  const [childFind, setChildFind] = useState<ChildFindMode>('parent_phone')
+  // Tagged with the parent it answers so a list is never shown for another parent.
+  const [childrenResult, setChildrenResult] = useState<
+    { forParentId: string; result: ChildrenServerResult } | null
+  >(null)
+  const [rawChildName, setRawChildName] = useState('')
+  const [childNameResult, setChildNameResult] = useState<
+    { forQuery: string; result: ChildNameServerResult } | null
+  >(null)
+  // The child the organizer tapped, pending explicit confirm on ChildCard.
+  // Selecting never writes — same select ≠ commit rule as selectedNamePerson.
+  const [selectedChild, setSelectedChild] = useState<ChildWithParentSummary | null>(null)
 
   const inputRef = useRef<HTMLInputElement>(null)
   const nameInputRef = useRef<HTMLInputElement>(null)
+  const childNameInputRef = useRef<HTMLInputElement>(null)
   // Incremented before each lookup; stale results are discarded when the id no longer matches.
   const requestIdRef = useRef(0)
   // Same cancellation-ref guard for the name lookup. Deliberately NOT
@@ -122,9 +165,22 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
   // Attendance fetch race-condition guard — prevents stale responses from overwriting newer ones.
   // Uses a counter rather than AbortController because server actions don't expose a fetch signal.
   const attendanceFetchIdRef = useRef(0)
+  // Same stale-response guard for the two child lookups.
+  const childrenRequestIdRef = useRef(0)
+  const childNameRequestIdRef = useRef(0)
 
   const [debouncedPhone, debouncedFireCount] = useDebounce(rawPhone, 300)
   const [debouncedName, debouncedNameFireCount] = useDebounce(rawName, 300)
+  const [debouncedChildName, debouncedChildNameFireCount] = useDebounce(rawChildName, 300)
+
+  // Which input surface is live. Child mode's parent lookups reuse the adult
+  // phone/name state, so these — not `mode` alone — gate the lookup effects.
+  const phoneActive = mode === 'phone' || (mode === 'child' && childFind === 'parent_phone')
+  const nameActive = mode === 'name' || (mode === 'child' && childFind === 'parent_name')
+  const childNameActive = mode === 'child' && childFind === 'child_name'
+
+  // Localized month names for formatDayMonth (child birth date, no year).
+  const months = t.raw('child.months') as string[]
 
   // Derive the event name for the current instance (locale-aware).
   const currentInstance = instances.find((i) => i.id === eventInstanceId) ?? null
@@ -190,7 +246,7 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
   // enforcement point; this one only avoids a round-trip that would return
   // query_too_short anyway.
   useEffect(() => {
-    if (mode !== 'name') return
+    if (!nameActive) return
     if (sanitizeNameQuery(debouncedName).length < NAME_QUERY_MIN_LENGTH) return
 
     const myId = ++nameRequestIdRef.current
@@ -219,7 +275,39 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
           break
       }
     })
-  }, [debouncedName, debouncedNameFireCount, mode])
+  }, [debouncedName, debouncedNameFireCount, nameActive])
+
+  // Child-name lookup (D2) — same direct-promise + cancellation-ref discipline.
+  useEffect(() => {
+    if (!childNameActive) return
+    if (sanitizeNameQuery(debouncedChildName).length < NAME_QUERY_MIN_LENGTH) return
+
+    const myId = ++childNameRequestIdRef.current
+    const forQuery = debouncedChildName
+
+    lookupChildByName(forQuery).then((result) => {
+      if (childNameRequestIdRef.current !== myId) return
+
+      switch (result.status) {
+        case 'matches':
+          setChildNameResult({
+            forQuery,
+            result: { phase: 'matches', children: result.children, hasMore: result.hasMore },
+          })
+          break
+        case 'none':
+          setChildNameResult({ forQuery, result: { phase: 'none' } })
+          break
+        case 'query_too_short':
+          setChildNameResult(null)
+          break
+        case 'error':
+          console.error('[checkin] lookupChildByName error:', result.message)
+          setChildNameResult({ forQuery, result: { phase: 'child_name_error' } })
+          break
+      }
+    })
+  }, [debouncedChildName, debouncedChildNameFireCount, childNameActive])
 
   function resetToLookup() {
     setRawPhone('')
@@ -252,10 +340,67 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
     setNameResult(null)
     setSelectedNamePerson(null)
     setShowForm(false)
+    // Child state is cleared on every mode switch too, so a child card or list
+    // can never outlive child mode. Child mode always re-enters parent-first.
+    clearChildState()
+    setChildFind('parent_phone')
     setTimeout(() => {
       if (next === 'name') nameInputRef.current?.focus()
       else inputRef.current?.focus()
     }, 0)
+  }
+
+  /**
+   * Clears every child-mode result and selection and invalidates in-flight
+   * child lookups. The parent-for-child is derived from the adult phone/name
+   * state, so callers that also clear that state clear the parent with it.
+   */
+  function clearChildState() {
+    childrenRequestIdRef.current++
+    childNameRequestIdRef.current++
+    setChildrenResult(null)
+    setRawChildName('')
+    setChildNameResult(null)
+    setSelectedChild(null)
+  }
+
+  function focusChildFind(find: ChildFindMode) {
+    setTimeout(() => {
+      if (find === 'parent_phone') inputRef.current?.focus()
+      else if (find === 'parent_name') nameInputRef.current?.focus()
+      else childNameInputRef.current?.focus()
+    }, 0)
+  }
+
+  /**
+   * Switching how a child is found inside child mode clears the parent lookup
+   * (shared phone/name state) and all child state — same rule as handleModeChange.
+   */
+  function handleChildFindChange(next: ChildFindMode) {
+    if (next === childFind) return
+    requestIdRef.current++
+    nameRequestIdRef.current++
+    setChildFind(next)
+    setRawPhone('')
+    setRawName('')
+    setServerResult(null)
+    setNameResult(null)
+    setSelectedNamePerson(null)
+    clearChildState()
+    focusChildFind(next)
+  }
+
+  /** After a successful child check-in: back to an empty child-mode lookup. */
+  function resetChildLookup() {
+    requestIdRef.current++
+    nameRequestIdRef.current++
+    setRawPhone('')
+    setRawName('')
+    setServerResult(null)
+    setNameResult(null)
+    setSelectedNamePerson(null)
+    clearChildState()
+    focusChildFind(childFind)
   }
 
   function showFeedback(kind: CheckinFeedback['kind'], message: string) {
@@ -329,6 +474,64 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
     })
   }
 
+  /**
+   * Writes a child_attendance row via createChildAttendance. Deliberately
+   * separate from performCheckIn — child check-ins never touch the adult write
+   * path, and (D3) never refetch or appear in the adult Recent panel.
+   *
+   * Only ChildCard's "Check in" button calls this. Non-ok results leave the
+   * card visible so the organizer can act on the message.
+   */
+  function performChildCheckIn(child: ChildWithParentSummary) {
+    if (!eventInstanceId) {
+      showFeedback('error', t('results.no_event_selected'))
+      return
+    }
+    const currentInstanceId = eventInstanceId
+    startCheckinTransition(async () => {
+      const result = await createChildAttendance({
+        childId: child.id,
+        eventInstanceId: currentInstanceId,
+      })
+
+      switch (result.status) {
+        case 'ok': {
+          const time = formatJakarta(new Date(result.attendance.checked_in_at), 'HH:mm')
+          showFeedback('success', t('child.results.success', { name: child.full_name, time }))
+          resetChildLookup()
+          return
+        }
+        case 'already_checked_in': {
+          const time = formatJakarta(new Date(result.existing.checked_in_at), 'HH:mm')
+          showFeedback('warning', t('child.results.already_checked_in', { name: child.full_name, time }))
+          break
+        }
+        case 'event_cancelled':
+          showFeedback('error', t('child.results.event_cancelled'))
+          break
+        case 'event_inactive':
+          showFeedback('error', t('child.results.event_inactive'))
+          break
+        case 'child_not_found':
+          showFeedback('error', t('child.results.child_not_found'))
+          break
+        case 'child_soft_deleted':
+          showFeedback('error', t('child.results.child_soft_deleted'))
+          break
+        case 'forbidden':
+          console.error('[checkin] createChildAttendance forbidden:', result.message)
+          showFeedback('error', t('child.results.forbidden'))
+          break
+        default:
+          // instance_not_found / invalid_input / error — none should occur
+          // through normal UI flow; defensive generic message.
+          console.error('[checkin] createChildAttendance failed:', result)
+          showFeedback('error', t('child.results.generic_error'))
+          break
+      }
+    })
+  }
+
   function handleCheckIn(person: PersonSummary) {
     performCheckIn(person, false, 'existing')
   }
@@ -386,7 +589,7 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
   // raw input, the debounced input, and the tagged result — no separate
   // 'searching' state to fall out of sync.
   const nameDisplayPhase: NameDisplayPhase = (() => {
-    if (mode !== 'name') return 'idle'
+    if (!nameActive) return 'idle'
     const safeRaw = sanitizeNameQuery(rawName)
     if (safeRaw.length === 0) return 'idle'
     if (safeRaw.length < NAME_QUERY_MIN_LENGTH) return 'name_too_short'
@@ -398,6 +601,78 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
 
   const nameMatches =
     nameResult?.result.phase === 'matches' ? nameResult.result : null
+
+  // ── Child mode derivations ──
+  // The parent whose children are listed. Derived, not stored: phone resolves
+  // to a unique person, so a settled 'found' IS the parent; name needs an
+  // explicit tap on the parent match (selectedNamePerson). Selecting a parent
+  // is not a write — only ChildCard's button writes.
+  const parentForChild: PersonSummary | null = (() => {
+    if (mode !== 'child') return null
+    if (childFind === 'parent_phone') {
+      return displayPhase === 'found' && serverResult?.phase === 'found' ? serverResult.person : null
+    }
+    if (childFind === 'parent_name') return selectedNamePerson
+    return null
+  })()
+  const parentForChildId = parentForChild?.id ?? null
+
+  // Fetch the parent's children whenever the derived parent changes.
+  // Direct promise + cancellation ref; setState only in the async callback.
+  useEffect(() => {
+    if (!parentForChildId) return
+    const myId = ++childrenRequestIdRef.current
+    const forParentId = parentForChildId
+
+    listChildrenByParent(forParentId).then((result) => {
+      if (childrenRequestIdRef.current !== myId) return
+
+      switch (result.status) {
+        case 'children':
+          setChildrenResult({ forParentId, result: { phase: 'children', children: result.children } })
+          break
+        case 'none':
+          setChildrenResult({ forParentId, result: { phase: 'none' } })
+          break
+        case 'invalid_input':
+        case 'error':
+          console.error('[checkin] listChildrenByParent failed:', result)
+          setChildrenResult({ forParentId, result: { phase: 'children_error' } })
+          break
+      }
+    })
+  }, [parentForChildId])
+
+  const childrenDisplayPhase: ChildrenDisplayPhase = (() => {
+    if (!parentForChildId) return 'idle'
+    if (childrenResult && childrenResult.forParentId === parentForChildId) {
+      return childrenResult.result.phase
+    }
+    return 'loading'
+  })()
+
+  // Parent-first rows carry the parent's name so both paths render the same
+  // ChildWithParentSummary shape (D2 disambiguator).
+  const parentChildren: ChildWithParentSummary[] =
+    parentForChild && childrenResult?.forParentId === parentForChild.id &&
+    childrenResult.result.phase === 'children'
+      ? childrenResult.result.children.map((c) => ({ ...c, parent_full_name: parentForChild.full_name }))
+      : []
+
+  const childNameDisplayPhase: ChildNameDisplayPhase = (() => {
+    if (!childNameActive) return 'idle'
+    const safeRaw = sanitizeNameQuery(rawChildName)
+    if (safeRaw.length === 0) return 'idle'
+    if (safeRaw.length < NAME_QUERY_MIN_LENGTH) return 'name_too_short'
+    if (rawChildName !== debouncedChildName) return 'searching'
+    if (childNameResult && childNameResult.forQuery === debouncedChildName) {
+      return childNameResult.result.phase
+    }
+    return 'searching'
+  })()
+
+  const childNameMatches =
+    childNameResult?.result.phase === 'matches' ? childNameResult.result : null
 
   const feedbackStyles: Record<CheckinFeedback['kind'], string> = {
     success: 'text-[#5C8A6B] bg-[#F0F6F1] border-[#D8E8DC]',
@@ -453,33 +728,86 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
         )}
 
         <div className="bg-white border border-line rounded-[4px] p-6 shadow-[0_4px_6px_-1px_rgba(26,26,26,.06),0_2px_4px_-2px_rgba(26,26,26,.04)]">
-          {/* Lookup-surface toggle. min-w-0 on each flex child so the two labels
-              shrink together instead of overflowing a 360px row (T4). */}
+          {/* Lookup-surface toggle. min-w-0 on each flex child so the labels
+              shrink together instead of overflowing a 360px row (T4). Three
+              tabs at 360px leave ~64px of text width each, so the labels are
+              single short words (S8-T2) and may wrap rather than overflow. */}
           <div
             role="tablist"
             aria-label={t('name_search.mode_label')}
             data-testid="lookup-mode-toggle"
             className="flex gap-2 mb-5"
           >
-            {(['phone', 'name'] as const).map((m) => (
+            {(['phone', 'name', 'child'] as const).map((m) => (
               <button
                 key={m}
                 type="button"
                 role="tab"
                 aria-selected={mode === m}
                 onClick={() => handleModeChange(m)}
-                className={`flex-1 min-w-0 px-3 py-2 min-h-[44px] text-sm font-medium rounded-sm border transition-colors ${
+                className={`flex-1 min-w-0 px-2 py-2 min-h-[44px] text-sm font-medium leading-tight break-words rounded-sm border transition-colors ${
                   mode === m
                     ? 'bg-charcoal text-cream border-charcoal'
                     : 'bg-cream text-ink-2 border-line hover:border-gold'
                 }`}
               >
-                {m === 'phone' ? t('name_search.mode_phone') : t('name_search.mode_name')}
+                {m === 'phone'
+                  ? t('name_search.mode_phone')
+                  : m === 'name'
+                    ? t('name_search.mode_name')
+                    : t('child.mode_child')}
               </button>
             ))}
           </div>
 
-          {mode === 'phone' ? (
+          {/* Child mode: how the child is found. Parent-first (D1) by default;
+              child-name search is secondary (D2). Same 360px treatment. */}
+          {mode === 'child' && (
+            <div
+              role="group"
+              aria-label={t('child.find_label')}
+              data-testid="child-find-toggle"
+              className="flex gap-2 mb-5"
+            >
+              {(['parent_phone', 'parent_name', 'child_name'] as const).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  aria-pressed={childFind === f}
+                  onClick={() => handleChildFindChange(f)}
+                  className={`flex-1 min-w-0 px-2 py-1.5 min-h-[44px] text-xs font-medium leading-tight break-words rounded-sm border transition-colors ${
+                    childFind === f
+                      ? 'bg-gold-dark text-cream border-gold-dark'
+                      : 'bg-white text-ink-2 border-line hover:border-gold'
+                  }`}
+                >
+                  {t(`child.find_${f}`)}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {mode === 'child' && childFind === 'child_name' ? (
+            <div className="min-w-0">
+              <label
+                htmlFor="checkin-child-name-input"
+                className="block text-xs uppercase tracking-widest text-muted font-semibold mb-2"
+              >
+                {t('child.child_name_label')}
+              </label>
+              <input
+                id="checkin-child-name-input"
+                ref={childNameInputRef}
+                type="text"
+                autoComplete="off"
+                aria-label={t('child.child_name_label')}
+                value={rawChildName}
+                onChange={(e) => setRawChildName(e.target.value)}
+                placeholder={t('child.child_name_placeholder')}
+                className="w-full min-w-0 px-5 py-4 bg-cream border border-line rounded-sm font-heading text-2xl tracking-wide transition-all focus:outline-none focus:border-gold focus:bg-white focus:shadow-[0_0_0_3px_#F5EFD9] placeholder:text-[#9A9183]"
+              />
+            </div>
+          ) : phoneActive ? (
             <PhoneInput
               value={rawPhone}
               country={country}
@@ -512,7 +840,19 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
 
           {/* Inline status below the input */}
           <div className="mt-3 min-h-[1.25rem]">
-            {mode === 'phone' ? (
+            {childNameActive ? (
+              <>
+                {childNameDisplayPhase === 'searching' && (
+                  <p className="text-xs text-muted animate-pulse">{t('lookup_searching')}</p>
+                )}
+                {childNameDisplayPhase === 'name_too_short' && (
+                  <p className="text-xs text-muted">{t('name_search.too_short')}</p>
+                )}
+                {childNameDisplayPhase === 'child_name_error' && (
+                  <p className="text-xs text-[#A85959]">{t('lookup_error')}</p>
+                )}
+              </>
+            ) : phoneActive ? (
               <>
                 {displayPhase === 'searching' && (
                   <p className="text-xs text-muted animate-pulse">{t('lookup_searching')}</p>
@@ -549,6 +889,111 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
             )}
           </div>
         </div>
+
+        {/* ── Child mode results (S8-T2). Every child path ends at ChildCard,
+            whose "Check in" button is the only child write. Rows only select. ── */}
+        {mode === 'child' && selectedChild && (
+          <ChildCard
+            child={selectedChild}
+            onCheckIn={performChildCheckIn}
+            onBack={() => setSelectedChild(null)}
+            months={months}
+            checkInPending={checkinPending}
+            checkInDisabled={!eventInstanceId}
+          />
+        )}
+        {mode === 'child' && !selectedChild && (
+          <>
+            {/* Parent by phone: not found → no add-person here (registration is
+                adult-only and phone-anchored). */}
+            {childFind === 'parent_phone' && displayPhase === 'not_found' && (
+              <div
+                data-testid="child-parent-not-found"
+                className="mt-4 p-5 bg-white border border-line rounded-[4px]"
+              >
+                <p className="text-sm text-charcoal">{t('child.parent_not_found')}</p>
+              </div>
+            )}
+
+            {/* Parent by name: pick the parent from the SAME NameMatchList the
+                adult name mode uses; tapping only selects the parent. */}
+            {childFind === 'parent_name' && selectedNamePerson && (
+              <div className="mt-4 flex items-center gap-3 text-sm">
+                <button
+                  type="button"
+                  onClick={handleBackToResults}
+                  className="text-muted hover:text-charcoal transition-colors underline underline-offset-2 min-h-[44px]"
+                >
+                  {t('name_search.back_to_results')}
+                </button>
+              </div>
+            )}
+            {childFind === 'parent_name' && !selectedNamePerson && nameDisplayPhase === 'matches' && nameMatches && (
+              <NameMatchList
+                people={nameMatches.people}
+                hasMore={nameMatches.hasMore}
+                onSelect={handleNameMatchSelect}
+              />
+            )}
+            {childFind === 'parent_name' && !selectedNamePerson && nameDisplayPhase === 'none' && (
+              <div
+                data-testid="child-parent-name-no-match"
+                className="mt-4 p-5 bg-white border border-line rounded-[4px]"
+              >
+                <p className="text-sm text-charcoal">{t('name_search.none')}</p>
+                <button
+                  type="button"
+                  onClick={() => handleChildFindChange('parent_phone')}
+                  className="mt-3 text-sm text-gold-dark font-medium underline underline-offset-2 min-h-[44px]"
+                >
+                  {t('name_search.none_hint')}
+                </button>
+              </div>
+            )}
+
+            {/* The resolved parent's children (both parent paths). */}
+            {childrenDisplayPhase === 'loading' && (
+              <p className="mt-4 text-xs text-muted animate-pulse">{t('lookup_searching')}</p>
+            )}
+            {childrenDisplayPhase === 'children' && (
+              <ChildMatchList
+                childMatches={parentChildren}
+                hasMore={false}
+                onSelect={setSelectedChild}
+                months={months}
+              />
+            )}
+            {childrenDisplayPhase === 'none' && (
+              <div
+                data-testid="child-none-for-parent"
+                className="mt-4 p-5 bg-white border border-line rounded-[4px]"
+              >
+                <p className="text-sm text-charcoal">{t('child.none_for_parent')}</p>
+              </div>
+            )}
+            {childrenDisplayPhase === 'children_error' && (
+              <p className="mt-4 text-xs text-[#A85959]">{t('lookup_error')}</p>
+            )}
+
+            {/* Child by name (secondary). Rows already carry parent_full_name. */}
+            {childNameDisplayPhase === 'matches' && childNameMatches && (
+              <ChildMatchList
+                childMatches={childNameMatches.children}
+                hasMore={childNameMatches.hasMore}
+                onSelect={setSelectedChild}
+                months={months}
+              />
+            )}
+            {childNameDisplayPhase === 'none' && (
+              <div
+                data-testid="child-name-no-match"
+                className="mt-4 p-5 bg-white border border-line rounded-[4px]"
+              >
+                <p className="text-sm text-charcoal">{t('child.none_by_name')}</p>
+              </div>
+            )}
+          </>
+        )}
 
         {/* Result cards — only shown once the debounce has settled */}
         {mode === 'phone' && displayPhase === 'found' && serverResult?.phase === 'found' && (

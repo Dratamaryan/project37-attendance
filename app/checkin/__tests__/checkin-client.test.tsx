@@ -12,10 +12,21 @@ import type { CreateAttendanceResult, AttendanceWithPerson, ListRecentAttendance
 vi.mock('next-intl', () => ({
   // Embed param values so interpolated strings are assertable (Task 9 pattern):
   // t('results.success', { name: 'Budi' }) → 'results.success Budi'
-  useTranslations: () => (key: string, params?: Record<string, string>) => {
-    if (params) return `${key} ${Object.values(params).join(' ')}`
-    return key
-  },
+  // t.raw('child.months') returns the real EN month array so formatDayMonth
+  // output ('1 Mar') is assertable (S8-T2).
+  useTranslations: () =>
+    Object.assign(
+      (key: string, params?: Record<string, string>) => {
+        if (params) return `${key} ${Object.values(params).join(' ')}`
+        return key
+      },
+      {
+        raw: (key: string) =>
+          key === 'child.months'
+            ? ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+            : key,
+      },
+    ),
   useLocale: () => 'en',
 }))
 
@@ -40,12 +51,28 @@ vi.mock('@/lib/storage/photos', () => ({
   getPhotoSignedUrl: vi.fn().mockResolvedValue({ status: 'no_photo' }),
 }))
 
+vi.mock('@/lib/actions/child-attendance', () => ({
+  createChildAttendance: vi.fn(),
+}))
+
+vi.mock('@/lib/actions/children', () => ({
+  listChildrenByParent: vi.fn(),
+  lookupChildByName: vi.fn(),
+}))
+
 import { lookupByPhone, lookupByName } from '@/lib/actions/people'
 import { createAttendance, listRecentAttendanceForInstance } from '@/lib/actions/attendance'
+import { createChildAttendance } from '@/lib/actions/child-attendance'
+import { listChildrenByParent, lookupChildByName } from '@/lib/actions/children'
+import type { CreateChildAttendanceResult } from '@/lib/actions/child-attendance.types'
+import type { ChildWithParentSummary } from '@/lib/actions/children.types'
 const mockLookup = vi.mocked(lookupByPhone)
 const mockLookupByName = vi.mocked(lookupByName)
 const mockCreateAttendance = vi.mocked(createAttendance)
 const mockListRecent = vi.mocked(listRecentAttendanceForInstance)
+const mockCreateChildAttendance = vi.mocked(createChildAttendance)
+const mockListChildrenByParent = vi.mocked(listChildrenByParent)
+const mockLookupChildByName = vi.mocked(lookupChildByName)
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -161,6 +188,52 @@ function emptyRecent(): ListRecentAttendanceResult {
   return { status: 'ok', attendances: [] }
 }
 
+// ── S8-T2 child fixtures (synthetic) ──────────────────────────────────────────
+
+const CHILD_A = {
+  id: 'child-001',
+  parent_person_id: FOUND_PERSON.id,
+  full_name: 'Test Child A',
+  birth_date: '2018-03-01',
+  gender: null,
+}
+const CHILD_B = {
+  id: 'child-002',
+  parent_person_id: FOUND_PERSON.id,
+  full_name: 'Test Child B',
+  birth_date: null,
+  gender: null,
+}
+const CHILD_A_WITH_PARENT: ChildWithParentSummary = { ...CHILD_A, parent_full_name: 'Test Parent' }
+const CHILD_B_WITH_PARENT: ChildWithParentSummary = { ...CHILD_B, parent_full_name: 'Test Parent' }
+
+// checked_in_at 2026-06-11T05:00:00Z renders as 12:00 Asia/Jakarta
+function okChildAttendance(childId: string): CreateChildAttendanceResult {
+  return {
+    status: 'ok',
+    attendance: {
+      id: `catt-${childId}`,
+      event_instance_id: 'inst-001',
+      child_id: childId,
+      checked_in_at: '2026-06-11T05:00:00Z',
+      checked_in_by: 'user-001',
+      source: 'volunteer_checkin',
+    },
+  }
+}
+
+const CHILD_ALREADY_RESULT: CreateChildAttendanceResult = {
+  status: 'already_checked_in',
+  existing: {
+    id: 'catt-existing',
+    event_instance_id: 'inst-001',
+    child_id: CHILD_A.id,
+    checked_in_at: '2026-06-11T04:30:00Z',
+    checked_in_by: 'user-002',
+    source: 'volunteer_checkin',
+  },
+}
+
 // ── Helper ────────────────────────────────────────────────────────────────────
 
 function setup(instances: NearestInstanceRow[] = INSTANCES) {
@@ -178,6 +251,7 @@ describe('CheckinClient', () => {
     // Default: attendance write succeeds; recent list is empty
     mockCreateAttendance.mockImplementation(async (input) => okAttendance(input.personId))
     mockListRecent.mockResolvedValue(emptyRecent())
+    mockCreateChildAttendance.mockImplementation(async (input) => okChildAttendance(input.childId))
   })
 
   it('renders phone input with default country ID', () => {
@@ -698,5 +772,170 @@ describe('CheckinClient', () => {
              .toHaveTextContent('Test Event Beta'),
       { timeout: 1000 },
     )
+  })
+
+  // ── S8-T2: child check-in ───────────────────────────────────────────────────
+
+  // Helper: child mode → child-name search → match list with two children.
+  async function setupChildNameMatches(user: ReturnType<typeof userEvent.setup>) {
+    mockLookupChildByName.mockResolvedValue({
+      status: 'matches',
+      children: [CHILD_A_WITH_PARENT, CHILD_B_WITH_PARENT],
+      hasMore: false,
+    })
+    await user.click(screen.getByRole('tab', { name: 'child.mode_child' }))
+    await user.click(screen.getByRole('button', { name: 'child.find_child_name' }))
+    const childInput = screen.getByRole('textbox', { name: 'child.child_name_label' })
+    await user.type(childInput, 'Test')
+    const list = await screen.findByTestId('child-match-list', {}, { timeout: 1000 })
+    await waitFor(() => expect(within(list).getByText('Test Child B')).toBeInTheDocument())
+    return { list, childInput }
+  }
+
+  it('CC-16 (F2 GUARD): tapping a child match renders the ChildCard and does NOT call createChildAttendance', async () => {
+    const user = userEvent.setup({ delay: null })
+    render(<CheckinClient instances={INSTANCES} />)
+    const { list } = await setupChildNameMatches(user)
+
+    await user.click(within(list).getByText('Test Child B'))
+
+    const card = await screen.findByTestId('child-card', {}, { timeout: 1000 })
+    expect(within(card).getByText('Test Child B')).toBeInTheDocument()
+    expect(within(card).getByRole('button', { name: 'child.check_in_button' })).toBeInTheDocument()
+    expect(screen.queryByTestId('child-match-list')).not.toBeInTheDocument()
+    // Select ≠ commit: no write of either kind on row tap
+    expect(mockCreateChildAttendance).not.toHaveBeenCalled()
+    expect(mockCreateAttendance).not.toHaveBeenCalled()
+  })
+
+  it('CC-17: ChildCard "Check in" calls createChildAttendance once for the SELECTED child; never createAttendance', async () => {
+    const user = userEvent.setup({ delay: null })
+    render(<CheckinClient instances={INSTANCES} />)
+    const { list } = await setupChildNameMatches(user)
+
+    // Tap the second candidate to prove the selected (not first) child is written.
+    await user.click(within(list).getByText('Test Child B'))
+    await user.click(await screen.findByRole('button', { name: 'child.check_in_button' }, { timeout: 1000 }))
+
+    await waitFor(() => expect(mockCreateChildAttendance).toHaveBeenCalledWith({
+      childId: CHILD_B.id,
+      eventInstanceId: 'inst-001',
+    }), { timeout: 1000 })
+    expect(mockCreateChildAttendance).toHaveBeenCalledTimes(1)
+    expect(mockCreateAttendance).not.toHaveBeenCalled()
+  })
+
+  it('CC-18: child already_checked_in → warning banner and the ChildCard stays visible', async () => {
+    mockCreateChildAttendance.mockResolvedValue(CHILD_ALREADY_RESULT)
+    const user = userEvent.setup({ delay: null })
+    render(<CheckinClient instances={INSTANCES} />)
+    const { list } = await setupChildNameMatches(user)
+
+    await user.click(within(list).getByText('Test Child A'))
+    await user.click(await screen.findByRole('button', { name: 'child.check_in_button' }, { timeout: 1000 }))
+
+    const banner = await screen.findByTestId('checkin-feedback', {}, { timeout: 500 })
+    expect(banner).toHaveTextContent('child.results.already_checked_in Test Child A 11:30')
+    expect(screen.getByTestId('child-card')).toBeInTheDocument()
+  })
+
+  it('CC-19: child ok → success banner, resets the child lookup, does NOT refetch the Recent panel (D3)', async () => {
+    const user = userEvent.setup({ delay: null })
+    render(<CheckinClient instances={INSTANCES} />)
+    const { childInput } = await setupChildNameMatches(user)
+    await waitFor(() => expect(mockListRecent).toHaveBeenCalledTimes(1))  // mount fetch only
+
+    await user.click(within(screen.getByTestId('child-match-list')).getByText('Test Child A'))
+    await user.click(await screen.findByRole('button', { name: 'child.check_in_button' }, { timeout: 1000 }))
+
+    const banner = await screen.findByTestId('checkin-feedback', {}, { timeout: 500 })
+    expect(banner).toHaveTextContent('child.results.success Test Child A 12:00')
+    expect(screen.queryByTestId('child-card')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('child-match-list')).not.toBeInTheDocument()
+    expect(childInput).toHaveValue('')
+    // Still in child-name search after the reset
+    expect(screen.getByRole('textbox', { name: 'child.child_name_label' })).toBeInTheDocument()
+    expect(mockListRecent).toHaveBeenCalledTimes(1)
+  })
+
+  it('CC-20: parent-first by phone → parent’s children listed with parent name + day-month birthday; tap only selects', async () => {
+    mockLookup.mockResolvedValue(FOUND_RESULT)
+    mockListChildrenByParent.mockResolvedValue({ status: 'children', children: [CHILD_A, CHILD_B] })
+
+    const user = userEvent.setup({ delay: null })
+    render(<CheckinClient instances={INSTANCES} />)
+    await user.click(screen.getByRole('tab', { name: 'child.mode_child' }))
+    // Parent-first is the default child find mode — same phone input as adult mode
+    await user.type(screen.getByRole('textbox', { name: 'phone_label' }), '081234567890')
+
+    const list = await screen.findByTestId('child-match-list', {}, { timeout: 1000 })
+    expect(mockListChildrenByParent).toHaveBeenCalledWith(FOUND_PERSON.id)
+    const rowA = within(list).getByText('Test Child A').closest('button') as HTMLElement
+    expect(rowA).toHaveTextContent(`child.parent_label ${FOUND_PERSON.full_name}`)
+    expect(rowA).toHaveTextContent('1 Mar')       // birth_date 2018-03-01, no year
+    expect(rowA).not.toHaveTextContent('2018')
+    const rowB = within(list).getByText('Test Child B').closest('button') as HTMLElement
+    expect(rowB).toHaveTextContent('—')           // null birth_date
+    // Child mode never renders the adult PersonCard check-in for the parent
+    expect(screen.queryByRole('button', { name: 'check_in_button' })).not.toBeInTheDocument()
+
+    await user.click(rowA)
+    expect(await screen.findByTestId('child-card', {}, { timeout: 1000 })).toBeInTheDocument()
+    expect(mockCreateChildAttendance).not.toHaveBeenCalled()
+    expect(mockCreateAttendance).not.toHaveBeenCalled()
+  })
+
+  it('CC-21: parent-first by name → tap parent (select only) → that parent’s children listed', async () => {
+    const SECOND_PERSON = { ...FOUND_PERSON, id: 'person-002', full_name: 'Budi Prakoso' }
+    mockLookupByName.mockResolvedValue({ status: 'matches', people: [FOUND_PERSON, SECOND_PERSON], hasMore: false })
+    mockListChildrenByParent.mockResolvedValue({ status: 'children', children: [CHILD_A] })
+
+    const user = userEvent.setup({ delay: null })
+    render(<CheckinClient instances={INSTANCES} />)
+    await user.click(screen.getByRole('tab', { name: 'child.mode_child' }))
+    await user.click(screen.getByRole('button', { name: 'child.find_parent_name' }))
+    await user.type(screen.getByRole('textbox', { name: 'name_search.name_label' }), 'Budi')
+
+    const parents = await screen.findByTestId('name-match-list', {}, { timeout: 1000 })
+    await user.click(within(parents).getByText('Budi Prakoso'))
+
+    const list = await screen.findByTestId('child-match-list', {}, { timeout: 1000 })
+    expect(mockListChildrenByParent).toHaveBeenCalledWith('person-002')
+    expect(within(list).getByText('child.parent_label Budi Prakoso')).toBeInTheDocument()
+    expect(mockCreateAttendance).not.toHaveBeenCalled()
+    expect(mockCreateChildAttendance).not.toHaveBeenCalled()
+  })
+
+  it('CC-22: parent with no children → friendly empty state', async () => {
+    mockLookup.mockResolvedValue(FOUND_RESULT)
+    mockListChildrenByParent.mockResolvedValue({ status: 'none' })
+
+    const user = userEvent.setup({ delay: null })
+    render(<CheckinClient instances={INSTANCES} />)
+    await user.click(screen.getByRole('tab', { name: 'child.mode_child' }))
+    await user.type(screen.getByRole('textbox', { name: 'phone_label' }), '081234567890')
+
+    const empty = await screen.findByTestId('child-none-for-parent', {}, { timeout: 1000 })
+    expect(empty).toHaveTextContent('child.none_for_parent')
+  })
+
+  it('CC-23: switching modes clears all child state (selected child, results, query)', async () => {
+    const user = userEvent.setup({ delay: null })
+    render(<CheckinClient instances={INSTANCES} />)
+    const { list } = await setupChildNameMatches(user)
+    await user.click(within(list).getByText('Test Child A'))
+    await screen.findByTestId('child-card', {}, { timeout: 1000 })
+
+    await user.click(screen.getByRole('tab', { name: 'name_search.mode_name' }))
+    expect(screen.queryByTestId('child-card')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('tab', { name: 'child.mode_child' }))
+    // Re-enters parent-first with nothing carried over
+    expect(screen.queryByTestId('child-card')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('child-match-list')).not.toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'phone_label' })).toHaveValue('')
+    await user.click(screen.getByRole('button', { name: 'child.find_child_name' }))
+    expect(screen.getByRole('textbox', { name: 'child.child_name_label' })).toHaveValue('')
+    expect(mockCreateChildAttendance).not.toHaveBeenCalled()
   })
 })
