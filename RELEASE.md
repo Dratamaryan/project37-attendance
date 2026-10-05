@@ -218,3 +218,15 @@ branch-expected ref for remote ops.
   attendance (3 policies, is_active_app_user, checked_in_by=auth.uid). S4-T3-style
   prod-drift abort guard. Validated local → staging → prod; constraints + RLS +
   no-coupling live-verified on both remotes. Age derived at read time (not stored).
+
+  - S8-T2 (child check-in flow): two-pass. Data layer — impl_createChildAttendance
+  (mirrors adult, writes ONLY to child_attendance, INSERT-catch-23505 dedup on
+  uniq_child_attendance, admin-client disambiguation, audit CHILD_ATTENDANCE_CREATE)
+  + organizer-safe lookups (listChildrenByParent, lookupChildByName). UI — child
+  LookupMode, parent-first (D1) + child-name search (D2), ChildMatchList + ChildCard,
+  select≠commit confirm guard (F2), disambiguator = parent name + formatDayMonth
+  (14 Mar / —, no year). No adult-attendance coupling; not in Recent panel (D3).
+  i18n en+id incl. month arrays. Tests: CATT-01..12 integration (race + adult-
+  isolation) + CC-16..23 jsdom; gate 985/985. Verified on-device (staging): full
+  flow incl. live commit + duplicate path; real-device tab/sub-selector fit OK.
+  Op note filed on T4: child creation must not stay SQL-only (non-engineer operator).
