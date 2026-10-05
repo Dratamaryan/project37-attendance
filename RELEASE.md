@@ -205,3 +205,16 @@ branch-expected ref for remote ops.
   App boots and authenticates: magic-link login as staging admin → /dashboard.
   Backlog: (a) /auth/confirm doesn't validate `type` before verifyOtp (input-trust,
   minor); (b) redundant manual alias project37-staging.vercel.app can be dropped.
+
+  - S8-T1 (children + child_attendance schema): migration 20261005120000 applied to
+  prod (bftifxgdcmisasgvobuf) and staging (sijfyvaodqkawbeuyrpu). Two tables —
+  children (people-shaped: soft-delete, app-managed updated_at no trigger,
+  parent_person_id → people NO ACTION) + child_attendance (attendance-shaped append
+  log, child_id → children NO ACTION, event_instance_id CASCADE, checked_in_by →
+  app_users, UNIQUE(event_instance_id, child_id)). SEPARATE from adult attendance —
+  verified no FK coupling (full FK list references only people/children/
+  event_instances/app_users). RLS: children mirrors people (7 policies, per-command,
+  is_organizer, soft-delete-filtered, no organizer delete); child_attendance mirrors
+  attendance (3 policies, is_active_app_user, checked_in_by=auth.uid). S4-T3-style
+  prod-drift abort guard. Validated local → staging → prod; constraints + RLS +
+  no-coupling live-verified on both remotes. Age derived at read time (not stored).
