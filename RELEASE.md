@@ -230,3 +230,12 @@ branch-expected ref for remote ops.
   isolation) + CC-16..23 jsdom; gate 985/985. Verified on-device (staging): full
   flow incl. live commit + duplicate path; real-device tab/sub-selector fit OK.
   Op note filed on T4: child creation must not stay SQL-only (non-engineer operator).
+
+  - S8-T4 (children free-text parse): parser run against prod (bftifxgdcmisasgvobuf),
+  run_id f11c7299. 49 'ya' rows → 41 parsed-full / 7 parsed-partial-notes / 1
+  unparseable-skipped; 0 parent-not-found/deleted/anonymized. Inserted 77 children
+  across 48 parents (74 dated, 3 null-date, 13 with notes). Option-A idempotency
+  (parent-skip), post-write re-verify all 5 assertions passed, surrogate-keyed audit
+  (77 child.create). Rehearsed on local prod-restore before apply; backup
+  prod-data-only-20261006T095151Z.sql taken first. Row 55 unparseable (needs manual
+  entry); rows 28/69/101 flagged for admin review. Admin add-child UI → T4b.
