@@ -20,6 +20,8 @@ export const AUDIT_ACTIONS = {
   EVENT_INSTANCE_UPDATE:   'event_instance.update',
   ATTENDANCE_CREATE:       'attendance.create',
   CHILD_CREATE:            'child.create',
+  CHILD_UPDATE:            'child.update',
+  CHILD_SOFT_DELETE:       'child.soft_delete',
   CHILD_ATTENDANCE_CREATE: 'child_attendance.create',
   EXPORT_CREATE:           'export.create',
   IMPORT_DRY_RUN:          'import.dry_run',

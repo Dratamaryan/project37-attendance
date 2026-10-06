@@ -35,3 +35,52 @@ export type LookupChildByNameResult =
   | { status: 'none' }
   | { status: 'query_too_short' }
   | { status: 'error'; message: string }
+
+// ── createChild ──────────────────────────────────────────────────
+
+export type CreateChildInput = {
+  parentPersonId: string
+  full_name: string
+  birth_date?: string | null     // ISO date (YYYY-MM-DD); absent/null = unknown
+  gender?: 'male' | 'female' | null
+  notes?: string | null
+}
+
+// 'duplicate_warning' means the child WAS created AND at least one non-deleted
+// sibling with the same (case-insensitive) full_name already existed under this
+// parent. Advisory only — the write is never blocked; the UI decides what to show.
+export type CreateChildResult =
+  | { status: 'created'; child: ChildSummary }
+  | { status: 'duplicate_warning'; child: ChildSummary; existing: ChildSummary[] }
+  | { status: 'parent_not_found' }
+  | { status: 'validation_error'; field_errors: Record<string, string> }
+  | { status: 'forbidden'; message: string }
+  | { status: 'error'; message: string }
+
+// ── updateChild ──────────────────────────────────────────────────
+
+// Field-presence convention (mirrors UpdatePersonInput): present (even null) =
+// write it; absent = don't touch. parent_person_id is not editable.
+export type UpdateChildInput = Partial<{
+  full_name:  string
+  birth_date: string | null
+  gender:     'male' | 'female' | null
+  notes:      string | null
+}>
+
+export type UpdateChildResult =
+  | { status: 'updated'; child: ChildSummary }
+  | { status: 'not_found' }
+  | { status: 'validation_error'; field_errors: Record<string, string> }
+  | { status: 'forbidden'; message: string }
+  | { status: 'error'; message: string }
+
+// ── softDeleteChild ──────────────────────────────────────────────
+
+// Admin-only by RLS (organizers have no policy that lets them set deleted_at);
+// the impl does not role-gate and maps the RLS rejection to 'forbidden'.
+export type SoftDeleteChildResult =
+  | { status: 'soft_deleted'; id: string }
+  | { status: 'not_found' }
+  | { status: 'forbidden'; message: string }
+  | { status: 'error'; message: string }
