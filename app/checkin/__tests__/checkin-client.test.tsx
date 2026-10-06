@@ -58,12 +58,13 @@ vi.mock('@/lib/actions/child-attendance', () => ({
 vi.mock('@/lib/actions/children', () => ({
   listChildrenByParent: vi.fn(),
   lookupChildByName: vi.fn(),
+  createChild: vi.fn(),
 }))
 
 import { lookupByPhone, lookupByName } from '@/lib/actions/people'
 import { createAttendance, listRecentAttendanceForInstance } from '@/lib/actions/attendance'
 import { createChildAttendance } from '@/lib/actions/child-attendance'
-import { listChildrenByParent, lookupChildByName } from '@/lib/actions/children'
+import { listChildrenByParent, lookupChildByName, createChild } from '@/lib/actions/children'
 import type { CreateChildAttendanceResult } from '@/lib/actions/child-attendance.types'
 import type { ChildWithParentSummary } from '@/lib/actions/children.types'
 const mockLookup = vi.mocked(lookupByPhone)
@@ -73,6 +74,7 @@ const mockListRecent = vi.mocked(listRecentAttendanceForInstance)
 const mockCreateChildAttendance = vi.mocked(createChildAttendance)
 const mockListChildrenByParent = vi.mocked(listChildrenByParent)
 const mockLookupChildByName = vi.mocked(lookupChildByName)
+const mockCreateChild = vi.mocked(createChild)
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -196,6 +198,10 @@ const CHILD_A = {
   full_name: 'Test Child A',
   birth_date: '2018-03-01',
   gender: null,
+  // Sentinel: check-in lookups no longer select notes (S8-T4b). Kept on the
+  // fixture anyway so CC-31 still proves nothing renders it even if a payload
+  // ever carried it.
+  notes: 'SENTINEL-ADMIN-NOTE-A',
 }
 const CHILD_B = {
   id: 'child-002',
@@ -203,6 +209,7 @@ const CHILD_B = {
   full_name: 'Test Child B',
   birth_date: null,
   gender: null,
+  notes: 'SENTINEL-ADMIN-NOTE-B',
 }
 const CHILD_A_WITH_PARENT: ChildWithParentSummary = { ...CHILD_A, parent_full_name: 'Test Parent' }
 const CHILD_B_WITH_PARENT: ChildWithParentSummary = { ...CHILD_B, parent_full_name: 'Test Parent' }
@@ -937,5 +944,159 @@ describe('CheckinClient', () => {
     await user.click(screen.getByRole('button', { name: 'child.find_child_name' }))
     expect(screen.getByRole('textbox', { name: 'child.child_name_label' })).toHaveValue('')
     expect(mockCreateChildAttendance).not.toHaveBeenCalled()
+  })
+  // ── S8-T4b: add a child from check-in (create-only) ─────────────────────────
+
+  const NEW_CHILD = {
+    id: 'child-new',
+    parent_person_id: FOUND_PERSON.id,
+    full_name: 'Test Child New',
+    birth_date: '2020-05-09',
+    gender: null,
+    notes: null,
+  }
+
+  // Helper: child mode → parent by phone → parent resolved with the given children result.
+  async function setupParentByPhone(
+    user: ReturnType<typeof userEvent.setup>,
+    children: Awaited<ReturnType<typeof listChildrenByParent>>,
+  ) {
+    mockLookup.mockResolvedValue(FOUND_RESULT)
+    mockListChildrenByParent.mockResolvedValue(children)
+    render(<CheckinClient instances={INSTANCES} />)
+    await user.click(screen.getByRole('tab', { name: 'child.mode_child' }))
+    await user.type(screen.getByRole('textbox', { name: 'phone_label' }), '081234567890')
+  }
+
+  it('CC-24: none_for_parent shows "add child"; it opens the form; submit calls createChild once with the parent id', async () => {
+    mockCreateChild.mockResolvedValue({ status: 'created', child: NEW_CHILD })
+    const user = userEvent.setup({ delay: null })
+    await setupParentByPhone(user, { status: 'none' })
+
+    const empty = await screen.findByTestId('child-none-for-parent', {}, { timeout: 1000 })
+    await user.click(within(empty).getByRole('button', { name: 'child.add.add_button' }))
+
+    const form = await screen.findByTestId('new-child-form')
+    expect(form).toHaveTextContent(`child.add.parent_label ${FOUND_PERSON.full_name}`)
+    // Floor form is minimal: no notes field.
+    expect(within(form).queryByRole('textbox', { name: /notes/i })).not.toBeInTheDocument()
+
+    await user.type(within(form).getByRole('textbox', { name: /child\.add\.full_name_label/ }), 'Test Child New')
+    await user.click(within(form).getByRole('button', { name: 'child.add.submit_button' }))
+
+    await waitFor(() => expect(mockCreateChild).toHaveBeenCalledTimes(1))
+    expect(mockCreateChild).toHaveBeenCalledWith({
+      parentPersonId: FOUND_PERSON.id,
+      full_name: 'Test Child New',
+      birth_date: null,
+      gender: null,
+    })
+  })
+
+  it('CC-25 (create ≠ check-in): created → lands on ChildCard for the new child; createChildAttendance NOT called', async () => {
+    mockCreateChild.mockResolvedValue({ status: 'created', child: NEW_CHILD })
+    const user = userEvent.setup({ delay: null })
+    await setupParentByPhone(user, { status: 'none' })
+
+    await user.click(await screen.findByRole('button', { name: 'child.add.add_button' }, { timeout: 1000 }))
+    const form = await screen.findByTestId('new-child-form')
+    await user.type(within(form).getByRole('textbox', { name: /child\.add\.full_name_label/ }), 'Test Child New')
+    await user.click(within(form).getByRole('button', { name: 'child.add.submit_button' }))
+
+    const card = await screen.findByTestId('child-card', {}, { timeout: 1000 })
+    expect(card).toHaveTextContent('Test Child New')
+    expect(card).toHaveTextContent(`child.parent_label ${FOUND_PERSON.full_name}`)
+    expect(screen.queryByTestId('new-child-form')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('child-duplicate-notice')).not.toBeInTheDocument()
+    expect(mockCreateChildAttendance).not.toHaveBeenCalled()
+    expect(mockCreateAttendance).not.toHaveBeenCalled()
+
+    // Back to results shows the new child without a refetch.
+    await user.click(screen.getByRole('button', { name: 'child.back_to_results' }))
+    const list = await screen.findByTestId('child-match-list')
+    expect(within(list).getByText('Test Child New')).toBeInTheDocument()
+    expect(mockListChildrenByParent).toHaveBeenCalledTimes(1)
+  })
+
+  it('CC-26: duplicate_warning still lands on ChildCard AND shows the advisory notice', async () => {
+    mockCreateChild.mockResolvedValue({ status: 'duplicate_warning', child: { ...NEW_CHILD, full_name: 'Test Child A' }, existing: [CHILD_A] })
+    const user = userEvent.setup({ delay: null })
+    await setupParentByPhone(user, { status: 'children', children: [CHILD_A] })
+
+    await screen.findByTestId('child-match-list', {}, { timeout: 1000 })
+    await user.click(screen.getByRole('button', { name: 'child.add.add_another_button' }))
+    const form = await screen.findByTestId('new-child-form')
+    await user.type(within(form).getByRole('textbox', { name: /child\.add\.full_name_label/ }), 'Test Child A')
+    await user.click(within(form).getByRole('button', { name: 'child.add.submit_button' }))
+
+    const card = await screen.findByTestId('child-card', {}, { timeout: 1000 })
+    expect(card).toHaveTextContent('Test Child A')
+    expect(screen.getByTestId('child-duplicate-notice')).toHaveTextContent('child.add.duplicate_warning Test Child A')
+    expect(mockCreateChildAttendance).not.toHaveBeenCalled()
+  })
+
+  it('CC-27: validation_error keeps the form open with field errors; no ChildCard', async () => {
+    mockCreateChild.mockResolvedValue({ status: 'validation_error', field_errors: { birth_date: 'Birth date cannot be in the future' } })
+    const user = userEvent.setup({ delay: null })
+    await setupParentByPhone(user, { status: 'none' })
+
+    await user.click(await screen.findByRole('button', { name: 'child.add.add_button' }, { timeout: 1000 }))
+    const form = await screen.findByTestId('new-child-form')
+    await user.type(within(form).getByRole('textbox', { name: /child\.add\.full_name_label/ }), 'Test Child New')
+    await user.click(within(form).getByRole('button', { name: 'child.add.submit_button' }))
+
+    expect(await within(form).findByText('child.add.field_error.birth_date')).toBeInTheDocument()
+    expect(within(form).getByRole('alert')).toHaveTextContent('child.add.error.validation')
+    expect(screen.queryByTestId('child-card')).not.toBeInTheDocument()
+  })
+
+  it('CC-28: blank name is caught client-side — createChild never called', async () => {
+    const user = userEvent.setup({ delay: null })
+    await setupParentByPhone(user, { status: 'none' })
+    await user.click(await screen.findByRole('button', { name: 'child.add.add_button' }, { timeout: 1000 }))
+    const form = await screen.findByTestId('new-child-form')
+    await user.click(within(form).getByRole('button', { name: 'child.add.submit_button' }))
+    expect(within(form).getByText('child.add.field_error.full_name')).toBeInTheDocument()
+    expect(mockCreateChild).not.toHaveBeenCalled()
+  })
+
+  it('CC-29: child-name "none" has NO add-child (parent unknown) — only the find-parent hint, which switches to parent phone', async () => {
+    mockLookupChildByName.mockResolvedValue({ status: 'none' })
+    const user = userEvent.setup({ delay: null })
+    render(<CheckinClient instances={INSTANCES} />)
+    await user.click(screen.getByRole('tab', { name: 'child.mode_child' }))
+    await user.click(screen.getByRole('button', { name: 'child.find_child_name' }))
+    await user.type(screen.getByRole('textbox', { name: 'child.child_name_label' }), 'Nobody')
+
+    const none = await screen.findByTestId('child-name-no-match', {}, { timeout: 1000 })
+    expect(within(none).queryByRole('button', { name: 'child.add.add_button' })).not.toBeInTheDocument()
+    await user.click(within(none).getByRole('button', { name: 'child.add.find_parent_hint' }))
+    expect(screen.getByRole('textbox', { name: 'phone_label' })).toBeInTheDocument()
+  })
+
+  it('CC-30: the add-child form does not outlive child mode (cleared by clearChildState)', async () => {
+    const user = userEvent.setup({ delay: null })
+    await setupParentByPhone(user, { status: 'none' })
+    await user.click(await screen.findByRole('button', { name: 'child.add.add_button' }, { timeout: 1000 }))
+    expect(await screen.findByTestId('new-child-form')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('tab', { name: 'name_search.mode_name' }))
+    await user.click(screen.getByRole('tab', { name: 'child.mode_child' }))
+    expect(screen.queryByTestId('new-child-form')).not.toBeInTheDocument()
+  })
+
+  it('CC-31: notes (admin-only) are never rendered in ChildMatchList or ChildCard', async () => {
+    mockLookup.mockResolvedValue(FOUND_RESULT)
+    mockListChildrenByParent.mockResolvedValue({ status: 'children', children: [CHILD_A, CHILD_B] })
+    const user = userEvent.setup({ delay: null })
+    render(<CheckinClient instances={INSTANCES} />)
+    await user.click(screen.getByRole('tab', { name: 'child.mode_child' }))
+    await user.type(screen.getByRole('textbox', { name: 'phone_label' }), '081234567890')
+
+    const list = await screen.findByTestId('child-match-list', {}, { timeout: 1000 })
+    expect(document.body).not.toHaveTextContent('SENTINEL-ADMIN-NOTE')
+    await user.click(within(list).getByText('Test Child A'))
+    await screen.findByTestId('child-card', {}, { timeout: 1000 })
+    expect(document.body).not.toHaveTextContent('SENTINEL-ADMIN-NOTE')
   })
 })

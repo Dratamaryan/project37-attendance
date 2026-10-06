@@ -18,6 +18,7 @@ import { PersonCard } from './person-card'
 import { NameMatchList } from './name-match-list'
 import { ChildMatchList } from './child-match-list'
 import { ChildCard } from './child-card'
+import { NewChildForm } from './new-child-form'
 import { NewPersonTrigger } from './new-person-trigger'
 import { NewPersonForm } from './new-person-form'
 import { RecentPanel } from './recent-panel'
@@ -150,6 +151,13 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
   // The child the organizer tapped, pending explicit confirm on ChildCard.
   // Selecting never writes — same select ≠ commit rule as selectedNamePerson.
   const [selectedChild, setSelectedChild] = useState<ChildWithParentSummary | null>(null)
+  // S8-T4b add-child form: keyed to the parent it was opened for, so it only
+  // renders while that same parent is still resolved (a new lookup hides it).
+  const [addChildForParentId, setAddChildForParentId] = useState<string | null>(null)
+  // Advisory duplicate notice for a just-created child (create was NOT blocked).
+  const [childDuplicateNotice, setChildDuplicateNotice] = useState<
+    { childId: string; name: string } | null
+  >(null)
 
   const inputRef = useRef<HTMLInputElement>(null)
   const nameInputRef = useRef<HTMLInputElement>(null)
@@ -362,6 +370,8 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
     setRawChildName('')
     setChildNameResult(null)
     setSelectedChild(null)
+    setAddChildForParentId(null)
+    setChildDuplicateNotice(null)
   }
 
   function focusChildFind(find: ChildFindMode) {
@@ -388,6 +398,29 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
     setSelectedNamePerson(null)
     clearChildState()
     focusChildFind(next)
+  }
+
+  /**
+   * S8-T4b: a child was created (status 'created' OR 'duplicate_warning' — the
+   * row exists either way). Creating is not checking in: go straight to the
+   * ChildCard confirm step, whose button stays the only child_attendance write.
+   * The new child is merged into the cached children list locally so "Back to
+   * results" shows it without a refetch.
+   */
+  function handleChildCreated(
+    parent: PersonSummary,
+    child: ChildSummary,
+    existing: ChildSummary[],
+  ) {
+    setAddChildForParentId(null)
+    setChildrenResult((prev) => {
+      const prior =
+        prev?.forParentId === parent.id && prev.result.phase === 'children' ? prev.result.children : []
+      const merged = [...prior, child].sort((a, b) => a.full_name.localeCompare(b.full_name))
+      return { forParentId: parent.id, result: { phase: 'children', children: merged } }
+    })
+    setChildDuplicateNotice(existing.length > 0 ? { childId: child.id, name: child.full_name } : null)
+    setSelectedChild({ ...child, parent_full_name: parent.full_name })
   }
 
   /** After a successful child check-in: back to an empty child-mode lookup. */
@@ -616,6 +649,7 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
     return null
   })()
   const parentForChildId = parentForChild?.id ?? null
+  const addChildOpen = addChildForParentId !== null && addChildForParentId === parentForChildId
 
   // Fetch the parent's children whenever the derived parent changes.
   // Direct promise + cancellation ref; setState only in the async callback.
@@ -892,6 +926,15 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
 
         {/* ── Child mode results (S8-T2). Every child path ends at ChildCard,
             whose "Check in" button is the only child write. Rows only select. ── */}
+        {mode === 'child' && selectedChild && childDuplicateNotice?.childId === selectedChild.id && (
+          <div
+            role="status"
+            data-testid="child-duplicate-notice"
+            className="mt-4 text-sm text-[#8B7635] bg-[#FBF6E8] border border-[#F5EFD9] rounded-sm px-3 py-2"
+          >
+            {t('child.add.duplicate_warning', { name: childDuplicateNotice.name })}
+          </div>
+        )}
         {mode === 'child' && selectedChild && (
           <ChildCard
             child={selectedChild}
@@ -956,20 +999,49 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
               <p className="mt-4 text-xs text-muted animate-pulse">{t('lookup_searching')}</p>
             )}
             {childrenDisplayPhase === 'children' && (
-              <ChildMatchList
-                childMatches={parentChildren}
-                hasMore={false}
-                onSelect={setSelectedChild}
-                months={months}
-              />
+              <>
+                <ChildMatchList
+                  childMatches={parentChildren}
+                  hasMore={false}
+                  onSelect={setSelectedChild}
+                  months={months}
+                />
+                {!addChildOpen && parentForChild && (
+                  <button
+                    type="button"
+                    data-testid="add-child-another"
+                    onClick={() => setAddChildForParentId(parentForChild.id)}
+                    className="mt-3 text-sm text-gold-dark font-medium underline underline-offset-2 min-h-[44px]"
+                  >
+                    {t('child.add.add_another_button')}
+                  </button>
+                )}
+              </>
             )}
-            {childrenDisplayPhase === 'none' && (
+            {childrenDisplayPhase === 'none' && !addChildOpen && (
               <div
                 data-testid="child-none-for-parent"
                 className="mt-4 p-5 bg-white border border-line rounded-[4px]"
               >
                 <p className="text-sm text-charcoal">{t('child.none_for_parent')}</p>
+                {parentForChild && (
+                  <button
+                    type="button"
+                    data-testid="add-child-first"
+                    onClick={() => setAddChildForParentId(parentForChild.id)}
+                    className="mt-3 px-4 py-2 bg-charcoal text-cream text-sm font-medium rounded-sm hover:bg-ink-2 transition-colors min-h-[44px]"
+                  >
+                    {t('child.add.add_button')}
+                  </button>
+                )}
               </div>
+            )}
+            {addChildOpen && parentForChild && (
+              <NewChildForm
+                parent={parentForChild}
+                onCreated={(child, existing) => handleChildCreated(parentForChild, child, existing)}
+                onCancel={() => setAddChildForParentId(null)}
+              />
             )}
             {childrenDisplayPhase === 'children_error' && (
               <p className="mt-4 text-xs text-[#A85959]">{t('lookup_error')}</p>
@@ -990,6 +1062,15 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
                 className="mt-4 p-5 bg-white border border-line rounded-[4px]"
               >
                 <p className="text-sm text-charcoal">{t('child.none_by_name')}</p>
+                {/* No parent is known here, so no create — a child is only ever
+                    added under a resolved parent (S8-T4b). */}
+                <button
+                  type="button"
+                  onClick={() => handleChildFindChange('parent_phone')}
+                  className="mt-3 text-sm text-gold-dark font-medium underline underline-offset-2 min-h-[44px]"
+                >
+                  {t('child.add.find_parent_hint')}
+                </button>
               </div>
             )}
           </>

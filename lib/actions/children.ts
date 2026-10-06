@@ -3,6 +3,7 @@
 import { createClient } from '../supabase/server'
 import {
   impl_listChildrenByParent,
+  impl_listChildrenByParentForAdmin,
   impl_lookupChildByName,
   impl_createChild,
   impl_updateChild,
@@ -10,6 +11,7 @@ import {
 } from './children.impl'
 import type {
   ListChildrenByParentResult,
+  ListChildrenByParentForAdminResult,
   LookupChildByNameResult,
   CreateChildInput,
   CreateChildResult,
@@ -23,6 +25,14 @@ export async function listChildrenByParent(
 ): Promise<ListChildrenByParentResult> {
   const supabase = await createClient()
   return impl_listChildrenByParent(parentPersonId, supabase)
+}
+
+/** Admin person page only — includes notes. Check-in must use listChildrenByParent. */
+export async function listChildrenByParentForAdmin(
+  parentPersonId: string,
+): Promise<ListChildrenByParentForAdminResult> {
+  const supabase = await createClient()
+  return impl_listChildrenByParentForAdmin(parentPersonId, supabase)
 }
 
 export async function lookupChildByName(query: string): Promise<LookupChildByNameResult> {

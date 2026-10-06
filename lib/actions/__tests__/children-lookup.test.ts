@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { impl_listChildrenByParent, impl_lookupChildByName } from '../children.impl'
+import {
+  impl_listChildrenByParent,
+  impl_listChildrenByParentForAdmin,
+  impl_lookupChildByName,
+} from '../children.impl'
 
 // ── Mock builder ──────────────────────────────────────────────────────────────
 // Neither child lookup has a .single() terminal — the builder itself is awaited,
@@ -229,5 +233,46 @@ describe('impl_lookupChildByName', () => {
     expect(supabase.auth.getClaims).not.toHaveBeenCalled()
     expect(supabase.from).not.toHaveBeenCalledWith('app_users')
     expect(supabase.from).toHaveBeenCalledTimes(1)
+  })
+})
+
+// ── S8-T4b: notes never on the check-in path; admin list carries it ──────────
+
+describe('notes select split (S8-T4b)', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('check-in lookups never select notes', async () => {
+    const a = makeSupabase({ data: [], error: null })
+    await impl_listChildrenByParent(PARENT_ID, a.supabase as unknown as SupabaseClient)
+    expect(a.builder.select.mock.calls[0][0]).not.toMatch(/notes/)
+
+    const b = makeSupabase({ data: [], error: null })
+    await impl_lookupChildByName('Test', b.supabase as unknown as SupabaseClient)
+    expect(b.builder.select.mock.calls[0][0]).not.toMatch(/notes/)
+  })
+
+  it('impl_listChildrenByParentForAdmin selects notes, same filters/order, returns rows with notes', async () => {
+    const row = { ...child('c1', 'Test Child A'), notes: 'admin note' }
+    const { supabase, builder } = makeSupabase({ data: [row], error: null })
+    const result = await impl_listChildrenByParentForAdmin(PARENT_ID, supabase as unknown as SupabaseClient)
+
+    expect(builder.select).toHaveBeenCalledWith('id, parent_person_id, full_name, birth_date, gender, notes')
+    expect(builder.eq).toHaveBeenCalledWith('parent_person_id', PARENT_ID)
+    expect(builder.is).toHaveBeenCalledWith('deleted_at', null)
+    expect(builder.order).toHaveBeenCalledWith('full_name', { ascending: true })
+    expect(result).toEqual({ status: 'children', children: [row] })
+  })
+
+  it('impl_listChildrenByParentForAdmin: invalid id → invalid_input (no DB call); empty → none; error → error', async () => {
+    const bad = makeSupabase()
+    expect((await impl_listChildrenByParentForAdmin('nope', bad.supabase as unknown as SupabaseClient)).status).toBe('invalid_input')
+    expect(bad.supabase.from).not.toHaveBeenCalled()
+
+    const empty = makeSupabase({ data: [], error: null })
+    expect(await impl_listChildrenByParentForAdmin(PARENT_ID, empty.supabase as unknown as SupabaseClient)).toEqual({ status: 'none' })
+
+    const err = makeSupabase({ data: null, error: { message: 'boom' } })
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    expect((await impl_listChildrenByParentForAdmin(PARENT_ID, err.supabase as unknown as SupabaseClient)).status).toBe('error')
   })
 })

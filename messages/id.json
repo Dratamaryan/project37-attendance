@@ -95,6 +95,34 @@
         "event_inactive": "Acara ini tidak aktif. Hubungi admin.",
         "forbidden": "Anda tidak memiliki izin untuk mencatat kehadiran anak. Hubungi admin.",
         "generic_error": "Terjadi kesalahan. Silakan coba lagi."
+      },
+      "add": {
+        "add_button": "Tambah anak",
+        "add_another_button": "+ Tambah anak lain",
+        "find_parent_hint": "Untuk menambah anak baru, cari orang tuanya dulu",
+        "title": "Tambah anak",
+        "parent_label": "Orang tua: {name}",
+        "full_name_label": "Nama lengkap anak",
+        "full_name_placeholder": "mis. Maria Santoso",
+        "birth_date_label": "Tanggal lahir",
+        "gender_label": "Jenis kelamin",
+        "gender_male": "Laki-laki",
+        "gender_female": "Perempuan",
+        "gender_unspecified": "Tidak disebutkan",
+        "submit_button": "Tambah anak",
+        "submit_button_pending": "Menambahkan...",
+        "cancel_button": "Batal",
+        "field_error": {
+          "full_name": "Masukkan nama anak.",
+          "birth_date": "Masukkan tanggal yang valid dan tidak di masa depan."
+        },
+        "error": {
+          "validation": "Periksa kolom yang ditandai.",
+          "parent_not_found": "Data orang tua tidak ditemukan. Cari lagi.",
+          "forbidden": "Anda tidak memiliki izin untuk menambah anak. Hubungi admin.",
+          "error": "Terjadi kesalahan. Silakan coba lagi."
+        },
+        "duplicate_warning": "Ditambahkan. Catatan: anak bernama {name} sudah tercatat untuk orang tua ini — beri tahu admin jika ini duplikat."
       }
     },
     "check_in_button": "Daftar Hadir",
@@ -629,6 +657,55 @@
           "photo_failed": "Gagal memperbarui foto. Perubahan lain disimpan.",
           "not_found": "Anggota tidak ditemukan",
           "not_found_message": "Anggota ini tidak ada atau telah dihapus."
+        }
+      },
+      "children": {
+        "title": "Anak",
+        "empty": "Belum ada anak yang tercatat.",
+        "read_only_notice": "Orang ini sudah dihapus — data anak hanya bisa dilihat. Pulihkan orang ini untuk melakukan perubahan.",
+        "add_button": "Tambah anak",
+        "edit_button": "Ubah",
+        "edit_button_for": "Ubah {name}",
+        "delete_button": "Hapus",
+        "delete_button_for": "Hapus {name}",
+        "full_name_label": "Nama lengkap",
+        "full_name_placeholder": "mis. Maria Santoso",
+        "birth_date_label": "Tanggal lahir",
+        "gender_label": "Jenis kelamin",
+        "gender_male": "Laki-laki",
+        "gender_female": "Perempuan",
+        "gender_unspecified": "Tidak disebutkan",
+        "notes_label": "Catatan",
+        "notes_placeholder": "Opsional",
+        "notes_help": "Hanya untuk admin — tidak ditampilkan saat check-in.",
+        "create_button": "Tambah anak",
+        "create_button_pending": "Menambahkan...",
+        "save_button": "Simpan",
+        "save_button_pending": "Menyimpan...",
+        "cancel_button": "Batal",
+        "field_error": {
+          "full_name": "Nama lengkap wajib diisi.",
+          "birth_date": "Masukkan tanggal yang valid dan tidak di masa depan.",
+          "gender": "Pilih jenis kelamin yang valid."
+        },
+        "delete_confirm": {
+          "title": "Konfirmasi hapus",
+          "message": "Hapus {name}? Anak ini akan disembunyikan dari check-in.",
+          "confirm": "Hapus",
+          "cancel": "Batal"
+        },
+        "success": {
+          "created": "{name} ditambahkan.",
+          "updated": "{name} diperbarui.",
+          "deleted": "{name} dihapus."
+        },
+        "duplicate_warning": "{name} ditambahkan. Catatan: sudah ada anak dengan nama yang sama untuk orang tua ini — periksa kemungkinan duplikat.",
+        "error": {
+          "parent_not_found": "Orang ini tidak ditemukan atau sudah dihapus.",
+          "forbidden": "Anda tidak memiliki izin untuk melakukan ini.",
+          "not_found": "Anak ini tidak ditemukan — mungkin sudah dihapus. Daftar telah diperbarui.",
+          "generic": "Terjadi kesalahan. Silakan coba lagi.",
+          "load_failed": "Gagal memuat data anak. Muat ulang halaman untuk mencoba lagi."
         }
       }
     },

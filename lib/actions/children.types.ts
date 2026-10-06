@@ -11,6 +11,13 @@ export type ChildSummary = {
   gender: 'male' | 'female' | null
 }
 
+// Admin-only shape: ChildSummary + notes. Notes is admin-cleanup context (may
+// hold raw parsed fragments from S8-T4) and must never reach the check-in
+// browser — check-in lookups select ChildSummary fields only.
+export type AdminChildSummary = ChildSummary & {
+  notes: string | null
+}
+
 // Name-search result row: the parent's name is the disambiguator, playing the
 // role the masked phone tail plays in the adult NameMatchList.
 export type ChildWithParentSummary = ChildSummary & {
@@ -21,6 +28,15 @@ export type ChildWithParentSummary = ChildSummary & {
 
 export type ListChildrenByParentResult =
   | { status: 'children'; children: ChildSummary[] }
+  | { status: 'none' }
+  | { status: 'invalid_input'; field: string; message: string }
+  | { status: 'error'; message: string }
+
+// ── listChildrenByParentForAdmin ─────────────────────────────────
+
+// Same discriminants as ListChildrenByParentResult; rows carry notes.
+export type ListChildrenByParentForAdminResult =
+  | { status: 'children'; children: AdminChildSummary[] }
   | { status: 'none' }
   | { status: 'invalid_input'; field: string; message: string }
   | { status: 'error'; message: string }

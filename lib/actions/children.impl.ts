@@ -8,7 +8,9 @@ import { formatJakarta } from '../events/timezone'
 import type {
   ChildSummary,
   ChildWithParentSummary,
+  AdminChildSummary,
   ListChildrenByParentResult,
+  ListChildrenByParentForAdminResult,
   LookupChildByNameResult,
   CreateChildInput,
   CreateChildResult,
@@ -19,7 +21,9 @@ import type {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
+// Check-in-facing select: NO notes (admin-only context, never sent to the floor).
 const CHILD_SUMMARY_FIELDS = 'id, parent_person_id, full_name, birth_date, gender'
+const ADMIN_CHILD_SUMMARY_FIELDS = `${CHILD_SUMMARY_FIELDS}, notes`
 
 // ── listChildrenByParent ─────────────────────────────────────────────────────
 
@@ -51,6 +55,40 @@ export async function impl_listChildrenByParent(
   }
 
   const rows = (data ?? []) as unknown as ChildSummary[]
+  if (rows.length === 0) return { status: 'none' }
+
+  return { status: 'children', children: rows }
+}
+
+// ── listChildrenByParentForAdmin ─────────────────────────────────────────────
+
+/**
+ * S8-T4b: the admin person page's children list — impl_listChildrenByParent
+ * plus notes. Kept separate so notes never travels to the check-in browser.
+ * Only the admin page and PersonChildrenSection call it; the function itself
+ * just uses the session client (admin RLS applies, no role gate here).
+ */
+export async function impl_listChildrenByParentForAdmin(
+  parentPersonId: string,
+  supabase: SupabaseClient,
+): Promise<ListChildrenByParentForAdminResult> {
+  if (!UUID_RE.test(parentPersonId)) {
+    return { status: 'invalid_input', field: 'parentPersonId', message: 'Invalid parent person id' }
+  }
+
+  const { data, error } = await supabase
+    .from('children')
+    .select(ADMIN_CHILD_SUMMARY_FIELDS)
+    .eq('parent_person_id', parentPersonId)
+    .is('deleted_at', null)
+    .order('full_name', { ascending: true })
+
+  if (error) {
+    console.error('[listChildrenByParentForAdmin]', error)
+    return { status: 'error', message: 'Lookup failed' }
+  }
+
+  const rows = (data ?? []) as unknown as AdminChildSummary[]
   if (rows.length === 0) return { status: 'none' }
 
   return { status: 'children', children: rows }

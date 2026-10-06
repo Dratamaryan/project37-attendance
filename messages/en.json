@@ -95,6 +95,34 @@
         "event_inactive": "This event is inactive. Contact an admin.",
         "forbidden": "You don't have permission to check children in. Contact an admin.",
         "generic_error": "Something went wrong. Please try again."
+      },
+      "add": {
+        "add_button": "Add a child",
+        "add_another_button": "+ Add another child",
+        "find_parent_hint": "To add a new child, find the parent first",
+        "title": "Add a child",
+        "parent_label": "Parent: {name}",
+        "full_name_label": "Child's full name",
+        "full_name_placeholder": "e.g. Maria Santoso",
+        "birth_date_label": "Birth date",
+        "gender_label": "Gender",
+        "gender_male": "Boy",
+        "gender_female": "Girl",
+        "gender_unspecified": "Not specified",
+        "submit_button": "Add child",
+        "submit_button_pending": "Adding...",
+        "cancel_button": "Cancel",
+        "field_error": {
+          "full_name": "Enter the child's name.",
+          "birth_date": "Enter a valid date that is not in the future."
+        },
+        "error": {
+          "validation": "Please check the highlighted fields.",
+          "parent_not_found": "This parent's record wasn't found. Search again.",
+          "forbidden": "You don't have permission to add children. Contact an admin.",
+          "error": "Something went wrong. Please try again."
+        },
+        "duplicate_warning": "Added. Note: a child named {name} was already on file for this parent — let an admin know if this is a duplicate."
       }
     },
     "check_in_button": "Check in",
@@ -629,6 +657,55 @@
           "photo_failed": "Couldn't update photo. Other changes were saved.",
           "not_found": "Person not found",
           "not_found_message": "This person doesn't exist or has been removed."
+        }
+      },
+      "children": {
+        "title": "Children",
+        "empty": "No children on file.",
+        "read_only_notice": "This person is deleted — children are read-only. Restore the person to make changes.",
+        "add_button": "Add child",
+        "edit_button": "Edit",
+        "edit_button_for": "Edit {name}",
+        "delete_button": "Delete",
+        "delete_button_for": "Delete {name}",
+        "full_name_label": "Full name",
+        "full_name_placeholder": "e.g. Maria Santoso",
+        "birth_date_label": "Birth date",
+        "gender_label": "Gender",
+        "gender_male": "Male",
+        "gender_female": "Female",
+        "gender_unspecified": "Not specified",
+        "notes_label": "Notes",
+        "notes_placeholder": "Optional",
+        "notes_help": "Admin-only — never shown at check-in.",
+        "create_button": "Add child",
+        "create_button_pending": "Adding...",
+        "save_button": "Save",
+        "save_button_pending": "Saving...",
+        "cancel_button": "Cancel",
+        "field_error": {
+          "full_name": "Full name is required.",
+          "birth_date": "Enter a valid date that is not in the future.",
+          "gender": "Choose a valid gender."
+        },
+        "delete_confirm": {
+          "title": "Confirm delete",
+          "message": "Delete {name}? They will be hidden from check-in.",
+          "confirm": "Delete",
+          "cancel": "Cancel"
+        },
+        "success": {
+          "created": "{name} added.",
+          "updated": "{name} updated.",
+          "deleted": "{name} deleted."
+        },
+        "duplicate_warning": "{name} added. Note: a child with the same name already exists for this parent — check for a duplicate.",
+        "error": {
+          "parent_not_found": "This person was not found or has been deleted.",
+          "forbidden": "You don't have permission to do this.",
+          "not_found": "This child was not found — it may have been deleted. The list has been refreshed.",
+          "generic": "Something went wrong. Please try again.",
+          "load_failed": "Couldn't load children. Reload the page to try again."
         }
       }
     },
