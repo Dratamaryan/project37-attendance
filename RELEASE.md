@@ -239,3 +239,12 @@ branch-expected ref for remote ops.
   (77 child.create). Rehearsed on local prod-restore before apply; backup
   prod-data-only-20261006T095151Z.sql taken first. Row 55 unparseable (needs manual
   entry); rows 28/69/101 flagged for admin review. Admin add-child UI → T4b.
+
+  - S8-T4b (manual add/edit child UI): admin PersonChildrenSection (list/add/edit/
+  soft-delete, notes view+edit for parse-cleanup, read-only for soft-deleted parent)
+  + check-in create-only affordance (NewChildForm → createChild → ChildCard, never
+  auto-attends). Duplicate=warn-not-block. Audit IDs-only for minors. notes split to
+  admin-only path (type-enforced; check-in never selects it). Two-pass build, +64
+  tests, gate 1092/1092. Prod-verified on-device: child search, add-child, idempotent
+  check-in all live. Admin-review cleanup (rows 55/13/15/25/28/45/69/99/101) now
+  doable via the admin UI. Opened T10 (admin add-person — separate gap).
