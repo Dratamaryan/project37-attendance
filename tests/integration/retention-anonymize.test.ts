@@ -105,6 +105,10 @@ async function createPersonFixture(overrides: PersonFixtureOverrides = {}): Prom
       photo_consent_at: new Date().toISOString(),
       birthday_email_opt_in: true,
       birthday_email_opt_in_at: new Date().toISOString(),
+      wedding_anniversary: '2015-06-20',
+      spouse_name: 'fixture spouse — must not survive scrub',
+      anniversary_consent_state: 'granted',
+      anniversary_consent_at: new Date().toISOString(),
       ...overrides,
     })
     .select('id')
@@ -281,6 +285,11 @@ describe('anonymize_person via admin path (impl_anonymizePerson)', () => {
     expect(after.photo_consent_version).toBe('v1') // [C] explicitly left untouched
     expect(after.birthday_email_opt_in).toBe(false)
     expect(after.birthday_email_opt_in_at).toBeNull()
+    // S8-T3 columns
+    expect(after.wedding_anniversary).toBeNull()
+    expect(after.spouse_name).toBeNull()
+    expect(after.anniversary_consent_state).toBe('unknown')
+    expect(after.anniversary_consent_at).toBeNull()
 
     // demographic columns NOT in the D4 scrub list — preserved
     expect(after.id).toBe(personId)
