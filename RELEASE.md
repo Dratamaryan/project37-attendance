@@ -248,3 +248,20 @@ branch-expected ref for remote ops.
   tests, gate 1092/1092. Prod-verified on-device: child search, add-child, idempotent
   check-in all live. Admin-review cleanup (rows 55/13/15/25/28/45/69/99/101) now
   doable via the admin UI. Opened T10 (admin add-person — separate gap).
+
+  - S8-T3 (anniversary/spouse): migration c63c658 (20261007120000) applied to
+  staging + prod — people.wedding_anniversary (date), spouse_name (text),
+  anniversary_consent_state (consent_state_enum NOT NULL DEFAULT 'unknown'),
+  anniversary_consent_at (timestamptz); anonymize_person() CREATE OR REPLACE adds
+  the 4-column scrub (signature, SECURITY DEFINER, search_path, service_role-only
+  ACL unchanged; def_md5 identical on both remotes). Script 81d01a7
+  (s8-t3-anniversary-spouse-enrich, fill-empty, SQL IS NULL guard) live-verified on
+  prod 2026-10-13, importId 94d4c4ae…: 60 rows filled (58 anniversaries / 60
+  spouses), 1 anniversary quarantined (string cell), 0 conflicts, 0 race-skipped;
+  idempotent re-run 0 writes; consent untouched (all 222 'unknown'); audit 60
+  people.update rows, field names only. Rehearsed on local prod-restore first;
+  owner calendar-day spot-check 3/3; backup prod-data-only-20261013T054224Z.sql
+  taken first. Follow-ups: F2 (P1) anonymize_person() must scrub the anonymized
+  parent's children; admin UI/export for the new columns; T6 anniversary consent
+  gate. Practice: restart dev REST (PostgREST) after any `supabase db reset`,
+  before the full-suite gate (stale REST → transient 502s seen once).
