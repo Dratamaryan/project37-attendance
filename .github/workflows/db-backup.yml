@@ -1,0 +1,182 @@
+name: DB backup (prod → Google Drive)
+
+# S8-T8 — scheduled cold backup of prod. Roles + schema + data (public, auth)
+# are dumped, tarred with a manifest, and copied to a drive.file-scoped Google
+# Drive folder. Restore procedure: docs/backups/RUNBOOK.md §0.
+#
+# Never `set -x` in this file, and never cat/echo a dump or a secret. The repo
+# is PUBLIC: run logs and the job summary are world-readable, so the summary
+# carries no per-table counts — those live only in manifest.json in the archive.
+
+on:
+  schedule:
+    # 15:00 UTC on days 15–21. The gate job drops everything except Sunday,
+    # so this fires on the 3rd Sunday of each month (22:00 WIB).
+    - cron: '0 15 15-21 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - id: check
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_EVENT_NAME" = "schedule" ] && [ "$(date -u +%u)" != "7" ]; then
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "skipped: not Sunday" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  backup:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: backup-prod
+    env:
+      RCLONE_VERSION: v1.75.1
+      RCLONE_SHA256: 982b5aa772841168f8e380f139e9e787b2a105403e32b94da8676a0e1c0a13ab
+      # Transient / credential-bearing auth tables. Login identity survives via
+      # auth.users + auth.identities; users simply sign in again after a restore.
+      # auth.schema_migrations is already excluded by the CLI itself.
+      AUTH_EXCLUDE: auth.sessions,auth.refresh_tokens,auth.mfa_amr_claims,auth.mfa_challenges,auth.flow_state,auth.one_time_tokens,auth.saml_relay_states,auth.oauth_client_states,auth.webauthn_challenges,auth.audit_log_entries
+    steps:
+      # GitHub masks the whole PROD_DB_URL secret, but not the password on its
+      # own. Mask it raw (as stored, possibly percent-encoded) and decoded.
+      # Workflow-command data must itself be escaped (% \r \n), or a password
+      # containing % would be unescaped by the runner and masked wrongly.
+      - name: Mask DB password
+        shell: bash
+        env:
+          PROD_DB_URL: ${{ secrets.PROD_DB_URL }}
+        run: |
+          node -e '
+            const esc = (s) => s.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A")
+            try {
+              const m = /^[a-z][a-z0-9+.-]*:\/\/[^:\/@]*:(.*)@[^@]*$/i.exec(process.env.PROD_DB_URL ?? "")
+              if (!m || !m[1]) throw new Error()
+              for (const v of new Set([m[1], decodeURIComponent(m[1])])) {
+                if (v) process.stdout.write(`::add-mask::${esc(v)}\n`)
+              }
+            } catch {
+              process.stdout.write("::error::PROD_DB_URL is not a postgresql://user:password@host/db URL\n")
+              process.exit(1)
+            }
+          '
+
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        with:
+          persist-credentials: false
+
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
+        with:
+          version: 2.101.0
+
+      - name: Install rclone (pinned, checksum-verified)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          zip="rclone-${RCLONE_VERSION}-linux-amd64.zip"
+          curl -fsSLO "https://downloads.rclone.org/${RCLONE_VERSION}/${zip}"
+          echo "${RCLONE_SHA256}  ${zip}" | sha256sum -c -
+          unzip -q "$zip"
+          mkdir -p "$RUNNER_TEMP/bin"
+          install -m 0755 "rclone-${RCLONE_VERSION}-linux-amd64/rclone" "$RUNNER_TEMP/bin/rclone"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Dump prod (roles, schema, data)
+        shell: bash
+        env:
+          PROD_DB_URL: ${{ secrets.PROD_DB_URL }}
+        run: |
+          set -euo pipefail
+          umask 077
+          out="$RUNNER_TEMP/backup"
+          mkdir -p "$out"
+          supabase db dump --db-url "$PROD_DB_URL" --role-only -f "$out/roles.sql"
+          supabase db dump --db-url "$PROD_DB_URL" -f "$out/schema.sql"
+          supabase db dump --db-url "$PROD_DB_URL" --data-only --use-copy \
+            -s public,auth -x "$AUTH_EXCLUDE" -f "$out/data.sql"
+
+      - name: Build manifest and archive
+        id: archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          out="$RUNNER_TEMP/backup"
+          stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+          node scripts/backup/manifest.mjs --dir "$out" --migrations-dir supabase/migrations
+          name="project37-prod-backup-${stamp}.tar.gz"
+          tar -C "$out" -czf "$RUNNER_TEMP/$name" roles.sql schema.sql data.sql manifest.json
+          {
+            echo "name=$name"
+            echo "size=$(stat -c %s "$RUNNER_TEMP/$name")"
+            echo "sha256=$(sha256sum "$RUNNER_TEMP/$name" | cut -d' ' -f1)"
+            echo "md5=$(md5sum "$RUNNER_TEMP/$name" | cut -d' ' -f1)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload to Google Drive, verify, prune
+        shell: bash
+        env:
+          RCLONE_CONFIG: ${{ runner.temp }}/rclone.conf
+          RCLONE_CONFIG_P37GDRIVE_TYPE: drive
+          RCLONE_CONFIG_P37GDRIVE_SCOPE: drive.file
+          RCLONE_CONFIG_P37GDRIVE_CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
+          RCLONE_CONFIG_P37GDRIVE_CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
+          RCLONE_CONFIG_P37GDRIVE_TOKEN: ${{ secrets.GDRIVE_TOKEN }}
+          RCLONE_CONFIG_P37GDRIVE_ROOT_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+          NAME: ${{ steps.archive.outputs.name }}
+          SIZE: ${{ steps.archive.outputs.size }}
+          MD5: ${{ steps.archive.outputs.md5 }}
+        run: |
+          set -euo pipefail
+          : > "$RCLONE_CONFIG"
+          rclone copy "$RUNNER_TEMP/$NAME" p37gdrive:
+          remote="$(rclone lsf p37gdrive: --files-only --max-depth 1 --include "$NAME" \
+            --format hs --hash MD5 --separator ' ')"
+          if [ "$remote" != "$MD5 $SIZE" ]; then
+            echo "::error::uploaded file missing or md5/size mismatch"
+            exit 1
+          fi
+          rclone delete p37gdrive: --max-depth 1 --min-age 370d \
+            --include 'project37-prod-backup-*.tar.gz'
+
+      - name: Job summary
+        shell: bash
+        env:
+          NAME: ${{ steps.archive.outputs.name }}
+          SIZE: ${{ steps.archive.outputs.size }}
+          SHA256: ${{ steps.archive.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+          m="$RUNNER_TEMP/backup/manifest.json"
+          jq -e '. as $m | [$m.required[] | ($m.tables[.] // 0) > 0] | all' "$m" > /dev/null
+          {
+            echo "### Prod backup"
+            echo
+            echo "- File: \`$NAME\`"
+            echo "- Size: $SIZE bytes"
+            echo "- Archive sha256: \`$SHA256\`"
+            echo "- Latest migration: \`$(jq -r .latestMigration "$m")\`"
+            echo "- Tables: $(jq '.tables | length' "$m")"
+            echo "- Required tables present ✓"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove local dump files
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/backup" "$RUNNER_TEMP"/project37-prod-backup-*.tar.gz "$RUNNER_TEMP/rclone.conf"

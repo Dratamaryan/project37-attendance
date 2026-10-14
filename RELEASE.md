@@ -265,3 +265,17 @@ branch-expected ref for remote ops.
   parent's children; admin UI/export for the new columns; T6 anniversary consent
   gate. Practice: restart dev REST (PostgREST) after any `supabase db reset`,
   before the full-suite gate (stale REST → transient 502s seen once).
+
+- S8-T8 (scheduled prod backup): .github/workflows/db-backup.yml — 3rd Sunday monthly
+  15:00 UTC (cron 15-21 + Sunday gate job) + workflow_dispatch; environment backup-prod
+  (main only). Supabase CLI 2.101.0 via --db-url (Session pooler): roles.sql
+  (--role-only), schema.sql, data.sql (--data-only --use-copy, public + auth;
+  transient/token auth tables excluded, auth.users + auth.identities kept).
+  scripts/backup/manifest.mjs (plain ESM, no deps): per-table COPY row counts, per-file
+  sha256, latest migration, git SHA, UTC timestamp; fails on empty files, truncated
+  COPY blocks, or missing/empty public.people / auth.users. tar.gz → rclone v1.75.1
+  (sha256-pinned, drive.file) → md5+size re-verified via lsf → prune >370d. Public job
+  summary is minimal (no per-table counts). DB password masked raw + decoded. Not
+  encrypted (owner decision). Photos (people-photos) out of scope — backlog. Restore
+  procedure: docs/backups/RUNBOOK.md §0/§3a. Live verify pending (first manual run +
+  restore drill).
