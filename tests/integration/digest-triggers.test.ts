@@ -143,8 +143,9 @@ let organizerSession: SupabaseClient
 // otherwise sorts as the globally "latest" system_health row by any other
 // test file's `order('checked_at', { ascending: false }).limit(1)` query
 // (e.g. events-materialize.test.ts MAT-08), breaking it on a later run.
-// Called in both beforeAll (idempotent safety if a prior run crashed before
-// its own afterAll) and afterAll.
+// Called in beforeAll (idempotent safety if a prior run crashed before its own
+// afterAll), afterEach (unconditional — a test that fails mid-way can't leak a
+// claim row into the next test's 'already sent' path) and afterAll.
 async function cleanupClaimRows() {
   await serviceAdmin
     .from('system_health')
@@ -227,6 +228,7 @@ afterEach(async () => {
     await serviceAdmin.from('system_health').delete().in('id', Array.from(healthIds))
     healthIds.clear()
   }
+  await cleanupClaimRows()
 })
 
 // ── privilege gate — before any send ─────────────────────────────────────────
@@ -330,7 +332,8 @@ describe('impl_runBirthdayDigestNow — happy path, second click is a no-op, aud
 
 describe('impl_runAttendanceSummaryNow — happy path, second click is a no-op, flip note, audited both times', () => {
   it('first click sends (and flips the past instance); second click for the same day skips, zero additional sends', async () => {
-    const instanceId = await insertInstance({ scheduled_at: '2026-12-04T11:00:00.000Z', status: 'scheduled' })
+    // 18:00 WIB on 2026-12-03 — ends the previous WIB day, so the S8-T9 end-day rule flips it at SUMMARY_NOW
+    const instanceId = await insertInstance({ scheduled_at: '2026-12-03T11:00:00.000Z', status: 'scheduled' })
     const personId = await insertPerson({ phone_e164: '+62999009108002', full_name: 'S8 Attendee', nickname: 'S8A' })
     await insertAttendance(instanceId, personId, '2026-12-03T18:00:00.000Z', adminId)
 

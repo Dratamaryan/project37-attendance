@@ -288,7 +288,7 @@
       "run_summary": {
         "button": "Run attendance summary now",
         "button_pending": "Running…",
-        "help": "Shares today's send slot with the scheduled summary — if it already sent today, this will not send again. Also marks any past event today as completed, whether or not a new summary is sent.",
+        "help": "Shares today's send slot with the scheduled summary — if it already sent today, this will not send again. Also marks events that ended before today (WIB) as completed, whether or not a new summary is sent.",
         "sent": "Sent — {count} check-in(s).",
         "skipped": "Already sent today — skipped.",
         "concurrent": "A run is already in progress — refresh in a moment.",

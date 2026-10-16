@@ -6,6 +6,7 @@ import {
   formatAttendanceSummary,
   type AttendanceRow,
 } from '@/lib/events/attendance-summary'
+import { formatJakarta } from '@/lib/events/timezone'
 import { sendTelegramMessage, type SendTelegramMessageResult } from '@/lib/telegram/client'
 import { resolveChatId } from '@/lib/telegram/chat-id'
 import { claimCronSlot, resolveCronClaim } from '@/lib/cron/idempotent-claim'
@@ -46,20 +47,42 @@ export type AttendanceSummaryInput = {
 
 type AppSettingsChatIdRow = { telegram_admin_chat_id: string | null }
 
+type FlipCandidateRow = {
+  id: string
+  scheduled_at: string
+  events: { duration_min: number }
+}
+
+/** WIB calendar date ('yyyy-MM-dd') on which an instance ends. scheduled_at is
+ * a full timestamptz (explicit offset), so parsing it yields an exact instant;
+ * the calendar date is only ever derived in Asia/Jakarta via formatJakarta. */
+function instanceEndWibDate(scheduledAt: string, durationMin: number): string {
+  const endInstant = new Date(Date.parse(scheduledAt) + durationMin * 60_000)
+  return formatJakarta(endInstant, 'yyyy-MM-dd')
+}
+
 /**
- * Flips event_instances that have actually occurred (scheduled_at < now, the
- * injected clock — never a parallel "day" computation) from 'scheduled' to
- * 'completed'. Never touches 'cancelled' (excluded structurally by the
- * status='scheduled' predicate, not just by convention). Idempotent — a second
- * call with the same or later `now` only matches rows still 'scheduled'.
+ * Flips event_instances from 'scheduled' to 'completed' iff the WIB date of
+ * their end (scheduled_at + events.duration_min) is strictly before the WIB
+ * date of `now` (the injected clock). Never touches 'cancelled' or 'completed'
+ * (excluded structurally by the status='scheduled' predicate on both the read
+ * and the write). Idempotent — a second call with the same or later `now` only
+ * matches rows still 'scheduled'.
  *
- * Deliberately `scheduled_at < now`, NOT the summary's [startUtc, endUtc) day
- * window: the window answers "which day am I reporting", the flip answers
- * "what has actually occurred by the moment I'm running" — these differ on a
- * manual/off-schedule fire (e.g. a mid-day live-verify or a future T8 manual
- * trigger), where `< endUtc` would prematurely complete an event still hours
- * away. `< now` is correct regardless of fire time; anything not yet flipped
- * by an early fire is picked up by that night's natural 23:30 ICT run.
+ * S8-T9 tightened this from S5-T5's `scheduled_at < now`. That rule completed
+ * an instance the moment it STARTED, so an off-schedule fire (the admin "Run
+ * now" trigger, or a late-night event) dropped a still-running or just-ended
+ * event out of the /checkin picker (which lists status='scheduled' only) —
+ * S5-T5 accepted that risk on the assumption that only the 23:30 ICT cron ever
+ * flips. The end-day rule removes it: an instance stays 'scheduled', and
+ * check-in-able, for the whole WIB day it ends on, whatever the fire time.
+ * Consequence: the 23:30 ICT run no longer completes that same day's events;
+ * the next night's run does. Events crossing WIB midnight complete after their
+ * end day, not their start day.
+ *
+ * `scheduled_at < now` stays on the read as a cheap narrowing pre-filter (any
+ * instance that ended before today's WIB date started before now); the
+ * end-date comparison happens here, as 'yyyy-MM-dd' string compares.
  *
  * Called unconditionally, before the send-idempotency claim, on every
  * invocation — the day's events occurred regardless of whether the digest
@@ -69,16 +92,33 @@ type AppSettingsChatIdRow = { telegram_admin_chat_id: string | null }
 export async function flipCompletedInstances(supabase: SupabaseClient, now: Date): Promise<number> {
   const { data, error } = await supabase
     .from('event_instances')
-    .update({ status: 'completed' })
+    .select('id, scheduled_at, events!inner(duration_min)')
     .eq('status', 'scheduled')
     .lt('scheduled_at', now.toISOString())
-    .select('id')
 
   if (error) {
-    throw new Error(`Failed to flip completed instances: ${error.message}`)
+    throw new Error(`Failed to read flip candidates: ${error.message}`)
   }
 
-  return (data ?? []).length
+  const todayWib = formatJakarta(now, 'yyyy-MM-dd')
+  const ids = ((data ?? []) as unknown as FlipCandidateRow[])
+    .filter((row) => instanceEndWibDate(row.scheduled_at, row.events.duration_min) < todayWib)
+    .map((row) => row.id)
+
+  if (ids.length === 0) return 0
+
+  const { data: flipped, error: updateError } = await supabase
+    .from('event_instances')
+    .update({ status: 'completed' })
+    .in('id', ids)
+    .eq('status', 'scheduled')
+    .select('id')
+
+  if (updateError) {
+    throw new Error(`Failed to flip completed instances: ${updateError.message}`)
+  }
+
+  return (flipped ?? []).length
 }
 
 /**

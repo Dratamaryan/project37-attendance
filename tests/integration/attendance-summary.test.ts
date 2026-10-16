@@ -12,8 +12,10 @@
 // scheduled→completed flip (flipCompletedInstances), run unconditionally before
 // the claim/send path — its own describe block below tests the predicate
 // directly; the flip also runs as a side effect of every runAttendanceSummary
-// call in the tests below, since fixture instances are always scheduled before
-// NOW (matches production: the cron fires after the events it reports on).
+// call in the tests below. Sprint 8 T9 tightened the rule to "WIB end date <
+// WIB today", so same-day fixture instances (18:00 WIB on TODAY_ICT) are NOT
+// flipped by a NOW on that same day — tests that prove the side effect use a
+// previous-WIB-day instance.
 // Run: npm test -- attendance-summary
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
@@ -59,6 +61,7 @@ const createdInstanceIds: string[] = [];
 const createdAttendanceIds: string[] = [];
 const createdPersonIds: string[] = [];
 const createdHealthIds: string[] = [];
+const createdEventIds: string[] = [];
 
 async function insertInstance(attrs: Record<string, unknown>): Promise<string> {
   const { data, error } = await admin
@@ -185,6 +188,10 @@ afterAll(async () => {
     await admin.from('event_instances').delete().eq('event_id', eventId);
     await admin.from('events').delete().eq('id', eventId);
   }
+  if (createdEventIds.length > 0) {
+    await admin.from('event_instances').delete().in('event_id', createdEventIds);
+    await admin.from('events').delete().in('id', createdEventIds);
+  }
 }, 30_000);
 
 afterEach(async () => {
@@ -204,33 +211,116 @@ afterEach(async () => {
     await admin.from('system_health').delete().in('id', createdHealthIds);
     createdHealthIds.length = 0;
   }
+  // Unconditional, by this file's fixed claim key: a test that fails before its
+  // readClaimRow() registration line would otherwise leak the claim row, and every
+  // later run then sees 'already sent' for TODAY_ICT. Every claim this file creates
+  // (runAttendanceSummary at NOW, insertHealthRow) uses exactly this key.
+  const { error: claimCleanupErr } = await admin
+    .from('system_health')
+    .delete()
+    .eq('source', ATTENDANCE_SUMMARY_SOURCE)
+    .eq('ict_date', TODAY_ICT);
+  if (claimCleanupErr) throw new Error(`cleanup system_health claim: ${claimCleanupErr.message}`);
 });
 
+// S8-T9 rule: scheduled → completed iff WIB date(scheduled_at + duration_min) <
+// WIB date(now). NOW is 2026-11-19 23:30 WIB, so "today" is 2026-11-19 and only
+// instances ENDING on 2026-11-18 WIB or earlier may flip. Fixture times are
+// annotated in WIB (UTC+7). The default fixture event (eventId) has
+// duration_min = 120 (column default).
+const NOW_PREV_DAY = new Date('2026-11-18T16:30:00.000Z'); // 2026-11-18 23:30 WIB
+const NOW_NEXT_DAY = new Date('2026-11-20T16:30:00.000Z'); // 2026-11-20 23:30 WIB
+
+async function insertEvent(name: string, durationMin: number): Promise<string> {
+  const { data, error } = await admin
+    .from('events')
+    .insert({
+      name,
+      event_type: 'adhoc',
+      start_date: '2026-11-18',
+      start_time: '22:00:00',
+      duration_min: durationMin,
+      active: true,
+      created_by: FAKE_ADMIN_ID,
+    })
+    .select('id')
+    .single();
+  if (error || !data) throw new Error(`insert event: ${error?.message}`);
+  createdEventIds.push(data.id as string);
+  return data.id as string;
+}
+
+async function statusesById(ids: string[]): Promise<Map<string, string>> {
+  const { data } = await admin.from('event_instances').select('id, status').in('id', ids);
+  return new Map((data ?? []).map((r) => [r.id as string, r.status as string]));
+}
+
 describe('flipCompletedInstances', () => {
-  it('flips scheduled_at < now scheduled instances to completed; leaves cancelled and future untouched; strict-less-than at the boundary; idempotent re-run', async () => {
-    const pastInstance = await insertInstance({ scheduled_at: '2026-11-19T10:00:00.000Z', status: 'scheduled' });
-    const exactNowInstance = await insertInstance({ scheduled_at: NOW.toISOString(), status: 'scheduled' });
-    const futureInstance = await insertInstance({ scheduled_at: '2026-11-20T10:00:00.000Z', status: 'scheduled' });
-    const cancelledPastInstance = await insertInstance({
-      scheduled_at: '2026-11-17T10:00:00.000Z',
-      status: 'cancelled',
+  it('flips only instances whose WIB end date is before today WIB: in-progress, ended-earlier-today, cancelled and future untouched; idempotent re-run', async () => {
+    // 21:45–23:45 WIB 11-19 — still running at NOW
+    const inProgress = await insertInstance({ scheduled_at: '2026-11-19T14:45:00.000Z', status: 'scheduled' });
+    // 18:00–20:00 WIB 11-19 — ended earlier today (the admin "Run now" case)
+    const endedToday = await insertInstance({ scheduled_at: '2026-11-19T11:00:00.000Z', status: 'scheduled' });
+    // 18:00–20:00 WIB 11-18 — ended on the previous WIB day
+    const endedYesterday = await insertInstance({ scheduled_at: '2026-11-18T11:00:00.000Z', status: 'scheduled' });
+    // 18:00 WIB 11-20 — future
+    const future = await insertInstance({ scheduled_at: '2026-11-20T11:00:00.000Z', status: 'scheduled' });
+    // 17:00 WIB 11-17 — cancelled, long past
+    const cancelledPast = await insertInstance({ scheduled_at: '2026-11-17T10:00:00.000Z', status: 'cancelled' });
+
+    const flipped = await flipCompletedInstances(admin, NOW);
+    expect(flipped).toBe(1); // only endedYesterday
+
+    const byId = await statusesById([inProgress, endedToday, endedYesterday, future, cancelledPast]);
+    expect(byId.get(inProgress)).toBe('scheduled');
+    expect(byId.get(endedToday)).toBe('scheduled'); // same WIB day — stays check-in-able
+    expect(byId.get(endedYesterday)).toBe('completed');
+    expect(byId.get(future)).toBe('scheduled');
+    expect(byId.get(cancelledPast)).toBe('cancelled'); // never touched, regardless of date
+
+    const secondFlip = await flipCompletedInstances(admin, NOW);
+    expect(secondFlip).toBe(0); // idempotent — endedYesterday already 'completed', no longer matches
+  });
+
+  it('an instance crossing WIB midnight is not flipped on its start day or its end day, only after its end day', async () => {
+    // 23:00 WIB 11-18 → 01:00 WIB 11-19 (120 min)
+    const crossing = await insertInstance({ scheduled_at: '2026-11-18T16:00:00.000Z', status: 'scheduled' });
+
+    expect(await flipCompletedInstances(admin, NOW_PREV_DAY)).toBe(0); // start day (in progress)
+    expect((await statusesById([crossing])).get(crossing)).toBe('scheduled');
+
+    expect(await flipCompletedInstances(admin, NOW)).toBe(0); // end day — start-day < today, but end-day is not
+    expect((await statusesById([crossing])).get(crossing)).toBe('scheduled');
+
+    // Later clock than every other suite's NOW: may also flip unrelated leftover
+    // rows in the shared local DB, so assert by fixture state, not exact count.
+    expect(await flipCompletedInstances(admin, NOW_NEXT_DAY)).toBeGreaterThanOrEqual(1);
+    expect((await statusesById([crossing])).get(crossing)).toBe('completed');
+
+    expect(await flipCompletedInstances(admin, NOW_NEXT_DAY)).toBe(0);
+  });
+
+  it('honours events.duration_min: same start, the short event (ends the previous WIB day) flips, the long one (ends today WIB) does not', async () => {
+    const shortEventId = await insertEvent('T9 Short Event', 60);
+    const longEventId = await insertEvent('T9 Long Event', 180);
+    // Both start 22:00 WIB 11-18. Short: ends 23:00 WIB 11-18. Long: ends 01:00 WIB 11-19.
+    const shortInstance = await insertInstance({
+      event_id: shortEventId,
+      scheduled_at: '2026-11-18T15:00:00.000Z',
+      status: 'scheduled',
+    });
+    const longInstance = await insertInstance({
+      event_id: longEventId,
+      scheduled_at: '2026-11-18T15:00:00.000Z',
+      status: 'scheduled',
     });
 
     const flipped = await flipCompletedInstances(admin, NOW);
-    expect(flipped).toBe(1); // only pastInstance — exactNowInstance is NOT < now
+    expect(flipped).toBe(1);
 
-    const { data: rows } = await admin
-      .from('event_instances')
-      .select('id, status')
-      .in('id', [pastInstance, exactNowInstance, futureInstance, cancelledPastInstance]);
-    const byId = new Map((rows ?? []).map((r) => [r.id as string, r.status as string]));
-    expect(byId.get(pastInstance)).toBe('completed');
-    expect(byId.get(exactNowInstance)).toBe('scheduled'); // boundary: not yet occurred
-    expect(byId.get(futureInstance)).toBe('scheduled');
-    expect(byId.get(cancelledPastInstance)).toBe('cancelled'); // never touched, regardless of date
-
-    const secondFlip = await flipCompletedInstances(admin, NOW);
-    expect(secondFlip).toBe(0); // idempotent — pastInstance already 'completed', no longer matches
+    const byId = await statusesById([shortInstance, longInstance]);
+    expect(byId.get(shortInstance)).toBe('completed');
+    expect(byId.get(longInstance)).toBe('scheduled');
   });
 });
 
@@ -247,8 +337,9 @@ describe('runAttendanceSummary', () => {
     expect(row?.status).toBe('ok');
   });
 
-  it('two check-ins on one instance → both appear, grouped correctly, system_health written with count 2, the instance itself gets flipped to completed as a side effect', async () => {
+  it('two check-ins on one instance → both appear, grouped correctly, system_health written with count 2; the flip runs as a side effect (previous-WIB-day instance completed, today\'s stays scheduled)', async () => {
     const instanceId = await insertInstance({ scheduled_at: '2026-11-19T11:00:00.000Z', status: 'scheduled' });
+    const priorDayInstance = await insertInstance({ scheduled_at: '2026-11-18T11:00:00.000Z', status: 'scheduled' });
     const p1 = await insertPerson({ phone_e164: '+62999009106001', full_name: 'T6 Attendee One' });
     const p2 = await insertPerson({ phone_e164: '+62999009106002', full_name: 'T6 Attendee Two' });
     await insertAttendance(instanceId, p1, '2026-11-18T18:00:00.000Z');
@@ -277,8 +368,9 @@ describe('runAttendanceSummary', () => {
     expect(call.text).toContain('T6 Attendee Two');
     expect(call.text).toContain('(2)');
 
-    const { data: instRow } = await admin.from('event_instances').select('status').eq('id', instanceId).single();
-    expect(instRow?.status).toBe('completed');
+    const byId = await statusesById([instanceId, priorDayInstance]);
+    expect(byId.get(instanceId)).toBe('scheduled'); // ended today WIB — not yet
+    expect(byId.get(priorDayInstance)).toBe('completed');
 
     const row = await readClaimRow();
     expect(row?.status).toBe('ok');
@@ -346,12 +438,12 @@ describe('runAttendanceSummary', () => {
     const sendMessage = stubOk(99);
     const result = await runAttendanceSummary({ supabase: admin, now: NOW, sendMessage });
 
-    expect(result).toEqual({ status: 'skipped_already_sent', ict_date: TODAY_ICT, flipped_count: 1 });
+    expect(result).toEqual({ status: 'skipped_already_sent', ict_date: TODAY_ICT, flipped_count: 0 }); // same-WIB-day instance — not flipped
     expect(sendMessage).not.toHaveBeenCalled();
   });
 
   it('concurrent double-invoke: a fresh pending claim from another invocation → this one skips, no send (flip still runs — decoupled from the claim)', async () => {
-    const instanceId = await insertInstance({ scheduled_at: '2026-11-19T11:00:00.000Z', status: 'scheduled' });
+    const instanceId = await insertInstance({ scheduled_at: '2026-11-18T11:00:00.000Z', status: 'scheduled' }); // previous WIB day
     await insertHealthRow({
       source: ATTENDANCE_SUMMARY_SOURCE,
       ict_date: TODAY_ICT,
@@ -391,7 +483,7 @@ describe('runAttendanceSummary', () => {
       getToken: () => 'test-token',
     });
 
-    expect(result).toEqual({ status: 'sent', ict_date: TODAY_ICT, count: 1, message_id: 77, flipped_count: 1 });
+    expect(result).toEqual({ status: 'sent', ict_date: TODAY_ICT, count: 1, message_id: 77, flipped_count: 0 });
     expect(sendMessage).toHaveBeenCalledOnce();
 
     const row = await readClaimRow();
@@ -416,7 +508,7 @@ describe('runAttendanceSummary', () => {
       ict_date: TODAY_ICT,
       count: 1,
       reason: 'stubbed network failure',
-      flipped_count: 1,
+      flipped_count: 0,
     });
 
     const degradedRow = await readClaimRow();
