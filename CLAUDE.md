@@ -49,3 +49,12 @@
 ## Commit Style
 
 16. Use conventional commits: `feat:`, `fix:`, `chore:`, `docs:`, `test:`. Keep the subject line under 72 characters.
+
+## Verification Ladder
+
+17. Verification ladder. Every task's verify report states which rungs were run:
+    - **Local Docker:** all automated tests (unit + integration). Destructive fixtures live only here.
+    - **Staging deploy:** every user-facing or route change is smoke-tested on the staging branch's Vercel deployment against staging Supabase, using synthetic data and staging accounts only, before main is fast-forwarded.
+    - **Prod:** live verification after deploy.
+
+    Real PII never enters staging. Data-mutation rehearsals on real data use a local restore of a prod dump (docs/backups/RUNBOOK.md §3).
