@@ -3,14 +3,14 @@ import { getTranslations, getLocale } from 'next-intl/server'
 import { redirect } from 'next/navigation'
 import { subDays, addDays } from 'date-fns'
 import { listEvents, listInstancesForEvent } from '@/lib/actions/events'
-import { listRecentAttendanceForInstance } from '@/lib/actions/attendance'
+import { impl_getInstanceAttendees } from '@/lib/actions/instance-attendees.impl'
 import { NotAuthorized } from '@/app/admin/_components/not-authorized'
 import { requireActiveAdmin } from '@/lib/auth/require-admin'
 import { formatJakarta } from '@/lib/events/timezone'
 import { displayInstanceName } from '@/lib/events/display'
 import Link from 'next/link'
-import { AttendeeTable } from '../../../_components/AttendeeTable'
 import { CancelInstanceDialog } from '../../../_components/CancelInstanceDialog'
+import { AttendeesList } from '@/app/checkin/[instanceId]/attendees/_components/AttendeesList'
 
 type Props = {
   params: Promise<{ id: string; instanceId: string }>
@@ -45,6 +45,7 @@ export default async function AdminInstanceDetailPage({ params }: Props) {
   if (authResult.status === 'denied') return <NotAuthorized />
 
   const t      = await getTranslations('admin.events.instance')
+  const tA     = await getTranslations('checkin.attendees')
   const locale = await getLocale()
 
   // Fetch parent event (D8)
@@ -63,12 +64,9 @@ export default async function AdminInstanceDetailPage({ params }: Props) {
   const instance = instancesResult.instances.find(i => i.id === instanceId)
   if (!instance) redirect(`/admin/events/${eventId}`)
 
-  // Attendee list — limit 500 (D1), admin client used by impl for deleted visibility
-  const attendanceResult = await listRecentAttendanceForInstance({
-    eventInstanceId: instanceId,
-    limit: 500,
-  })
-  const attendances = attendanceResult.status === 'ok' ? attendanceResult.attendances : []
+  // Attendee list — the SAME data + component as /checkin/[instanceId]/attendees
+  // (S8-T5 C4): RLS server client, phones masked server-side, soft-deleted excluded.
+  const attendees = await impl_getInstanceAttendees({ supabase, instanceId })
 
   const dateStr    = formatJakarta(new Date(instance.scheduled_at), 'PPP p')
   const shortDate  = formatJakarta(new Date(instance.scheduled_at), 'PP')
@@ -128,18 +126,25 @@ export default async function AdminInstanceDetailPage({ params }: Props) {
           </div>
         </div>
 
-        {/* Attendee count */}
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-heading text-lg font-semibold text-charcoal">
-            {t('attendee_count', { count: String(attendances.length) })}
-          </h2>
-        </div>
-
-        {/* Attendee table */}
-        {attendanceResult.status === 'error' ? (
-          <p className="text-sm text-red-600 py-4">{t('table.error')}</p>
+        {/* Attendees — shared list + admin export (S8-T5) */}
+        {attendees.status === 'ok' ? (
+          <>
+            <div className="flex items-center justify-between gap-4 mb-4">
+              <p className="text-sm text-muted tabular-nums" data-testid="attendee-summary">
+                {tA('summary', { adults: String(attendees.adults.length), children: String(attendees.children.length) })}
+              </p>
+              <a
+                href={`/api/admin/export/instance/${instanceId}`}
+                data-testid="instance-export-link"
+                className="text-sm font-medium text-cream bg-gold hover:bg-gold-dark transition-colors rounded-sm px-3 py-1.5 flex-shrink-0"
+              >
+                {tA('export_button')}
+              </a>
+            </div>
+            <AttendeesList adults={attendees.adults} childAttendees={attendees.children} />
+          </>
         ) : (
-          <AttendeeTable attendances={attendances} />
+          <p role="alert" className="text-sm text-red-600 py-4">{tA('error')}</p>
         )}
       </div>
     </main>
