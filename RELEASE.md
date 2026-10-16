@@ -279,3 +279,15 @@ branch-expected ref for remote ops.
   encrypted (owner decision). Photos (people-photos) out of scope — backlog. Restore
   procedure: docs/backups/RUNBOOK.md §0/§3a. Live verify pending (first manual run +
   restore drill).
+
+- S8-T8 VERIFIED (2026-10-16): scheduled backup live — 3rd Sunday monthly 22:00 WIB
+  (15:00 UTC) plus manual "Run workflow" on main. First green run after two fixes (owner's
+  PROD_DB_URL password; rclone RCLONE_* env collision → P37_*, c80a170). First archive
+  project37-prod-backup-20261016T051754Z.tar.gz, sha256 f3ecd5…333c, 28 tables, migration
+  20261007120000. Restore drill PASS on a local scratch stack: counts 28/28 == manifest;
+  schema pre-check 28/28 tables, 309/309 columns; FKs 0 dangling; sequences OK; identities
+  OK (every active app_user has an auth user, 11/11; every app_user without one is inactive,
+  19/19 — the known S6-T2 @test.invalid rows). Restore requires pinning the scratch stack's
+  gotrue to prod's Auth version (CLI default image is older); RUNBOOK §3a updated with the
+  pin, a schema pre-check, and TRUNCATE without RESTART IDENTITY. Next scheduled run
+  2026-10-18.
