@@ -291,3 +291,15 @@ branch-expected ref for remote ops.
   gotrue to prod's Auth version (CLI default image is older); RUNBOOK §3a updated with the
   pin, a schema pre-check, and TRUNCATE without RESTART IDENTITY. Next scheduled run
   2026-10-18.
+
+- S8-T5 VERIFIED (2026-10-16): per-instance attendee list + admin export live. Commits
+  217d5d3…2ef66bc (7). /checkin/[instanceId]/attendees for any active app user (RLS server
+  client, phones masked to last 4 server-side, soft-deleted excluded for every role, adults +
+  children sections, first-timer badge); admin instance page renders the same shared list.
+  GET /api/admin/export/instance/[instanceId] admin-only: Adults + Children sheets, WIB times,
+  one export.create audit row (kind + instance id + row counts). All xlsx exports now
+  neutralise formula-leading cells (strict E.164 exempt). Verification rungs (CLAUDE.md rule
+  17): Local Docker ✓ (gate 1206/1206, lint/typecheck/build) / Staging ✓ (guarded [SYNTH] seed
+  cefb449, 17 audit rows; owner smoke PASS) / Prod ✓ (owner: admin page + export, organizer
+  masked view + export 403). Open: P1 card — listRecentAttendanceForInstance is an unguarded
+  service-role server action (fenced out of S8-T5; only caller now the check-in RecentPanel).
