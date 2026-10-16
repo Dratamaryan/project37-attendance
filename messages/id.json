@@ -464,19 +464,6 @@
           "error": "Gagal membatalkan. Silakan coba lagi.",
           "error_not_found": "Sesi tidak ditemukan."
         },
-        "search_placeholder": "Cari nama, panggilan, atau nomor",
-        "search_no_results": "Tidak ada peserta yang cocok",
-        "attendee_count": "{count} peserta",
-        "deleted_badge": "(dihapus)",
-        "table": {
-          "photo": "Foto",
-          "name": "Nama",
-          "phone": "Telepon",
-          "checked_in_at": "Waktu hadir",
-          "checked_in_by": "Dicatat oleh",
-          "empty": "Belum ada kehadiran untuk sesi ini",
-          "error": "Gagal memuat peserta. Silakan coba lagi."
-        },
         "status": {
           "scheduled": "Terjadwal",
           "cancelled": "Dibatalkan",

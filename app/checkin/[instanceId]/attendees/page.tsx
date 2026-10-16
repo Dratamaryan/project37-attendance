@@ -6,7 +6,7 @@ import { requireActiveRole } from '@/lib/auth/require-admin'
 import { NotAuthorized } from '@/app/admin/_components/not-authorized'
 import { impl_getInstanceAttendees } from '@/lib/actions/instance-attendees.impl'
 import { formatJakarta } from '@/lib/events/timezone'
-import { AttendeesList } from './_components/AttendeesList'
+import { AttendeesList } from '@/components/attendees/AttendeesList'
 
 type Props = {
   params: Promise<{ instanceId: string }>

@@ -464,19 +464,6 @@
           "error": "Couldn't cancel. Please try again.",
           "error_not_found": "Instance not found."
         },
-        "search_placeholder": "Search by name, nickname, or phone",
-        "search_no_results": "No attendees match this search",
-        "attendee_count": "{count} attendees",
-        "deleted_badge": "(deleted)",
-        "table": {
-          "photo": "Photo",
-          "name": "Name",
-          "phone": "Phone",
-          "checked_in_at": "Checked in at",
-          "checked_in_by": "Checked in by",
-          "empty": "No check-ins for this instance",
-          "error": "Couldn't load attendees. Please try again."
-        },
         "status": {
           "scheduled": "Scheduled",
           "cancelled": "Cancelled",

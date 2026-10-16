@@ -10,7 +10,7 @@ import { formatJakarta } from '@/lib/events/timezone'
 import { displayInstanceName } from '@/lib/events/display'
 import Link from 'next/link'
 import { CancelInstanceDialog } from '../../../_components/CancelInstanceDialog'
-import { AttendeesList } from '@/app/checkin/[instanceId]/attendees/_components/AttendeesList'
+import { AttendeesList } from '@/components/attendees/AttendeesList'
 
 type Props = {
   params: Promise<{ id: string; instanceId: string }>

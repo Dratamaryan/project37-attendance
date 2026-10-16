@@ -27,7 +27,7 @@ vi.mock('next/navigation', () => ({
     throw new Error('NOT_FOUND')
   }),
 }))
-vi.mock('../_components/AttendeesList', () => ({
+vi.mock('@/components/attendees/AttendeesList', () => ({
   AttendeesList: ({ adults }: { adults: unknown[] }) => <div data-testid="attendees-list">{adults.length}</div>,
 }))
 

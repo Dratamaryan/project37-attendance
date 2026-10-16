@@ -30,7 +30,7 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/app/admin/events/_components/CancelInstanceDialog', () => ({
   CancelInstanceDialog: () => <button data-testid="cancel-dialog">cancel</button>,
 }))
-vi.mock('@/app/checkin/[instanceId]/attendees/_components/AttendeesList', () => ({
+vi.mock('@/components/attendees/AttendeesList', () => ({
   AttendeesList: ({ adults, childAttendees }: { adults: unknown[]; childAttendees: unknown[] }) => (
     <div data-testid="attendees-list">{`${adults.length}/${childAttendees.length}`}</div>
   ),
