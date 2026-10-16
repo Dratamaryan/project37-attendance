@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requireActiveAdmin } from '@/lib/auth/require-admin'
 import { AUDIT_ACTIONS, logAudit } from '@/lib/audit'
 import { impl_getRosterRows, mapRosterRowToExportRow } from '@/lib/actions/people-export.impl'
+import { sheetSafeRow } from '@/lib/utils/sheet-safe'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -38,7 +39,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: result.message }, { status: 500 })
   }
 
-  const exportRows = result.data.map(mapRosterRowToExportRow)
+  const exportRows = result.data.map(mapRosterRowToExportRow).map(sheetSafeRow)
 
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(exportRows), 'People Roster')

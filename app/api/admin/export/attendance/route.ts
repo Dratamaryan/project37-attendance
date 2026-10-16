@@ -11,6 +11,7 @@ import {
   getPersonAttendanceSummary,
   getEventAttendanceSummary,
 } from '@/lib/actions/export.impl'
+import { sheetSafeRow } from '@/lib/utils/sheet-safe'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -58,9 +59,9 @@ export async function GET(req: NextRequest) {
   const eventSummary = getEventAttendanceSummary(rawRows)
 
   const workbook = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(rawRows), 'Raw Attendance')
-  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(personSummary), 'Person Summary')
-  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(eventSummary), 'Event Summary')
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(rawRows.map(sheetSafeRow)), 'Raw Attendance')
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(personSummary.map(sheetSafeRow)), 'Person Summary')
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(eventSummary.map(sheetSafeRow)), 'Event Summary')
 
   const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }) as Buffer
   const body = new Uint8Array(buffer)
