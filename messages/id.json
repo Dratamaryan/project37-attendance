@@ -133,7 +133,25 @@
     "recent_panel": {
       "empty": "Belum ada kehadiran untuk acara ini",
       "loading": "Memuat...",
-      "deleted_badge": "(dihapus)"
+      "deleted_badge": "(dihapus)",
+      "view_all": "Lihat semua peserta →"
+    },
+    "attendees": {
+      "title": "Peserta",
+      "back": "Kembali ke Daftar Hadir",
+      "scheduled_at": "{when} WIB",
+      "summary": "{adults} dewasa · {children} anak",
+      "section_adults": "Dewasa",
+      "section_children": "Anak",
+      "search_placeholder": "Cari nama, panggilan, atau 4 digit terakhir",
+      "search_no_results": "Tidak ada peserta yang cocok",
+      "empty_adults": "Belum ada kehadiran dewasa",
+      "empty_children": "Belum ada kehadiran anak",
+      "first_timer_badge": "Pertama kali",
+      "parent_label": "Orang tua: {name}",
+      "parent_unknown": "Orang tua: —",
+      "export_button": "Ekspor ke Excel",
+      "error": "Gagal memuat peserta. Silakan coba lagi."
     },
     "event_selector": {
       "no_events": "Tidak ada acara yang dijadwalkan",

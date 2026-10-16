@@ -1,6 +1,7 @@
 'use client'
 
 import Image from 'next/image'
+import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { formatJakarta } from '@/lib/events/timezone'
 import type { AttendanceWithPerson } from '@/lib/actions/attendance.types'
@@ -8,6 +9,7 @@ import type { AttendanceWithPerson } from '@/lib/actions/attendance.types'
 type Props = {
   attendances: AttendanceWithPerson[]
   eventName?: string | null
+  eventInstanceId?: string | null
 }
 
 function getInitials(name: string): string {
@@ -18,17 +20,28 @@ function getInitials(name: string): string {
     .join('')
 }
 
-export function RecentPanel({ attendances, eventName }: Props) {
+export function RecentPanel({ attendances, eventName, eventInstanceId }: Props) {
   const t = useTranslations('checkin')
 
   return (
     <div data-testid="recent-panel" className="bg-white border border-line rounded-[4px]">
-      <div className="px-5 py-4 border-b border-line flex items-center justify-between">
-        <h4 className="font-heading text-lg font-semibold text-charcoal truncate" data-testid="recent-panel-heading">
+      {/* Narrow screens: the "view all" link wraps to its own line (basis-full)
+          so the heading keeps the full first row; md+ keeps it inline. */}
+      <div className="px-5 py-4 border-b border-line flex flex-wrap md:flex-nowrap items-center justify-between">
+        <h4 className="font-heading text-lg font-semibold text-charcoal truncate min-w-0 flex-1" data-testid="recent-panel-heading">
           {eventName ? `${t('recent_title')} — ${eventName}` : t('recent_title')}
         </h4>
         {attendances.length > 0 && (
           <span className="text-xs text-muted tabular-nums flex-shrink-0 ml-2">{attendances.length}</span>
+        )}
+        {eventInstanceId && (
+          <Link
+            href={`/checkin/${eventInstanceId}/attendees`}
+            data-testid="view-all-attendees"
+            className="basis-full md:basis-auto mt-1 md:mt-0 md:ml-3 flex-shrink-0 text-xs font-medium text-gold hover:text-gold-dark transition-colors whitespace-nowrap"
+          >
+            {t('recent_panel.view_all')}
+          </Link>
         )}
       </div>
 

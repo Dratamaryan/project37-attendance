@@ -781,6 +781,28 @@ describe('CheckinClient', () => {
     )
   })
 
+  it('CC-11b (S8-T5): "view all attendees" link follows the selected instance', async () => {
+    mockListRecent.mockResolvedValue(emptyRecent())
+
+    const twoInstances = [INSTANCES[0], INSTANCE_B]
+    const user = userEvent.setup({ delay: null })
+    render(<CheckinClient instances={twoInstances} />)
+
+    const recentPanel = await screen.findByTestId('recent-panel')
+    // Present even with zero adult check-ins (the selected id comes from state, not attendances)
+    expect(within(recentPanel).getByTestId('view-all-attendees'))
+      .toHaveAttribute('href', `/checkin/${INSTANCES[0].id}/attendees`)
+
+    await user.click(screen.getByRole('button', { name: 'select_event' }))
+    const betaOption = await screen.findByRole('option', { name: /Test Event Beta/i })
+    await user.click(within(betaOption as HTMLElement).getByRole('button'))
+
+    await waitFor(() =>
+      expect(within(recentPanel).getByTestId('view-all-attendees'))
+        .toHaveAttribute('href', `/checkin/${INSTANCE_B.id}/attendees`),
+    )
+  })
+
   // ── S8-T2: child check-in ───────────────────────────────────────────────────
 
   // Helper: child mode → child-name search → match list with two children.

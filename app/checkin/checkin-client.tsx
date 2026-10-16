@@ -1154,7 +1154,7 @@ export function CheckinClient({ instances = [], isAdmin = false }: CheckinClient
 
       {/* ── Right column: recent panel ── */}
       <div className="w-full md:w-80 lg:w-96 flex-shrink-0">
-        <RecentPanel attendances={attendances} eventName={eventName} />
+        <RecentPanel attendances={attendances} eventName={eventName} eventInstanceId={eventInstanceId} />
       </div>
     </div>
     </>

@@ -133,7 +133,25 @@
     "recent_panel": {
       "empty": "No check-ins yet for this event",
       "loading": "Loading...",
-      "deleted_badge": "(deleted)"
+      "deleted_badge": "(deleted)",
+      "view_all": "View all attendees →"
+    },
+    "attendees": {
+      "title": "Attendees",
+      "back": "Back to check-in",
+      "scheduled_at": "{when} WIB",
+      "summary": "{adults} adults · {children} children",
+      "section_adults": "Adults",
+      "section_children": "Children",
+      "search_placeholder": "Search name, nickname or last 4 digits",
+      "search_no_results": "No attendees match your search",
+      "empty_adults": "No adult check-ins yet",
+      "empty_children": "No child check-ins yet",
+      "first_timer_badge": "First time",
+      "parent_label": "Parent: {name}",
+      "parent_unknown": "Parent: —",
+      "export_button": "Export to Excel",
+      "error": "Couldn't load attendees. Please try again."
     },
     "event_selector": {
       "no_events": "No upcoming events scheduled",
