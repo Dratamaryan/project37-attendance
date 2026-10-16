@@ -7,6 +7,10 @@ name: DB backup (prod → Google Drive)
 # Never `set -x` in this file, and never cat/echo a dump or a secret. The repo
 # is PUBLIC: run logs and the job summary are world-readable, so the summary
 # carries no per-table counts — those live only in manifest.json in the archive.
+#
+# rclone reads EVERY RCLONE_* env var as one of its own flags (RCLONE_VERSION
+# → --version, which broke the first run). The only RCLONE_* vars allowed here
+# are RCLONE_CONFIG and RCLONE_CONFIG_P37GDRIVE_*; name anything else P37_*.
 
 on:
   schedule:
@@ -24,7 +28,7 @@ concurrency:
 
 jobs:
   gate:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       run: ${{ steps.check.outputs.run }}
     steps:
@@ -42,12 +46,12 @@ jobs:
   backup:
     needs: gate
     if: needs.gate.outputs.run == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: backup-prod
     env:
-      RCLONE_VERSION: v1.75.1
-      RCLONE_SHA256: 982b5aa772841168f8e380f139e9e787b2a105403e32b94da8676a0e1c0a13ab
+      P37_RCLONE_VERSION: v1.75.1
+      P37_RCLONE_SHA256: 982b5aa772841168f8e380f139e9e787b2a105403e32b94da8676a0e1c0a13ab
       # Transient / credential-bearing auth tables. Login identity survives via
       # auth.users + auth.identities; users simply sign in again after a restore.
       # auth.schema_migrations is already excluded by the CLI itself.
@@ -62,6 +66,7 @@ jobs:
         env:
           PROD_DB_URL: ${{ secrets.PROD_DB_URL }}
         run: |
+          # shellcheck disable=SC2016  # single quotes intentional: JS template literal, not bash
           node -e '
             const esc = (s) => s.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A")
             try {
@@ -76,7 +81,7 @@ jobs:
             }
           '
 
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
 
@@ -89,12 +94,12 @@ jobs:
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP"
-          zip="rclone-${RCLONE_VERSION}-linux-amd64.zip"
-          curl -fsSLO "https://downloads.rclone.org/${RCLONE_VERSION}/${zip}"
-          echo "${RCLONE_SHA256}  ${zip}" | sha256sum -c -
+          zip="rclone-${P37_RCLONE_VERSION}-linux-amd64.zip"
+          curl -fsSLO "https://downloads.rclone.org/${P37_RCLONE_VERSION}/${zip}"
+          echo "${P37_RCLONE_SHA256}  ${zip}" | sha256sum -c -
           unzip -q "$zip"
           mkdir -p "$RUNNER_TEMP/bin"
-          install -m 0755 "rclone-${RCLONE_VERSION}-linux-amd64/rclone" "$RUNNER_TEMP/bin/rclone"
+          install -m 0755 "rclone-${P37_RCLONE_VERSION}-linux-amd64/rclone" "$RUNNER_TEMP/bin/rclone"
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
 
       - name: Dump prod (roles, schema, data)
