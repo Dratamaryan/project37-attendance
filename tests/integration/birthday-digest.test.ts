@@ -4,6 +4,9 @@
 // send is stubbed here — only the live verify report may claim delivery. Fixture
 // phone space: +62999009105xxx (T5).
 //
+// S8-T6 (H-1): the digest greets TOMORROW in WIB; the claim key is that cohort date
+// (COHORT), the send date is NOW's WIB day. Fixtures carry COHORT birthdays.
+//
 // Sprint 5 T5: idempotency rewritten to claim-first against system_health's typed
 // source/ict_date columns (see lib/cron/idempotent-claim.ts, whose own integration
 // test covers the claim/reclaim state machine in isolation — this file exercises
@@ -29,7 +32,9 @@ let originalChatId: string | null;
 // Fixed `now`, distinct from any date real crons would ever touch (test suite,
 // not the handler, chooses `now` — proves the impl takes it as an input, per D/3).
 const NOW = new Date('2026-11-19T00:30:00.000Z'); // 2026-11-19 07:30 ICT
-const TODAY_ICT = '2026-11-19';
+const SEND_DATE = '2026-11-19';
+const COHORT = '2026-11-20';
+const DATES = { send_date: SEND_DATE, cohort_date: COHORT };
 
 const createdPersonIds: string[] = [];
 const createdHealthIds: string[] = [];
@@ -53,10 +58,24 @@ async function readClaimRow(): Promise<{ id: string; status: string } | null> {
     .from('system_health')
     .select('id, status')
     .eq('source', BIRTHDAY_DIGEST_SOURCE)
-    .eq('ict_date', TODAY_ICT)
+    .eq('ict_date', COHORT)
     .maybeSingle();
   if (data) createdHealthIds.push((data as { id: string }).id);
   return data as { id: string; status: string } | null;
+}
+
+// The claim row runBirthdayDigest writes is only tracked once a test reaches
+// readClaimRow(), so a test failing before that would leak a fixed-key
+// (birthday-digest, COHORT) row into the next run's 'already sent' path — and
+// its future checked_at sorts as the globally latest system_health row for
+// other files (MAT-08). Same unconditional key delete as digest-triggers.test.ts.
+async function cleanupClaimRows() {
+  const { error } = await admin
+    .from('system_health')
+    .delete()
+    .eq('source', BIRTHDAY_DIGEST_SOURCE)
+    .in('ict_date', [COHORT, SEND_DATE]);
+  if (error) throw new Error(`cleanup system_health claim: ${error.message}`);
 }
 
 type SendMessageFn = (params: {
@@ -120,9 +139,11 @@ beforeAll(async () => {
     ?.telegram_admin_chat_id ?? null;
 
   await admin.from('app_settings').update({ telegram_admin_chat_id: '111111111' }).eq('id', 1);
+  await cleanupClaimRows();
 }, 30_000);
 
 afterAll(async () => {
+  await cleanupClaimRows();
   await admin.from('app_settings').update({ telegram_admin_chat_id: originalChatId }).eq('id', 1);
 }, 30_000);
 
@@ -135,35 +156,52 @@ afterEach(async () => {
     await admin.from('system_health').delete().in('id', createdHealthIds);
     createdHealthIds.length = 0;
   }
+  await cleanupClaimRows();
 });
 
 describe('runBirthdayDigest', () => {
-  it('T4-04: no birthdays today → empty result, no send, system_health row written with count 0', async () => {
+  it('T4-04: no birthdays tomorrow → empty result, no send, system_health row written with count 0', async () => {
     const sendMessage = stubOk(1);
 
     const result = await runBirthdayDigest({ supabase: admin, now: NOW, sendMessage });
 
-    expect(result).toEqual({ status: 'empty', ict_date: TODAY_ICT });
+    expect(result).toEqual({ status: 'empty', ...DATES });
     expect(sendMessage).not.toHaveBeenCalled();
 
     const row = await readClaimRow();
     expect(row?.status).toBe('ok');
   });
 
-  it('T4-02/T4-03: two birthdays today, mixed consent → both appear, annotated not filtered', async () => {
+  it('T4-02/T4-03: three birthdays tomorrow, mixed consent → all appear, annotated not filtered; a today birthday is not in the cohort', async () => {
     await insertPerson({
       phone_e164: '+62999009105001',
       full_name: 'T5 Publishable',
       nickname: 'Pub',
-      birth_date: '1992-11-19',
+      birth_date: '1992-11-20',
       photo_publish_consent: true,
     });
     await insertPerson({
       phone_e164: '+62999009105002',
       full_name: 'T5 Private',
       nickname: 'Priv',
-      birth_date: '1985-11-19',
+      birth_date: '1985-11-20',
       photo_publish_consent: false,
+      photo_consent_state: 'refused',
+    });
+    await insertPerson({
+      phone_e164: '+62999009105007',
+      full_name: 'T5 Unanswered',
+      nickname: 'Unk',
+      birth_date: '1999-11-20',
+      photo_publish_consent: false,
+      photo_consent_state: 'unknown',
+    });
+    await insertPerson({
+      phone_e164: '+62999009105008',
+      full_name: 'T5 Today Not Tomorrow',
+      nickname: 'Today',
+      birth_date: '1990-11-19', // the send date's own birthday — already greeted yesterday (H-1)
+      photo_publish_consent: true,
     });
 
     const sendMessage = stubOk(42);
@@ -176,8 +214,8 @@ describe('runBirthdayDigest', () => {
 
     expect(result).toEqual({
       status: 'sent',
-      ict_date: TODAY_ICT,
-      count: 2,
+      ...DATES,
+      count: 3,
       message_id: 42,
     });
     expect(sendMessage).toHaveBeenCalledOnce();
@@ -188,38 +226,88 @@ describe('runBirthdayDigest', () => {
     expect(call.text).toContain('✅');
     expect(call.text).toContain('T5 Private');
     expect(call.text).toContain('🔒');
+    expect(call.text).toContain('T5 Unanswered');
+    expect(call.text).toContain('❓');
+    expect(call.text).not.toContain('T5 Today Not Tomorrow');
+    expect(call.text.split('\n')[0]).toBe('🎂 Ulang tahun besok — 20 November 2026 (3)');
 
     const row = await readClaimRow();
     expect(row?.status).toBe('ok');
   });
 
-  it('idempotency: a prior success row for today → skips the send entirely', async () => {
+  it('idempotency: a prior success row for this cohort → skips the send entirely', async () => {
     await insertPerson({
       phone_e164: '+62999009105003',
       full_name: 'T5 Should Not Send',
       nickname: 'NoSend',
-      birth_date: '1990-11-19',
+      birth_date: '1990-11-20',
       photo_publish_consent: false,
     });
     await insertHealthRow({
       source: BIRTHDAY_DIGEST_SOURCE,
-      ict_date: TODAY_ICT,
+      ict_date: COHORT,
       checked_at: NOW.toISOString(),
-      table_row_counts: { source: BIRTHDAY_DIGEST_SOURCE, ict_date: TODAY_ICT, count: 1 },
+      table_row_counts: { source: BIRTHDAY_DIGEST_SOURCE, ict_date: COHORT, ...DATES, count: 1 },
       status: 'ok',
     });
 
     const sendMessage = stubOk(99);
     const result = await runBirthdayDigest({ supabase: admin, now: NOW, sendMessage });
 
-    expect(result).toEqual({ status: 'skipped_already_sent', ict_date: TODAY_ICT });
+    expect(result).toEqual({ status: 'skipped_already_sent', ...DATES });
     expect(sendMessage).not.toHaveBeenCalled();
+  });
+
+  it('S8-T6: the claim is keyed by the cohort date — an ok row under the SEND date does not block, and the payload carries both dates', async () => {
+    await insertPerson({
+      phone_e164: '+62999009105009',
+      full_name: 'T5 Cohort Key',
+      nickname: 'Key',
+      birth_date: '1994-11-20',
+      photo_publish_consent: true,
+    });
+    // What the pre-H-1 code wrote on the send date (key = send date = its cohort).
+    await insertHealthRow({
+      source: BIRTHDAY_DIGEST_SOURCE,
+      ict_date: SEND_DATE,
+      checked_at: NOW.toISOString(),
+      table_row_counts: { source: BIRTHDAY_DIGEST_SOURCE, ict_date: SEND_DATE, count: 0 },
+      status: 'ok',
+    });
+
+    const sendMessage = stubOk(61);
+    const result = await runBirthdayDigest({ supabase: admin, now: NOW, sendMessage, getToken: () => 'test-token' });
+
+    expect(result).toEqual({ status: 'sent', ...DATES, count: 1, message_id: 61 });
+    expect(sendMessage).toHaveBeenCalledOnce();
+
+    const { data } = await admin
+      .from('system_health')
+      .select('id, status, table_row_counts')
+      .eq('source', BIRTHDAY_DIGEST_SOURCE)
+      .eq('ict_date', COHORT)
+      .single();
+    createdHealthIds.push((data as { id: string }).id);
+    expect(data).toMatchObject({
+      status: 'ok',
+      table_row_counts: { source: BIRTHDAY_DIGEST_SOURCE, ict_date: COHORT, ...DATES, count: 1, message_id: 61 },
+    });
+
+    // Idempotent re-run later the same WIB day → same cohort key → skipped.
+    const rerunSend = stubOk(62);
+    const rerun = await runBirthdayDigest({
+      supabase: admin,
+      now: new Date('2026-11-19T12:00:00.000Z'), // 19:00 WIB
+      sendMessage: rerunSend,
+    });
+    expect(rerun).toEqual({ status: 'skipped_already_sent', ...DATES });
+    expect(rerunSend).not.toHaveBeenCalled();
   });
 
   it('concurrent double-invoke: a fresh pending claim from another invocation → this one skips, no send', async () => {
     await insertHealthRow({
       source: BIRTHDAY_DIGEST_SOURCE,
-      ict_date: TODAY_ICT,
+      ict_date: COHORT,
       checked_at: new Date(NOW.getTime() - 60_000).toISOString(), // 1 min old — fresh
       status: 'pending',
     });
@@ -227,7 +315,7 @@ describe('runBirthdayDigest', () => {
     const sendMessage = stubOk(1);
     const result = await runBirthdayDigest({ supabase: admin, now: NOW, sendMessage });
 
-    expect(result).toEqual({ status: 'skipped_concurrent', ict_date: TODAY_ICT });
+    expect(result).toEqual({ status: 'skipped_concurrent', ...DATES });
     expect(sendMessage).not.toHaveBeenCalled();
 
     const row = await readClaimRow();
@@ -239,12 +327,12 @@ describe('runBirthdayDigest', () => {
       phone_e164: '+62999009105005',
       full_name: 'T5 Stale Reclaim',
       nickname: 'Stale',
-      birth_date: '1991-11-19',
+      birth_date: '1991-11-20',
       photo_publish_consent: true,
     });
     await insertHealthRow({
       source: BIRTHDAY_DIGEST_SOURCE,
-      ict_date: TODAY_ICT,
+      ict_date: COHORT,
       checked_at: new Date(NOW.getTime() - DEFAULT_STALE_MS - 1000).toISOString(), // past staleness
       status: 'pending',
     });
@@ -257,7 +345,7 @@ describe('runBirthdayDigest', () => {
       getToken: () => 'test-token',
     });
 
-    expect(result).toEqual({ status: 'sent', ict_date: TODAY_ICT, count: 1, message_id: 77 });
+    expect(result).toEqual({ status: 'sent', ...DATES, count: 1, message_id: 77 });
     expect(sendMessage).toHaveBeenCalledOnce();
 
     const row = await readClaimRow();
@@ -269,7 +357,7 @@ describe('runBirthdayDigest', () => {
       phone_e164: '+62999009105004',
       full_name: 'T5 Send Fails',
       nickname: 'Fail',
-      birth_date: '1988-11-19',
+      birth_date: '1988-11-20',
       photo_publish_consent: true,
     });
 
@@ -283,7 +371,7 @@ describe('runBirthdayDigest', () => {
 
     expect(result).toEqual({
       status: 'send_failed',
-      ict_date: TODAY_ICT,
+      ...DATES,
       count: 1,
       reason: 'stubbed network failure',
     });
@@ -310,7 +398,7 @@ describe('runBirthdayDigest', () => {
       phone_e164: '+62999009105006',
       full_name: 'T5 Residual Pin',
       nickname: 'Residual',
-      birth_date: '1993-11-19',
+      birth_date: '1993-11-20',
       photo_publish_consent: true,
     });
 
@@ -327,7 +415,7 @@ describe('runBirthdayDigest', () => {
     // The send genuinely happened — caller-visible outcome is 'sent', matching
     // "a missed digest is worse than a duplicate": we don't retroactively report
     // failure just because the bookkeeping write didn't land.
-    expect(result).toEqual({ status: 'sent', ict_date: TODAY_ICT, count: 1, message_id: 55 });
+    expect(result).toEqual({ status: 'sent', ...DATES, count: 1, message_id: 55 });
     expect(firstSend).toHaveBeenCalledOnce();
 
     const row = await readClaimRow();
@@ -343,7 +431,7 @@ describe('runBirthdayDigest', () => {
     });
 
     // Duplicate send — the accepted tradeoff, not a bug.
-    expect(retryResult).toEqual({ status: 'sent', ict_date: TODAY_ICT, count: 1, message_id: 56 });
+    expect(retryResult).toEqual({ status: 'sent', ...DATES, count: 1, message_id: 56 });
     expect(retrySend).toHaveBeenCalledOnce();
 
     const finalRow = await readClaimRow();

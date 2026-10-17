@@ -57,17 +57,17 @@ describe('GET /api/cron/birthday-digest', () => {
 
   it('AUTH-04: correct Bearer, empty day → impl invoked, 200 with result shape', async () => {
     process.env.CRON_SECRET = 'test-secret';
-    vi.mocked(runBirthdayDigest).mockResolvedValue({ status: 'empty', ict_date: '2026-07-29' });
+    vi.mocked(runBirthdayDigest).mockResolvedValue({ status: 'empty', send_date: '2026-07-29', cohort_date: '2026-07-30' });
     const res = await GET(makeRequest({ authorization: 'Bearer test-secret' }));
     expect(res.status).toBe(200);
     const body = (await res.json()) as Record<string, unknown>;
-    expect(body).toMatchObject({ ok: true, status: 'empty', ict_date: '2026-07-29' });
+    expect(body).toMatchObject({ ok: true, status: 'empty', send_date: '2026-07-29', cohort_date: '2026-07-30' });
     expect(runBirthdayDigest).toHaveBeenCalledOnce();
   });
 
   it('T4-04: correct Bearer, no birthdays today → still 200, no throw', async () => {
     process.env.CRON_SECRET = 'test-secret';
-    vi.mocked(runBirthdayDigest).mockResolvedValue({ status: 'empty', ict_date: '2026-07-29' });
+    vi.mocked(runBirthdayDigest).mockResolvedValue({ status: 'empty', send_date: '2026-07-29', cohort_date: '2026-07-30' });
     const res = await GET(makeRequest({ authorization: 'Bearer test-secret' }));
     expect(res.status).toBe(200);
   });
@@ -76,7 +76,7 @@ describe('GET /api/cron/birthday-digest', () => {
     process.env.CRON_SECRET = 'test-secret';
     vi.mocked(runBirthdayDigest).mockResolvedValue({
       status: 'send_failed',
-      ict_date: '2026-07-29',
+      send_date: '2026-07-29', cohort_date: '2026-07-30',
       count: 1,
       reason: 'network_error',
     });

@@ -296,11 +296,11 @@
       "run_digest": {
         "button": "Jalankan ringkasan ulang tahun sekarang",
         "button_pending": "Menjalankan…",
-        "help": "Menggunakan slot kirim hari ini yang sama dengan jadwal otomatis — jika sudah terkirim hari ini, ini tidak akan mengirim lagi.",
+        "help": "Mengirim ulang tahun besok (WIB). Memakai slot yang sama dengan jadwal otomatis — jika daftar besok sudah terkirim, ini tidak akan mengirim lagi.",
         "sent": "Terkirim — {count} ulang tahun.",
-        "skipped": "Sudah terkirim hari ini — dilewati.",
+        "skipped": "Daftar besok sudah terkirim — dilewati.",
         "concurrent": "Proses lain sedang berjalan — muat ulang sebentar lagi.",
-        "empty": "Tidak ada yang perlu dikirim hari ini.",
+        "empty": "Tidak ada ulang tahun besok.",
         "failed": "Pengiriman gagal: {reason}"
       },
       "run_summary": {

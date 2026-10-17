@@ -15,8 +15,8 @@
 //
 // Fixture phone space: +62999009108xxx (T8 — distinct from T5's 105xxx/106xxx
 // and T6's 102xxx, see export-actions.test.ts's space registry comment).
-// Fixed clock dates (2026-12-03 / 2026-12-04) are distinct from T5's own
-// 2026-11-19 fixture date to avoid a (source, ict_date) UNIQUE collision if
+// Fixed clock dates (2026-12-03 / 2026-12-04; the digest's cohort is 12-04) are
+// distinct from T5's own 2026-11-19/11-20 fixture dates to avoid a (source, ict_date) UNIQUE collision if
 // vitest runs this file in parallel with T5's cron impl test files against
 // the same shared local DB.
 
@@ -24,7 +24,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest'
 import { randomUUID } from 'crypto'
 import { impl_runBirthdayDigestNow, impl_runAttendanceSummaryNow } from '@/lib/actions/digest-triggers.impl'
-import { BIRTHDAY_DIGEST_SOURCE } from '@/lib/events/birthday-digest.impl'
+import { runBirthdayDigest, BIRTHDAY_DIGEST_SOURCE } from '@/lib/events/birthday-digest.impl'
 import { ATTENDANCE_SUMMARY_SOURCE } from '@/lib/events/attendance-summary.impl'
 import type { SendTelegramMessageResult } from '@/lib/telegram/client'
 
@@ -46,7 +46,9 @@ if (url.includes(PROD_PROJECT_REF)) {
 }
 
 const DIGEST_NOW = new Date('2026-12-03T00:30:00.000Z') // 2026-12-03 07:30 ICT
-const DIGEST_TODAY_ICT = '2026-12-03'
+const DIGEST_SEND_DATE = '2026-12-03'
+// S8-T6 (H-1): the digest greets tomorrow in WIB, and the claim key is that cohort date.
+const DIGEST_COHORT = '2026-12-04'
 
 const SUMMARY_NOW = new Date('2026-12-04T16:30:00.000Z') // 23:30 ICT, reports 2026-12-04
 const SUMMARY_TODAY_ICT = '2026-12-04'
@@ -151,7 +153,7 @@ async function cleanupClaimRows() {
     .from('system_health')
     .delete()
     .eq('source', BIRTHDAY_DIGEST_SOURCE)
-    .eq('ict_date', DIGEST_TODAY_ICT)
+    .eq('ict_date', DIGEST_COHORT)
   await serviceAdmin
     .from('system_health')
     .delete()
@@ -293,7 +295,7 @@ describe('impl_runBirthdayDigestNow — happy path, second click is a no-op, aud
       phone_e164: '+62999009108001',
       full_name: 'S8 Birthday Person',
       nickname: 'S8B',
-      birth_date: '1990-12-03',
+      birth_date: '1990-12-04',
       photo_publish_consent: true,
     })
 
@@ -305,7 +307,14 @@ describe('impl_runBirthdayDigestNow — happy path, second click is a no-op, aud
       sendMessage: firstSend,
       getToken: () => 'test-token',
     })
-    expect(first).toEqual({ status: 'sent', ict_date: DIGEST_TODAY_ICT, count: 1, message_id: 501 })
+    expect(first).toEqual({
+      status: 'sent',
+      send_date: DIGEST_SEND_DATE,
+      cohort_date: DIGEST_COHORT,
+      count: 1,
+      message_id: 501,
+    })
+    expect(firstSend.mock.calls[0][0].text).toContain('Ulang tahun besok — 4 Desember 2026 (1)')
     expect(firstSend).toHaveBeenCalledOnce()
 
     const secondSend = stubOk(502)
@@ -316,15 +325,48 @@ describe('impl_runBirthdayDigestNow — happy path, second click is a no-op, aud
       sendMessage: secondSend,
       getToken: () => 'test-token',
     })
-    expect(second).toEqual({ status: 'skipped_already_sent', ict_date: DIGEST_TODAY_ICT })
+    expect(second).toEqual({ status: 'skipped_already_sent', send_date: DIGEST_SEND_DATE, cohort_date: DIGEST_COHORT })
     expect(secondSend).not.toHaveBeenCalled() // the idempotency-surfacing proof
 
-    const auditRows = await readAuditRows('birthday_digest.manual_trigger', DIGEST_TODAY_ICT)
+    const auditRows = await readAuditRows('birthday_digest.manual_trigger', DIGEST_COHORT)
     expect(auditRows).toHaveLength(2) // audited on every outcome, including the skip
+    expect(auditRows.every((r) => r.entity_id === `${BIRTHDAY_DIGEST_SOURCE}:${DIGEST_COHORT}`)).toBe(true)
     expect(auditRows.every((r) => r.actor_user_id === adminId)).toBe(true)
     expect(auditRows.map((r) => (r.details_json as { status: string }).status).sort()).toEqual(
       ['sent', 'skipped_already_sent'].sort(),
     )
+  })
+})
+
+describe('impl_runBirthdayDigestNow — shares the scheduled cron\'s cohort slot (S8-T6)', () => {
+  it('cron sends at 07:00 WIB; a Run now later the same WIB day hits the same cohort key and skips', async () => {
+    await insertPerson({
+      phone_e164: '+62999009108002',
+      full_name: 'S8 Cron Then Click',
+      nickname: 'S8C',
+      birth_date: '1991-12-04',
+      photo_publish_consent: false,
+    })
+
+    const cronSend = stubOk(511)
+    const cron = await runBirthdayDigest({
+      supabase: serviceAdmin,
+      now: new Date('2026-12-03T00:00:00.000Z'), // the real cron slot: 07:00 WIB
+      sendMessage: cronSend,
+      getToken: () => 'test-token',
+    })
+    expect(cron).toMatchObject({ status: 'sent', send_date: DIGEST_SEND_DATE, cohort_date: DIGEST_COHORT })
+
+    const clickSend = stubOk(512)
+    const click = await impl_runBirthdayDigestNow({
+      supabase: adminSession,
+      adminSupabase: serviceAdmin,
+      now: new Date('2026-12-03T14:00:00.000Z'), // 21:00 WIB, same WIB day
+      sendMessage: clickSend,
+      getToken: () => 'test-token',
+    })
+    expect(click).toEqual({ status: 'skipped_already_sent', send_date: DIGEST_SEND_DATE, cohort_date: DIGEST_COHORT })
+    expect(clickSend).not.toHaveBeenCalled()
   })
 })
 

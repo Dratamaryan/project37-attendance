@@ -41,6 +41,10 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 // ict_date (a different claim key) and that day's digest is permanently missed —
 // unchanged from before this task. No cross-day retry infrastructure exists or is
 // added here.
+//
+// The key is whatever date the caller passes. attendance-summary passes the WIB send
+// date; birthday-digest (S8-T6, H-1) passes the cohort date (tomorrow in WIB), so a
+// missed birthday run means that cohort is never greeted ahead of the day.
 
 /** 600s — 2x the Hobby-plan effective function ceiling (300s, confirmed live via
  * Vercel docs: Hobby default AND maximum duration are both 300s with fluid compute;

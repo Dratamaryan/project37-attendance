@@ -9,9 +9,10 @@
 // "Run now" calls the SAME hardened runBirthdayDigest / runAttendanceSummary
 // impls the Vercel cron routes call (Sprint 5 T5) — not a force-send, not a
 // separate code path. Both share the (source, ict_date) claim slot with the
-// scheduled cron, so a manual trigger after today's digest already went out
+// scheduled cron, so a manual trigger after today's run already went out
 // (by cron or a prior click) hits skipped_already_sent / skipped_concurrent,
-// never re-sends. See docs/sprint-5-task-5-verify.md for the claim state
+// never re-sends. For the birthday digest the key is the cohort date (tomorrow
+// in WIB, S8-T6), so the audit entityId carries the cohort too. See docs/sprint-5-task-5-verify.md for the claim state
 // machine this relies on — not re-proven here, only surfaced.
 //
 // now/sendMessage/getToken are optional passthroughs to the underlying impl,
@@ -56,7 +57,7 @@ export async function impl_runBirthdayDigestNow({
       actorUserId: actorId,
       action: AUDIT_ACTIONS.BIRTHDAY_DIGEST_MANUAL_TRIGGER,
       entityType: 'system_health',
-      entityId: `${BIRTHDAY_DIGEST_SOURCE}:${result.ict_date}`,
+      entityId: `${BIRTHDAY_DIGEST_SOURCE}:${result.cohort_date}`,
       detailsJson: { ...result },
     },
     supabase,

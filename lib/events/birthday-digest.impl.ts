@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { formatJakarta } from '@/lib/events/timezone'
-import { selectBirthdaysToday, formatBirthdayDigest, type PersonRow } from '@/lib/events/birthday-digest'
+import { cohortDateFor, selectBirthdaysOn, formatBirthdayDigest, type PersonRow } from '@/lib/events/birthday-digest'
 import { sendTelegramMessage, type SendTelegramMessageResult } from '@/lib/telegram/client'
 import { resolveChatId } from '@/lib/telegram/chat-id'
 import { claimCronSlot, resolveCronClaim } from '@/lib/cron/idempotent-claim'
@@ -20,12 +20,14 @@ async function defaultGetToken(): Promise<string> {
 
 export const BIRTHDAY_DIGEST_SOURCE = 'birthday-digest'
 
+// S8-T6 (H-1): send_date is the WIB day the run fires; cohort_date is the WIB day being
+// greeted (tomorrow) and is the claim key, so a same-day "Run now" shares the cron's slot.
 export type BirthdayDigestResult =
-  | { status: 'skipped_already_sent'; ict_date: string }
-  | { status: 'skipped_concurrent'; ict_date: string }
-  | { status: 'empty'; ict_date: string }
-  | { status: 'sent'; ict_date: string; count: number; message_id: number }
-  | { status: 'send_failed'; ict_date: string; count: number; reason: string }
+  | { status: 'skipped_already_sent'; send_date: string; cohort_date: string }
+  | { status: 'skipped_concurrent'; send_date: string; cohort_date: string }
+  | { status: 'empty'; send_date: string; cohort_date: string }
+  | { status: 'sent'; send_date: string; cohort_date: string; count: number; message_id: number }
+  | { status: 'send_failed'; send_date: string; cohort_date: string; count: number; reason: string }
 
 export type BirthdayDigestInput = {
   /** MUST be the admin (service-role) client — bypasses RLS */
@@ -47,7 +49,7 @@ type AppSettingsChatIdRow = { telegram_admin_chat_id: string | null }
  * Birthday digest cron body — DB reads/writes + Telegram send, called with `now`
  * captured once by the route handler (never a second `new Date()` here, per D/3).
  *
- * Idempotency: claim-first against system_health(source, ict_date) via
+ * Idempotency: claim-first against system_health(source, ict_date = cohort_date) via
  * lib/cron/idempotent-claim.ts (Sprint 5 T5) — see that file for the full
  * outcome-state-machine rationale (concurrent double-invoke, already-sent skip,
  * degraded/stale-pending reattempt) and the one accepted residual (a crash between
@@ -62,20 +64,23 @@ export async function runBirthdayDigest(input: BirthdayDigestInput): Promise<Bir
     getToken = defaultGetToken,
   } = input
 
-  const todayICT = formatJakarta(now, 'yyyy-MM-dd')
+  const sendDate = formatJakarta(now, 'yyyy-MM-dd')
+  const cohortDate = cohortDateFor(now)
+  const dates = { send_date: sendDate, cohort_date: cohortDate }
+  const payloadBase = { source: BIRTHDAY_DIGEST_SOURCE, ict_date: cohortDate, ...dates }
 
-  const claim = await claimCronSlot({ supabase, source: BIRTHDAY_DIGEST_SOURCE, ictDate: todayICT, now })
+  const claim = await claimCronSlot({ supabase, source: BIRTHDAY_DIGEST_SOURCE, ictDate: cohortDate, now })
   if (claim.outcome === 'already_done') {
-    return { status: 'skipped_already_sent', ict_date: todayICT }
+    return { status: 'skipped_already_sent', ...dates }
   }
   if (claim.outcome === 'concurrent') {
-    return { status: 'skipped_concurrent', ict_date: todayICT }
+    return { status: 'skipped_concurrent', ...dates }
   }
   const { claimId } = claim
 
   const { data: rawPeople, error: peopleErr } = await supabase
     .from('people')
-    .select('id, full_name, birth_date, photo_publish_consent, deleted_at')
+    .select('id, full_name, birth_date, photo_publish_consent, photo_consent_state, deleted_at')
     .not('birth_date', 'is', null)
     .is('deleted_at', null)
 
@@ -83,7 +88,7 @@ export async function runBirthdayDigest(input: BirthdayDigestInput): Promise<Bir
     throw new Error(`Failed to read people: ${peopleErr.message}`)
   }
 
-  const birthdayPeople = selectBirthdaysToday((rawPeople ?? []) as PersonRow[], todayICT)
+  const birthdayPeople = selectBirthdaysOn((rawPeople ?? []) as PersonRow[], cohortDate)
 
   if (birthdayPeople.length === 0) {
     await resolveCronClaim({
@@ -91,9 +96,9 @@ export async function runBirthdayDigest(input: BirthdayDigestInput): Promise<Bir
       claimId,
       status: 'ok',
       now,
-      payload: { source: BIRTHDAY_DIGEST_SOURCE, ict_date: todayICT, count: 0 },
+      payload: { ...payloadBase, count: 0 },
     })
-    return { status: 'empty', ict_date: todayICT }
+    return { status: 'empty', ...dates }
   }
 
   const { data: rawSettings, error: settingsErr } = await supabase
@@ -117,7 +122,7 @@ export async function runBirthdayDigest(input: BirthdayDigestInput): Promise<Bir
   }
 
   const token = await getToken()
-  const text = formatBirthdayDigest(birthdayPeople)
+  const text = formatBirthdayDigest(birthdayPeople, cohortDate)
   const sendResult = await sendMessage({ token, chatId: resolvedChatId.value, text })
 
   if (!sendResult.ok) {
@@ -128,9 +133,9 @@ export async function runBirthdayDigest(input: BirthdayDigestInput): Promise<Bir
       status: 'degraded',
       now,
       notes: `birthday-digest send failed: ${reason}`,
-      payload: { source: BIRTHDAY_DIGEST_SOURCE, ict_date: todayICT, count: birthdayPeople.length },
+      payload: { ...payloadBase, count: birthdayPeople.length },
     })
-    return { status: 'send_failed', ict_date: todayICT, count: birthdayPeople.length, reason }
+    return { status: 'send_failed', ...dates, count: birthdayPeople.length, reason }
   }
 
   await resolveCronClaim({
@@ -138,18 +143,8 @@ export async function runBirthdayDigest(input: BirthdayDigestInput): Promise<Bir
     claimId,
     status: 'ok',
     now,
-    payload: {
-      source: BIRTHDAY_DIGEST_SOURCE,
-      ict_date: todayICT,
-      count: birthdayPeople.length,
-      message_id: sendResult.messageId,
-    },
+    payload: { ...payloadBase, count: birthdayPeople.length, message_id: sendResult.messageId },
   })
 
-  return {
-    status: 'sent',
-    ict_date: todayICT,
-    count: birthdayPeople.length,
-    message_id: sendResult.messageId,
-  }
+  return { status: 'sent', ...dates, count: birthdayPeople.length, message_id: sendResult.messageId }
 }

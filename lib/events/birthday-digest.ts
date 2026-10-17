@@ -1,11 +1,16 @@
 // Pure birthday-selection and formatting logic — no I/O. See lib/events/birthday-digest.impl.ts
 // for the DB/Telegram orchestration that calls this.
 
+import { formatJakarta } from '@/lib/events/timezone'
+
+export type ConsentState = 'granted' | 'refused' | 'unknown'
+
 export type PersonRow = {
   id: string
   full_name: string
   birth_date: string | null // Postgres `date`, comes back as 'YYYY-MM-DD' — no zone, no Date parsing needed
-  photo_publish_consent: boolean | null
+  photo_publish_consent: boolean
+  photo_consent_state: ConsentState
   deleted_at: string | null
 }
 
@@ -13,53 +18,91 @@ export type BirthdayPerson = {
   id: string
   full_name: string
   age: number
-  consent: boolean | null
+  publish: boolean
+  consentState: ConsentState
+}
+
+const DAY_MS = 86_400_000
+const FEB_28 = '02-28'
+const FEB_29 = '02-29'
+
+/**
+ * S8-T6 (H-1): the digest greets TOMORROW's birthdays in WIB. Asia/Jakarta is a fixed
+ * UTC+7 with no DST, so now + 24h always lands on the next WIB calendar day. Never
+ * derive this from `now.toISOString()` — at 06:30 WIB the UTC date is still yesterday.
+ */
+export function cohortDateFor(now: Date): string {
+  return formatJakarta(new Date(now.getTime() + DAY_MS), 'yyyy-MM-dd')
+}
+
+export function isLeapYear(year: number): boolean {
+  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0
 }
 
 /**
- * `todayICT` must come from `formatJakarta(now, 'yyyy-MM-dd')` (lib/events/timezone.ts) —
- * never from `now.toISOString()`. Matching is a string slice on `birth_date`, not a
- * Date comparison, so a Postgres `date` (no zone) can never be re-interpreted across
- * a UTC/ICT boundary.
+ * `cohortIso` is the WIB calendar date being greeted ('YYYY-MM-DD', from cohortDateFor).
+ * Matching is a string slice on `birth_date`, never a Date, so a Postgres `date` (no
+ * zone) can't shift across a UTC/WIB boundary.
  *
- * Feb 29 people are excluded in non-leap years by construction: '02-29' never equals
- * '02-28' or '03-01'. This is a values choice (some might prefer a Feb-28 greeting),
- * not just mechanics — revisit if Sprint 5's settings pass wants that configurable.
+ * Feb 29 (S8-T6 T2): in a non-leap cohort year, Feb-29 birthdays join the Feb-28
+ * cohort. In a leap year they stay on Feb 29 only.
  */
-export function selectBirthdaysToday(people: PersonRow[], todayICT: string): BirthdayPerson[] {
-  const todayMonthDay = todayICT.slice(5, 10)
-  const todayYear = Number(todayICT.slice(0, 4))
+export function selectBirthdaysOn(people: PersonRow[], cohortIso: string): BirthdayPerson[] {
+  const cohortMonthDay = cohortIso.slice(5, 10)
+  const cohortYear = Number(cohortIso.slice(0, 4))
+  const includeFeb29 = cohortMonthDay === FEB_28 && !isLeapYear(cohortYear)
 
   return people
-    .filter(
-      (p): p is PersonRow & { birth_date: string } =>
-        p.deleted_at === null && p.birth_date !== null && p.birth_date.slice(5, 10) === todayMonthDay,
-    )
+    .filter((p): p is PersonRow & { birth_date: string } => {
+      if (p.deleted_at !== null || p.birth_date === null) return false
+      const monthDay = p.birth_date.slice(5, 10)
+      return monthDay === cohortMonthDay || (includeFeb29 && monthDay === FEB_29)
+    })
     .map((p) => ({
       id: p.id,
       full_name: p.full_name,
-      age: todayYear - Number(p.birth_date.slice(0, 4)),
-      consent: p.photo_publish_consent,
+      age: cohortYear - Number(p.birth_date.slice(0, 4)),
+      publish: p.photo_publish_consent,
+      consentState: p.photo_consent_state,
     }))
 }
 
-export function consentBadge(consent: boolean | null): { emoji: string; label: string } {
-  if (consent === true) {
-    return { emoji: '✅', label: 'boleh diucapkan di grup WA' }
+const ID_MONTHS = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+] as const
+
+/** 'YYYY-MM-DD' → 'd MMMM yyyy' in Indonesian (e.g. '2027-01-01' → '1 Januari 2027'). String-only. */
+export function formatIndonesianDate(iso: string): string {
+  const year = iso.slice(0, 4)
+  const month = ID_MONTHS[Number(iso.slice(5, 7)) - 1]
+  const day = Number(iso.slice(8, 10))
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso) || month === undefined || day < 1 || day > 31) {
+    throw new TypeError(`Invalid ISO date: "${iso}"`)
   }
-  if (consent === false) {
-    return { emoji: '🔒', label: 'japri saja — tidak setuju publikasi' }
-  }
-  // Not reachable today — photo_publish_consent is NOT NULL at the DB level (Sprint 6's
-  // import maps blank/"?" to false per B/3). Kept for a future state where consent is
-  // genuinely unrecorded, so a ❓ digest line doesn't silently become dead code.
-  return { emoji: '❓', label: 'belum ada jawaban — japri saja' }
+  return `${day} ${month} ${year}`
 }
 
-export function formatBirthdayDigest(people: BirthdayPerson[]): string {
+/**
+ * photo_publish_consent is the effective gate; photo_consent_state only adds "never
+ * answered" to a false. Known writer drift (tracked separately): setPhotoConsent
+ * (lib/actions/people.impl.ts) writes only the boolean, so the two legitimately
+ * diverge — the state alone would show a revoked person as ✅ and a later grant as ❓.
+ */
+export function consentBadge(publish: boolean, state: ConsentState): { emoji: string; label: string } {
+  if (publish) {
+    return { emoji: '✅', label: 'boleh diucapkan di grup WA' }
+  }
+  if (state === 'unknown') {
+    return { emoji: '❓', label: 'belum ada jawaban — japri saja' }
+  }
+  return { emoji: '🔒', label: 'japri saja — tidak setuju publikasi' }
+}
+
+export function formatBirthdayDigest(people: BirthdayPerson[], cohortIso: string): string {
   const lines = people.map((p) => {
-    const badge = consentBadge(p.consent)
+    const badge = consentBadge(p.publish, p.consentState)
     return `  • ${p.full_name} (${p.age})     ${badge.emoji} ${badge.label}`
   })
-  return [`🎂 Ulang tahun hari ini (${people.length})`, ...lines].join('\n')
+  return [`🎂 Ulang tahun besok — ${formatIndonesianDate(cohortIso)} (${people.length})`, ...lines].join('\n')
 }

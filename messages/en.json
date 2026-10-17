@@ -296,11 +296,11 @@
       "run_digest": {
         "button": "Run birthday digest now",
         "button_pending": "Running…",
-        "help": "Shares today's send slot with the scheduled digest — if it already sent today, this will not send again.",
+        "help": "Sends tomorrow's birthdays (WIB). Shares the scheduled digest's slot — if tomorrow's list already went out, this will not send again.",
         "sent": "Sent — {count} birthday(s).",
-        "skipped": "Already sent today — skipped.",
+        "skipped": "Tomorrow's list already sent — skipped.",
         "concurrent": "A run is already in progress — refresh in a moment.",
-        "empty": "Nothing to send today.",
+        "empty": "No birthdays tomorrow.",
         "failed": "Send failed: {reason}"
       },
       "run_summary": {

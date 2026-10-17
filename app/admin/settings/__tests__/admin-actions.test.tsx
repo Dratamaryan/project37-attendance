@@ -86,12 +86,12 @@ describe('Admin actions — Send Test Telegram', () => {
 
 describe('Admin actions — Run Birthday Digest Now: outcome mapping', () => {
   it.each([
-    [{ status: 'sent', ict_date: '2026-12-03', count: 3, message_id: 1 }, 'admin_actions.run_digest.sent {"count":3}'],
-    [{ status: 'skipped_already_sent', ict_date: '2026-12-03' }, 'admin_actions.run_digest.skipped'],
-    [{ status: 'skipped_concurrent', ict_date: '2026-12-03' }, 'admin_actions.run_digest.concurrent'],
-    [{ status: 'empty', ict_date: '2026-12-03' }, 'admin_actions.run_digest.empty'],
+    [{ status: 'sent', send_date: '2026-12-03', cohort_date: '2026-12-04', count: 3, message_id: 1 }, 'admin_actions.run_digest.sent {"count":3}'],
+    [{ status: 'skipped_already_sent', send_date: '2026-12-03', cohort_date: '2026-12-04' }, 'admin_actions.run_digest.skipped'],
+    [{ status: 'skipped_concurrent', send_date: '2026-12-03', cohort_date: '2026-12-04' }, 'admin_actions.run_digest.concurrent'],
+    [{ status: 'empty', send_date: '2026-12-03', cohort_date: '2026-12-04' }, 'admin_actions.run_digest.empty'],
     [
-      { status: 'send_failed', ict_date: '2026-12-03', count: 1, reason: 'boom' },
+      { status: 'send_failed', send_date: '2026-12-03', cohort_date: '2026-12-04', count: 1, reason: 'boom' },
       'admin_actions.run_digest.failed {"reason":"boom"}',
     ],
     [{ status: 'not_authorized' }, 'admin_actions.not_authorized'],
