@@ -313,3 +313,16 @@ branch-expected ref for remote ops.
   (attendance-summary + digest-triggers integration; full gate since, 1206/1206) / Staging n/a
   (no cron on preview deployments, no Telegram) / Prod ✓ (owner check A clean before and after
   the first nightly run: completed/true only, no scheduled/true, no completed/false).
+
+- S8-T6 VERIFIED (2026-10-18): birthday digest one day ahead (H-1) + consent badge fix
+  (f61dcd4). The 07:00 WIB cron now greets tomorrow's WIB birthdays; non-leap years fold
+  Feb-29 into the Feb-28 cohort; age as of the cohort year; header "Ulang tahun besok — <date>".
+  Claim key system_health(birthday-digest, ict_date = cohort date); payload/result carry
+  send_date + cohort_date; Run now shares the slot; audit entityId uses the cohort. Badge: the
+  boolean is the gate, photo_consent_state only adds ❓ (unknown no longer shown as refused).
+  Deploy-day Run now (2026-10-17) sent cohort 10-18 (count 4) to the new supergroup
+  (telegram_admin_chat_id switched by SQL); the 2026-10-18 cron sent cohort 10-19. Transition
+  10-16/10-17 old-style, 10-18/10-19 new: no gap, no duplicate. Verification rungs (CLAUDE.md
+  rule 17): Local Docker ✓ (gate 1219/1219, lint/typecheck/build) / Staging n/a (no cron on
+  preview deployments, no Telegram) / Prod ✓ (owner). Open: setPhotoConsent writes only the
+  boolean (consent-state drift, tracked separately); no cross-day retry for a missed cohort.
