@@ -664,6 +664,28 @@
           "not_found_message": "Anggota ini tidak ada atau telah dihapus."
         }
       },
+      "add": {
+        "button": "Tambah orang",
+        "title": "Tambah Orang",
+        "subtitle": "Isi nomor, nama, dan tanggal lahir dulu — kolom lain di halaman berikutnya.",
+        "back": "← Kembali ke daftar",
+        "submit": "Buat & lanjutkan",
+        "submit_pending": "Membuat...",
+        "cancel": "Batal",
+        "error": {
+          "required": "Kolom ini wajib diisi.",
+          "future_date": "Tanggal lahir tidak boleh di masa depan.",
+          "invalid_phone": "Masukkan nomor telepon yang valid untuk negara yang dipilih."
+        },
+        "error_generic": "Gagal menambahkan orang ini. Silakan coba lagi.",
+        "duplicate_phone": "Nomor ini sudah terdaftar atas nama {name}.",
+        "duplicate_phone_deleted": "Nomor ini milik {name} (dihapus).",
+        "open_existing": "Buka datanya",
+        "open_to_restore": "Buka untuk memulihkan",
+        "similar_title": "Ada nama yang mirip — apakah ini orang yang sama?",
+        "similar_open": "Buka",
+        "similar_continue": "Tetap lanjutkan"
+      },
       "children": {
         "title": "Anak",
         "empty": "Belum ada anak yang tercatat.",

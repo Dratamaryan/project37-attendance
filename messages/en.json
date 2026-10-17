@@ -664,6 +664,28 @@
           "not_found_message": "This person doesn't exist or has been removed."
         }
       },
+      "add": {
+        "button": "Add person",
+        "title": "Add Person",
+        "subtitle": "Phone, name and birth date now — every other field on the next page.",
+        "back": "← Back to people",
+        "submit": "Create & continue",
+        "submit_pending": "Creating...",
+        "cancel": "Cancel",
+        "error": {
+          "required": "This field is required.",
+          "future_date": "Birth date can't be in the future.",
+          "invalid_phone": "Enter a valid phone number for the selected country."
+        },
+        "error_generic": "Couldn't add this person. Please try again.",
+        "duplicate_phone": "This phone is already registered as {name}.",
+        "duplicate_phone_deleted": "This phone belongs to {name} (deleted).",
+        "open_existing": "Open their record",
+        "open_to_restore": "Open to restore",
+        "similar_title": "Similar names already exist — is this the same person?",
+        "similar_open": "Open",
+        "similar_continue": "Continue anyway"
+      },
       "children": {
         "title": "Children",
         "empty": "No children on file.",
