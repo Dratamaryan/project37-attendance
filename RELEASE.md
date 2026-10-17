@@ -303,3 +303,13 @@ branch-expected ref for remote ops.
   cefb449, 17 audit rows; owner smoke PASS) / Prod ✓ (owner: admin page + export, organizer
   masked view + export 403). Open: P1 card — listRecentAttendanceForInstance is an unguarded
   service-role server action (fenced out of S8-T5; only caller now the check-in RecentPanel).
+
+- S8-T9 VERIFIED (2026-10-17): event instances complete only after their WIB end day is over
+  (d4db5dd). flipCompletedInstances now flips scheduled → completed iff the WIB date of
+  scheduled_at + events.duration_min is before today's WIB date (was: scheduled_at < now, which
+  completed an instance as soon as it started and could drop it from the /checkin picker on an
+  off-schedule fire). cancelled/completed never touched; idempotent. The nightly run now
+  completes the previous day's events. Verification rungs (CLAUDE.md rule 17): Local Docker ✓
+  (attendance-summary + digest-triggers integration; full gate since, 1206/1206) / Staging n/a
+  (no cron on preview deployments, no Telegram) / Prod ✓ (owner check A clean before and after
+  the first nightly run: completed/true only, no scheduled/true, no completed/false).
