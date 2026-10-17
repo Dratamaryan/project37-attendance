@@ -155,7 +155,11 @@ export async function impl_createPerson(
   }
 
   if (existing) {
-    return { status: 'duplicate_phone', existing: { id: existing.id, full_name: existing.full_name } }
+    // Pre-check is scoped to deleted_at IS NULL, so this match is always active.
+    return {
+      status: 'duplicate_phone',
+      existing: { id: existing.id, full_name: existing.full_name, deleted_at: null },
+    }
   }
 
   // Insert
@@ -189,16 +193,19 @@ export async function impl_createPerson(
       // TOCTOU race: another concurrent request inserted the same phone between
       // the pre-check SELECT and this INSERT. The UNIQUE constraint catches it;
       // fetch the winner's row to return the friendly duplicate message.
+      // This is also the path a soft-deleted holder of the phone takes (the
+      // pre-check skips deleted rows): admins see it via RLS and get its
+      // deleted_at; organizers can't see deleted rows and get the fallback.
       const { data: conflicting } = await supabase
         .from('people')
-        .select('id, full_name')
+        .select('id, full_name, deleted_at')
         .eq('phone_e164', e164)
         .single()
       return {
         status: 'duplicate_phone',
         existing: conflicting
-          ? { id: conflicting.id, full_name: conflicting.full_name }
-          : { id: '', full_name: 'Unknown' },
+          ? { id: conflicting.id, full_name: conflicting.full_name, deleted_at: conflicting.deleted_at }
+          : { id: '', full_name: 'Unknown', deleted_at: null },
       }
     }
     console.error('[createPerson] insert', insertError)

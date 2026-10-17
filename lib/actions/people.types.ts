@@ -78,7 +78,7 @@ export type CreatePersonInput = {
 
 export type CreateResult =
   | { status: 'created';          person: PersonSummary }
-  | { status: 'duplicate_phone';  existing: { id: string; full_name: string } }
+  | { status: 'duplicate_phone';  existing: { id: string; full_name: string; deleted_at: string | null } }
   | { status: 'validation_error'; field_errors: Record<string, string> }
   | { status: 'error';            message: string }
 

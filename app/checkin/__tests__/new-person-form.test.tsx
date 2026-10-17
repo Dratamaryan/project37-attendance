@@ -297,7 +297,7 @@ describe('NewPersonForm', () => {
   it('duplicate_phone: shows error with existing name and Use existing button', async () => {
     mockCreate.mockResolvedValue({
       status: 'duplicate_phone',
-      existing: { id: 'existing-001', full_name: 'Maria Santos' },
+      existing: { id: 'existing-001', full_name: 'Maria Santos', deleted_at: null },
     } satisfies CreateResult)
 
     const { user } = setup()

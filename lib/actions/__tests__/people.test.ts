@@ -198,18 +198,47 @@ describe('impl_createPerson', () => {
     if (result.status !== 'duplicate_phone') return
     expect(result.existing.id).toBe('existing-id')
     expect(result.existing.full_name).toBe('Other Person')
+    expect(result.existing.deleted_at).toBeNull()
   })
 
   it('returns duplicate_phone on 23505 unique_violation (TOCTOU race)', async () => {
     const supabase = makeMockSupabase([
       { data: null,                               error: PGRST116 },                           // dup check: clear
       { data: null,                               error: { code: '23505', message: 'dup' } },  // insert fails
-      { data: { id: 'racer-id', full_name: 'Racer' }, error: null },                          // fetch conflicting
+      { data: { id: 'racer-id', full_name: 'Racer', deleted_at: null }, error: null },        // fetch conflicting
     ])
     const result = await impl_createPerson(VALID_INPUT, supabase)
     expect(result.status).toBe('duplicate_phone')
     if (result.status !== 'duplicate_phone') return
     expect(result.existing.id).toBe('racer-id')
+    expect(result.existing.deleted_at).toBeNull()
+    expect(supabase._builder.select).toHaveBeenCalledWith('id, full_name, deleted_at')
+  })
+
+  it('returns the soft-deleted holder with its deleted_at on 23505 (pre-check skips deleted rows)', async () => {
+    const supabase = makeMockSupabase([
+      { data: null, error: PGRST116 },                                    // dup check: no ACTIVE match
+      { data: null, error: { code: '23505', message: 'dup' } },           // insert hits UNIQUE
+      { data: { id: 'deleted-id', full_name: 'Gone Person', deleted_at: '2026-10-01T00:00:00Z' }, error: null },
+    ])
+    const result = await impl_createPerson(VALID_INPUT, supabase)
+    expect(result.status).toBe('duplicate_phone')
+    if (result.status !== 'duplicate_phone') return
+    expect(result.existing).toEqual({
+      id: 'deleted-id', full_name: 'Gone Person', deleted_at: '2026-10-01T00:00:00Z',
+    })
+  })
+
+  it('returns the empty-id fallback on 23505 when the conflicting row is not visible', async () => {
+    const supabase = makeMockSupabase([
+      { data: null, error: PGRST116 },
+      { data: null, error: { code: '23505', message: 'dup' } },
+      { data: null, error: PGRST116 },                                    // RLS hides it (organizer)
+    ])
+    const result = await impl_createPerson(VALID_INPUT, supabase)
+    expect(result.status).toBe('duplicate_phone')
+    if (result.status !== 'duplicate_phone') return
+    expect(result.existing).toEqual({ id: '', full_name: 'Unknown', deleted_at: null })
   })
 
   it('does NOT call log_audit when result is duplicate_phone', async () => {
