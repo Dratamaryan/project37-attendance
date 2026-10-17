@@ -326,3 +326,17 @@ branch-expected ref for remote ops.
   rule 17): Local Docker ✓ (gate 1219/1219, lint/typecheck/build) / Staging n/a (no cron on
   preview deployments, no Telegram) / Prod ✓ (owner). Open: setPhotoConsent writes only the
   boolean (consent-state drift, tracked separately); no cross-day retry for a missed cohort.
+
+- S8-T10 VERIFIED (2026-10-17): admin "Add person" live (f37fa97, 54309b8). /admin/people/new
+  (requireActiveAdmin) — short form phone → full name → nickname → birth date (required) calling
+  the existing createPerson (no new insert path; people.create audit and consent 'unknown'
+  unchanged), then redirect to /admin/people/[id] for every other field. Duplicate phone blocks
+  with "already registered as {name}" + link (none for the empty-id fallback); a soft-deleted
+  holder reads "(deleted)" + "Open to restore" — createPerson's duplicate_phone.existing now
+  carries deleted_at (23505 path). Similar-name warning: debounced lookupByName on full name +
+  first token, deduped, masked phone tails + links; Submit held until "Continue anyway", re-checked
+  at submit. "+ Add person" header link; admin.people.add.* en + id. Third local useDebounce copy
+  (extraction backlog). Verification rungs (CLAUDE.md rule 17): Local Docker ✓ (gate 1250/1250,
+  lint/typecheck/build) / Staging ✓ ([SYNTH] smoke 5/5; 3 people.create audit rows, 0 null actors)
+  / Prod ✓ (owner). Tracked prod test residue: 1 people row (+62999 test phone), soft-deleted.
+  Open: confirm 2 pre-existing non-+62999 staging people are synthetic.
