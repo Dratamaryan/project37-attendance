@@ -46,3 +46,16 @@ export function toJakartaInstant(date: Date | string, time: string): Date {
 export function formatJakarta(instant: Date, formatString: string): string {
   return formatInTimeZone(instant, JAKARTA_TZ, formatString);
 }
+
+/**
+ * WIB calendar date ('yyyy-MM-dd') on which an instance ends. scheduled_at is
+ * a full timestamptz (explicit offset), so parsing it yields an exact instant;
+ * the calendar date is only ever derived in Asia/Jakarta via formatJakarta.
+ *
+ * SQL twin: public.rsvp_instance_open() (20261020120000_sprint9_r0_rsvp.sql) —
+ * parity covered by tests/integration/rsvp-rpc.test.ts.
+ */
+export function instanceEndWibDate(scheduledAt: string, durationMin: number): string {
+  const endInstant = new Date(Date.parse(scheduledAt) + durationMin * 60_000);
+  return formatJakarta(endInstant, 'yyyy-MM-dd');
+}

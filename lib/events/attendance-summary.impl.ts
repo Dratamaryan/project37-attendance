@@ -6,7 +6,7 @@ import {
   formatAttendanceSummary,
   type AttendanceRow,
 } from '@/lib/events/attendance-summary'
-import { formatJakarta } from '@/lib/events/timezone'
+import { formatJakarta, instanceEndWibDate } from '@/lib/events/timezone'
 import { sendTelegramMessage, type SendTelegramMessageResult } from '@/lib/telegram/client'
 import { resolveChatId } from '@/lib/telegram/chat-id'
 import { claimCronSlot, resolveCronClaim } from '@/lib/cron/idempotent-claim'
@@ -51,14 +51,6 @@ type FlipCandidateRow = {
   id: string
   scheduled_at: string
   events: { duration_min: number }
-}
-
-/** WIB calendar date ('yyyy-MM-dd') on which an instance ends. scheduled_at is
- * a full timestamptz (explicit offset), so parsing it yields an exact instant;
- * the calendar date is only ever derived in Asia/Jakarta via formatJakarta. */
-function instanceEndWibDate(scheduledAt: string, durationMin: number): string {
-  const endInstant = new Date(Date.parse(scheduledAt) + durationMin * 60_000)
-  return formatJakarta(endInstant, 'yyyy-MM-dd')
 }
 
 /**

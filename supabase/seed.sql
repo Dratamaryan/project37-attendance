@@ -19,3 +19,14 @@ VALUES (
   true
 )
 ON CONFLICT (id) DO NOTHING;
+
+-- S9-R0: local-only RSVP gate secret for submit_rsvp(p_gate, ...). The value
+-- is a deliberately obvious placeholder, NOT a real secret — staging/prod get
+-- their own value set out-of-band in the Supabase vault, never from this file.
+-- Integration tests (tests/integration/rsvp-rpc.test.ts) read the same literal.
+SELECT vault.create_secret(
+  'local-dev-only-rsvp-gate-not-a-secret',
+  'rsvp_gate',
+  'S9-R0 RSVP gate — LOCAL DOCKER ONLY placeholder (seed.sql)'
+)
+WHERE NOT EXISTS (SELECT 1 FROM vault.secrets WHERE name = 'rsvp_gate');
