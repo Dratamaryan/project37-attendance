@@ -16,7 +16,7 @@
  * this reads NOTIFY_SMTP_ / NOTIFY_FROM_NAME / NOTIFY_REPLY_TO env vars
  * directly instead of calling getDefaultEmailTransport() / getNotifySmtpConfig().
  *
- * Run: npx tsx --env-file .env.local scripts/t9-invite-send-live-test.ts <email1> [email2 ...]
+ * Run: npx tsx --env-file .env.prod.local scripts/t9-invite-send-live-test.ts <email1> [email2 ...]
  */
 
 import { createClient } from '@supabase/supabase-js'
@@ -25,7 +25,7 @@ import { impl_sendInvites } from '../lib/actions/invites.impl'
 
 const recipientEmails = process.argv.slice(2)
 if (recipientEmails.length === 0) {
-  console.error('Usage: npx tsx --env-file .env.local scripts/t9-invite-send-live-test.ts <email1> [email2 ...]')
+  console.error('Usage: npx tsx --env-file .env.prod.local scripts/t9-invite-send-live-test.ts <email1> [email2 ...]')
   console.error('  Each address must be one of Ryan\'s controlled inboxes (E/2/E/5) — never a congregant.')
   process.exit(1)
 }
@@ -47,7 +47,7 @@ if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !ANON_KEY) {
   process.exit(1)
 }
 if (!NOTIFY_USER || !NOTIFY_PASS || !NOTIFY_REPLY_TO) {
-  console.error('Missing NOTIFY_SMTP_USER / NOTIFY_SMTP_PASS / NOTIFY_REPLY_TO in .env.local')
+  console.error('Missing NOTIFY_SMTP_USER / NOTIFY_SMTP_PASS / NOTIFY_REPLY_TO in .env.prod.local')
   process.exit(1)
 }
 

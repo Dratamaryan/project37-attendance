@@ -15,7 +15,7 @@
  * safe (it would over-match real congregants sharing that tribe). Same
  * reasoning and pattern as scripts/t9-invite-send-live-test.ts.
  *
- * Run: npx tsx --env-file .env.local scripts/sprint5-t10-invite-send-live-test.ts <email>
+ * Run: npx tsx --env-file .env.prod.local scripts/sprint5-t10-invite-send-live-test.ts <email>
  */
 
 import { createClient } from '@supabase/supabase-js'
@@ -24,7 +24,7 @@ import { impl_sendInvites } from '../lib/actions/invites.impl'
 
 const recipientEmail = process.argv[2]
 if (!recipientEmail) {
-  console.error('Usage: npx tsx --env-file .env.local scripts/sprint5-t10-invite-send-live-test.ts <email>')
+  console.error('Usage: npx tsx --env-file .env.prod.local scripts/sprint5-t10-invite-send-live-test.ts <email>')
   console.error('  Must be one of Ryan\'s controlled inboxes — never a congregant.')
   process.exit(1)
 }
@@ -50,7 +50,7 @@ if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !ANON_KEY) {
   process.exit(1)
 }
 if (!NOTIFY_USER || !NOTIFY_PASS || !NOTIFY_REPLY_TO) {
-  console.error('Missing NOTIFY_SMTP_USER / NOTIFY_SMTP_PASS / NOTIFY_REPLY_TO in .env.local')
+  console.error('Missing NOTIFY_SMTP_USER / NOTIFY_SMTP_PASS / NOTIFY_REPLY_TO in .env.prod.local')
   process.exit(1)
 }
 

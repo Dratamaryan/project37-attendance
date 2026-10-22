@@ -3,11 +3,11 @@
  *
  * Run:
  *   Read-only preflight (no writes, always safe to run):
- *     npx tsx --env-file .env.local scripts/wipe-and-reseed.ts
+ *     npx tsx --env-file .env.prod.local scripts/wipe-and-reseed.ts
  *   Armed (destructive — wipes ALL people/attendance/event_invitations/events/
  *   event_instances, reseeds Project Day + Tribe Connect, materializes instances):
- *     npx tsx --env-file .env.local scripts/wipe-and-reseed.ts --confirm
- *     (or WIPE_CONFIRM=yes npx tsx --env-file .env.local scripts/wipe-and-reseed.ts)
+ *     npx tsx --env-file .env.prod.local scripts/wipe-and-reseed.ts --confirm
+ *     (or WIPE_CONFIRM=yes npx tsx --env-file .env.prod.local scripts/wipe-and-reseed.ts)
  *
  * Three-step structure (architect-approved 2026-08-08, docs/sprint-6-task-2-verify.md):
  *   Step 0 — read-only preflight: both env guards, run-once guard, capture-then-

@@ -26,7 +26,7 @@
  * assembled workbook is written to the scratchpad dir for optional manual
  * inspection, never to the repo.
  *
- * Run: npx tsx --env-file .env.local scripts/s6-t10a-people-export-live-test.ts
+ * Run: npx tsx --env-file .env.prod.local scripts/s6-t10a-people-export-live-test.ts
  */
 
 import { writeFileSync } from 'node:fs'

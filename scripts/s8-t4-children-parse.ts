@@ -26,8 +26,8 @@
  * can't be trusted -- a backstop, not a substitute for the correct invocation:
  *
  *   npx tsc -p scripts/tsconfig.s8-t4.json
- *   node --env-file=.env.local scripts/.build/scripts/s8-t4-children-parse.js [--mode=dry-run]
- *   node --env-file=.env.local scripts/.build/scripts/s8-t4-children-parse.js --mode=apply --confirm-apply --admin-email <email>
+ *   node --env-file=.env.prod.local scripts/.build/scripts/s8-t4-children-parse.js [--mode=dry-run]
+ *   node --env-file=.env.prod.local scripts/.build/scripts/s8-t4-children-parse.js --mode=apply --confirm-apply --admin-email <email>
  *
  * ASSUMES MIGRATIONS-BEFORE-RUN: public.children (S8-T1,
  * 20261005120000_sprint8_task1_children_child_attendance.sql) must already

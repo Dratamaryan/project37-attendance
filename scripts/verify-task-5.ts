@@ -10,7 +10,7 @@
  * would write to audit_log when that user is logged in.
  *
  * Run (requires NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY in env):
- *   npx dotenv -e .env.local -- npx tsx scripts/verify-task-5.ts
+ *   npx dotenv -e .env.prod.local -- npx tsx scripts/verify-task-5.ts
  */
 
 import { createClient } from '@supabase/supabase-js'

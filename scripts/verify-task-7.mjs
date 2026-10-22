@@ -1,6 +1,6 @@
 /**
  * Live RLS + storage verify script for Sprint 1 Task 7.
- * Reads .env.local, tests the people-photos bucket end-to-end.
+ * Reads .env.prod.local, tests the people-photos bucket end-to-end.
  *
  * Run:  node scripts/verify-task-7.mjs
  *
@@ -32,9 +32,9 @@ import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createClient } from '@supabase/supabase-js'
 
-// ── Load .env.local ──────────────────────────────────────────────────────────
+// ── Load .env.prod.local ──────────────────────────────────────────────────────────
 const __dir = dirname(fileURLToPath(import.meta.url))
-const envPath = resolve(__dir, '../.env.local')
+const envPath = resolve(__dir, '../.env.prod.local')
 try {
   const envLines = readFileSync(envPath, 'utf8').split('\n')
   for (const line of envLines) {

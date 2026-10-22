@@ -340,3 +340,27 @@ branch-expected ref for remote ops.
   lint/typecheck/build) / Staging ✓ ([SYNTH] smoke 5/5; 3 people.create audit rows, 0 null actors)
   / Prod ✓ (owner). Tracked prod test residue: 1 people row (+62999 test phone), soft-deleted.
   Open: confirm 2 pre-existing non-+62999 staging people are synthetic.
+
+---
+
+## 9. S9 task log
+
+- S9-R0 VERIFIED (2026-10-22): RSVP schema, admin-only RLS, gated anon RPCs (05c5f86;
+  migration 20261020120000_sprint9_r0_rsvp.sql). event_rsvp_links (one active link per
+  instance) + event_rsvps (one row per instance+phone); anon has no table privileges and no
+  policy, admin-only FOR ALL policy for authenticated. Public path is two SECURITY DEFINER RPCs
+  with EXECUTE for anon only: get_rsvp_context (any closed or unknown state returns exactly
+  {"open":false}) and submit_rsvp (Vault 'rsvp_gate' checked before any token lookup; the same
+  {"ok":true} body for members and newcomers; never writes people, attendance or audit_log).
+  rsvp_instance_open is owner-only and is the SQL twin of instanceEndWibDate (now exported from
+  lib/events/timezone.ts). Verification rungs (CLAUDE.md rule 17): Local Docker ✓
+  verified:vitest (rsvp-rpc 48 tests incl. RLS admin/organizer, gate before token, TS↔SQL
+  parity; gate 1298/1298, lint/typecheck/build) / Staging ✓ verified:server-side (catalog SQL)
+  + verified:live-staging (s9-r0-staging-smoke 15/15, zero residue) / Prod ✓
+  verified:server-side (catalog SQL; rsvp_rows 0→0) + verified:live (s9-r0-prod-verify,
+  anon-only no-write, 6/6). Catalog matrix identical on staging and prod: EXECUTE 2/12 (anon on
+  the two RPCs only), helper owner-only, owner postgres, search_path public, pg_temp, PG 170006.
+  Posture: the open-context and right-gate submit paths are verified on staging only. Prod has
+  no RSVP writes until R1/R4 go-live, and the prod gate secret is in Vault only (not on the dev
+  machine). Staging smoke audit rows (event.create, people.create, data.wipe) kept on purpose.
+  No real PII at any rung. Backlog: shared createAppUser test helper (S11-T15).

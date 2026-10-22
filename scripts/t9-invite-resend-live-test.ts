@@ -6,7 +6,7 @@
  * Reuses the dedicated test event_instance + person from
  * t9-invite-send-live-test.ts's most recent run.
  *
- * Run: npx tsx --env-file .env.local scripts/t9-invite-resend-live-test.ts <eventInstanceId> <personId>
+ * Run: npx tsx --env-file .env.prod.local scripts/t9-invite-resend-live-test.ts <eventInstanceId> <personId>
  */
 
 import { createClient } from '@supabase/supabase-js'
@@ -15,7 +15,7 @@ import { impl_resendInvite } from '../lib/actions/invites.impl'
 
 const [eventInstanceId, personId] = process.argv.slice(2)
 if (!eventInstanceId || !personId) {
-  console.error('Usage: npx tsx --env-file .env.local scripts/t9-invite-resend-live-test.ts <eventInstanceId> <personId>')
+  console.error('Usage: npx tsx --env-file .env.prod.local scripts/t9-invite-resend-live-test.ts <eventInstanceId> <personId>')
   process.exit(1)
 }
 

@@ -14,7 +14,7 @@
  * scripts/t5-birthday-digest-live-test.mjs duplicating todayICT() instead of
  * importing the server-only-guarded original.
  *
- * Run: npx tsx --env-file .env.local scripts/t8-email-live-test.ts <to-address>
+ * Run: npx tsx --env-file .env.prod.local scripts/t8-email-live-test.ts <to-address>
  */
 
 import { createNodemailerTransport } from '../lib/email/transport'
@@ -23,7 +23,7 @@ import { generateIcs } from '../lib/events/ics'
 
 const to = process.argv[2]
 if (!to) {
-  console.error('Usage: npx tsx --env-file .env.local scripts/t8-email-live-test.ts <to-address>')
+  console.error('Usage: npx tsx --env-file .env.prod.local scripts/t8-email-live-test.ts <to-address>')
   console.error('  <to-address> must be one of Ryan\'s controlled inboxes (E/2/E/5) — never a congregant.')
   process.exit(1)
 }
@@ -36,7 +36,7 @@ const fromName = process.env.NOTIFY_FROM_NAME || 'Project 37'
 const replyTo = process.env.NOTIFY_REPLY_TO
 
 if (!user || !pass || !replyTo) {
-  console.error('Missing NOTIFY_SMTP_USER / NOTIFY_SMTP_PASS / NOTIFY_REPLY_TO in .env.local')
+  console.error('Missing NOTIFY_SMTP_USER / NOTIFY_SMTP_PASS / NOTIFY_REPLY_TO in .env.prod.local')
   process.exit(1)
 }
 

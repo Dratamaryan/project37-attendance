@@ -28,7 +28,7 @@ import { chromium } from 'playwright'
 import * as XLSX from 'xlsx'
 
 const __dir = dirname(fileURLToPath(import.meta.url))
-const envPath = resolve(__dir, '../.env.local')
+const envPath = resolve(__dir, '../.env.prod.local')
 try {
   for (const line of readFileSync(envPath, 'utf8').split('\n')) {
     const trimmed = line.trim()

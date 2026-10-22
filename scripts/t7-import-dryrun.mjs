@@ -11,7 +11,7 @@
  *
  * Run (local dev server): node scripts/t7-import-dryrun.mjs
  * Run against a different base URL / env (e.g. deployed prod):
- *   T7_BASE_URL=https://... T7_ENV_FILE=.env.local node scripts/t7-import-dryrun.mjs
+ *   T7_BASE_URL=https://... T7_ENV_FILE=.env.prod.local node scripts/t7-import-dryrun.mjs
  */
 import { readFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'

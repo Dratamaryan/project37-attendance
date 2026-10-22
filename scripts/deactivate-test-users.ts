@@ -5,11 +5,11 @@
  *
  * Run:
  *   Read-only preview (no writes, always safe to run):
- *     npx tsx --env-file .env.local scripts/deactivate-test-users.ts
+ *     npx tsx --env-file .env.prod.local scripts/deactivate-test-users.ts
  *   Armed (soft-deactivates every app_users row matching
  *   email LIKE '%@test.invalid' AND active=true):
- *     npx tsx --env-file .env.local scripts/deactivate-test-users.ts --confirm-deactivate
- *     (or DEACTIVATE_CONFIRM=yes npx tsx --env-file .env.local scripts/deactivate-test-users.ts)
+ *     npx tsx --env-file .env.prod.local scripts/deactivate-test-users.ts --confirm-deactivate
+ *     (or DEACTIVATE_CONFIRM=yes npx tsx --env-file .env.prod.local scripts/deactivate-test-users.ts)
  *
  * Architect-approved 2026-08-09 (S6-T2.2 plan). Mirrors wipe-and-reseed.ts's
  * discipline: env-guarded, one atomic transaction via the Management API

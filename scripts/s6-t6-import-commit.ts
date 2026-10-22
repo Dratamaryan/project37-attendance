@@ -28,8 +28,8 @@
  *   node scripts/.build/scripts/s6-t6-import-commit.js --rollback <importId>                       (rollback preview)
  *   node scripts/.build/scripts/s6-t6-import-commit.js --rollback <importId> --confirm-rollback     (ARMED rollback)
  *
- * Env (from a prod-pointed .env.local, loaded by the caller, e.g.
- * `node --env-file .env.local scripts/.build/scripts/s6-t6-import-commit.js`):
+ * Env (from a prod-pointed .env.prod.local, loaded by the caller, e.g.
+ * `node --env-file .env.prod.local scripts/.build/scripts/s6-t6-import-commit.js`):
  *   NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ACCESS_TOKEN
  * Plus the audit actor's email -- not hardcoded (public repo): either
  * IMPORT_ADMIN_EMAIL in env, or --admin-email <email> on the command line.

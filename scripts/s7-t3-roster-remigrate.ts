@@ -30,8 +30,8 @@
  * substitute for the correct invocation:
  *
  *   npx tsc -p scripts/tsconfig.s7-t3.json
- *   node --env-file=.env.local scripts/.build/scripts/s7-t3-roster-remigrate.js [--mode=dry-run]
- *   node --env-file=.env.local scripts/.build/scripts/s7-t3-roster-remigrate.js --mode=apply --confirm-apply
+ *   node --env-file=.env.prod.local scripts/.build/scripts/s7-t3-roster-remigrate.js [--mode=dry-run]
+ *   node --env-file=.env.prod.local scripts/.build/scripts/s7-t3-roster-remigrate.js --mode=apply --confirm-apply
  *
  * Required env (NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY) is read
  * from process.env, not loaded by this script — pass --env-file or export

@@ -1,6 +1,6 @@
 /**
  * CLI verify script for Sprint 1 Task 5 (JavaScript/ESM, no TypeScript needed).
- * Reads .env.local, uses the Supabase admin client to exercise the same DB logic
+ * Reads .env.prod.local, uses the Supabase admin client to exercise the same DB logic
  * as impl_createPerson + impl_setPhotoConsent, and queries the resulting audit rows.
  *
  * Run:  node scripts/verify-task-5.mjs
@@ -11,9 +11,9 @@ import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createClient } from '@supabase/supabase-js'
 
-// ── Load .env.local ──────────────────────────────────────────────────────────
+// ── Load .env.prod.local ──────────────────────────────────────────────────────────
 const __dir = dirname(fileURLToPath(import.meta.url))
-const envPath = resolve(__dir, '../.env.local')
+const envPath = resolve(__dir, '../.env.prod.local')
 const envLines = readFileSync(envPath, 'utf8').split('\n')
 for (const line of envLines) {
   const trimmed = line.trim()
