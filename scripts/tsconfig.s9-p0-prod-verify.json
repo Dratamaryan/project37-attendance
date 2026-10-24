@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "resolveJsonModule": true,
+    "outDir": "./.build",
+    "rootDir": "..",
+    "lib": ["ES2020", "DOM"]
+  },
+  "include": [
+    "s9-p0-prod-verify.ts"
+  ],
+  "exclude": ["**/__tests__/**"]
+}

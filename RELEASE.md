@@ -364,3 +364,22 @@ branch-expected ref for remote ops.
   no RSVP writes until R1/R4 go-live, and the prod gate secret is in Vault only (not on the dev
   machine). Staging smoke audit rows (event.create, people.create, data.wipe) kept on purpose.
   No real PII at any rung. Backlog: shared createAppUser test helper (S11-T15).
+- S9-P0 VERIFIED (2026-10-24): event image upload to a public Storage bucket (64c30a7;
+  migration 20261022120000_sprint9_p0_event_images.sql). event-images bucket (public, 4 MB,
+  jpeg/png/webp) with one policy, event_images_admin_all (FOR ALL TO authenticated, is_admin());
+  no organizer or anon policy. uploadInstanceImage / removeInstanceImage server actions (RLS
+  server client, requireActiveAdmin) with magic-byte validation, never-overwrite paths
+  instances/<instance>/<uuid>.<ext>, 1-year cache-control, event_image.upload /
+  event_image.remove audit (instance_id). event_instances.image_url stores the public URL;
+  paste-a-URL removed (updateInstance no longer accepts image_url); admin instance-page
+  thumbnail; invite email HTML-attribute-escapes the image URL. Verification rungs (CLAUDE.md
+  rule 17): Local Docker ✓ verified:vitest (event-images 16 + validator 13 + template/page
+  additions; gate 1327/1327, lint/typecheck/build) / Staging ✓ verified:server-side (catalog
+  SQL) + verified:live-staging (owner UAT 2026-10-24: upload, thumbnails, public URL in a
+  private window, wrong type and > 4 MB rejected, replace/remove, old URL still serves;
+  s9-p0-staging-smoke 7/7) / Prod ✓ verified:server-side (catalog SQL) + verified:live (owner
+  uploaded a real poster to a real upcoming occurrence; s9-p0-prod-verify, anon-only no-write,
+  7/7). Posture: rendering on the anon RSVP page moved to S9-R1; organizer denial proven locally
+  (RLS 42501) with the identical policy confirmed by catalog on staging and prod; old objects
+  retained by design (sent invites embed the URL); local storage container now v1.80.2
+  (matches the linked remote pin). Backlog: escape event names in the invite email (S11-T16).
