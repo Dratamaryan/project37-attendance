@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { getLocale } from 'next-intl/server'
 import { NotAuthorized } from '@/app/admin/_components/not-authorized'
 import { PersonNotFound } from '@/app/admin/people/_components/person-not-found'
 import { getPersonById } from '@/lib/actions/people'
@@ -8,6 +9,8 @@ import { getPhotoSignedUrl } from '@/lib/storage/photos'
 import { requireActiveAdmin } from '@/lib/auth/require-admin'
 import { EditPersonForm } from './edit-person-form'
 import { PersonChildrenSection } from '../person-children-section'
+import { PersonRsvpHistorySection } from '../person-rsvp-history-section'
+import { impl_listPersonRsvpHistory } from '@/lib/rsvp/admin.impl'
 
 type Props = {
   params: Promise<{ id: string }>
@@ -48,6 +51,11 @@ export default async function AdminPersonEditPage({ params }: Props) {
   const childrenLoadFailed =
     childrenResult.status === 'error' || childrenResult.status === 'invalid_input'
 
+  // S9-R3b: RSVP history — admin session (rsvp_checkin_crosstab is
+  // is_admin()-filtered); read-only, rendered server-side.
+  const locale = (await getLocale()) === 'en' ? 'en' : 'id'
+  const rsvpHistory = await impl_listPersonRsvpHistory(person.id, supabase, locale)
+
   return (
     <main className="px-4 md:px-6 py-8">
       <div className="max-w-2xl mx-auto">
@@ -57,6 +65,7 @@ export default async function AdminPersonEditPage({ params }: Props) {
           initialChildren={initialChildren}
           initialLoadFailed={childrenLoadFailed}
         />
+        <PersonRsvpHistorySection result={rsvpHistory} />
       </div>
     </main>
   )

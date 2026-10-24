@@ -521,12 +521,13 @@
           "error_not_found": "This occurrence no longer exists.",
           "error_generic": "Something went wrong. Please try again.",
           "error_load": "Couldn't load RSVPs.",
+          "export_button": "Export to Excel",
           "whatsapp_message": "Please confirm your attendance for {event} ({date}): {url}",
           "totals": {
             "title": "Totals",
             "coming_headcount": "Expected headcount (food count)",
             "coming_detail": "{people, plural, one {# person} other {# people}} coming + {children, plural, one {# child} other {# children}}",
-            "maybe": "Maybe: {people} people ({headcount} incl. children)",
+            "maybe": "Maybe: {people, plural, one {# person} other {# people}} ({headcount} incl. children)",
             "not_coming": "Not coming: {count}",
             "responses": "Total responses: {count}"
           },
@@ -821,6 +822,20 @@
           "generic": "Something went wrong. Please try again.",
           "load_failed": "Couldn't load children. Reload the page to try again."
         }
+      },
+      "rsvp_history": {
+        "title": "RSVP history",
+        "empty": "No RSVPs from this person yet.",
+        "error": "Couldn't load RSVP history.",
+        "status": {
+          "coming": "Coming",
+          "maybe": "Maybe",
+          "not_coming": "Not coming"
+        },
+        "children": "{count, plural, one {# child} other {# children}}",
+        "attended_yes": "Checked in",
+        "attended_no": "Not checked in",
+        "cancelled": "Cancelled"
       }
     },
     "import": {

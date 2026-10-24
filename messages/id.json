@@ -521,6 +521,7 @@
           "error_not_found": "Sesi ini sudah tidak ada.",
           "error_generic": "Terjadi kesalahan. Silakan coba lagi.",
           "error_load": "Gagal memuat RSVP.",
+          "export_button": "Ekspor ke Excel",
           "whatsapp_message": "Mohon konfirmasi kehadiran untuk {event} ({date}): {url}",
           "totals": {
             "title": "Ringkasan",
@@ -821,6 +822,20 @@
           "generic": "Terjadi kesalahan. Silakan coba lagi.",
           "load_failed": "Gagal memuat data anak. Muat ulang halaman untuk mencoba lagi."
         }
+      },
+      "rsvp_history": {
+        "title": "Riwayat RSVP",
+        "empty": "Belum ada RSVP dari orang ini.",
+        "error": "Gagal memuat riwayat RSVP.",
+        "status": {
+          "coming": "Hadir",
+          "maybe": "Mungkin",
+          "not_coming": "Tidak hadir"
+        },
+        "children": "{count} anak",
+        "attended_yes": "Sudah check-in",
+        "attended_no": "Belum check-in",
+        "cancelled": "Dibatalkan"
       }
     },
     "import": {

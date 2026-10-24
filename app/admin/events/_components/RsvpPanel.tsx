@@ -233,7 +233,7 @@ export function RsvpPanel({ instanceId, instanceStatus, panel, whatsAppUrls }: P
         </p>
         <ul className="mt-3 text-sm text-charcoal tabular-nums space-y-0.5">
           <li data-testid="rsvp-maybe">
-            {t('totals.maybe', { people: String(totals.maybe_people), headcount: String(totals.maybe_headcount) })}
+            {t('totals.maybe', { people: totals.maybe_people, headcount: totals.maybe_headcount })}
           </li>
           <li>{t('totals.not_coming', { count: String(totals.not_coming_people) })}</li>
           <li>{t('totals.responses', { count: String(totals.responses) })}</li>
@@ -268,9 +268,18 @@ export function RsvpPanel({ instanceId, instanceStatus, panel, whatsAppUrls }: P
 
       {/* List */}
       <div>
-        <h3 className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">
-          {t('list.title')} <span className="tabular-nums">· {rows.length}</span>
-        </h3>
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <h3 className="text-xs font-semibold text-muted uppercase tracking-wider">
+            {t('list.title')} <span className="tabular-nums">· {rows.length}</span>
+          </h3>
+          <a
+            href={`/api/admin/export/instance/${instanceId}/rsvp`}
+            data-testid="rsvp-export-link"
+            className="text-sm font-medium text-cream bg-gold hover:bg-gold-dark transition-colors rounded-sm px-3 py-1.5 flex-shrink-0"
+          >
+            {t('export_button')}
+          </a>
+        </div>
         {rows.length === 0 ? (
           <p className="px-4 py-6 text-sm text-muted italic text-center bg-white border border-line rounded-[4px]">
             {t('list.empty')}

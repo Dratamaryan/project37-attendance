@@ -14,12 +14,17 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { requireActiveAdmin } from '@/lib/auth/require-admin'
 import { AUDIT_ACTIONS, logAudit } from '@/lib/audit'
 import { maskPhoneLast4 } from '@/lib/utils/mask-phone'
+import { displayInstanceName } from '@/lib/events/display'
 import {
   RSVP_BUCKETS,
   type DeactivateRsvpLinkResult,
   type DeleteRsvpResult,
+  type GetInstanceRsvpExportResult,
   type GetInstanceRsvpPanelResult,
   type GetOrCreateRsvpLinkResult,
+  type ListPersonRsvpHistoryResult,
+  type PersonRsvpHistoryRow,
+  type RsvpExportRow,
   type RsvpBucket,
   type RsvpPanelRow,
   type RsvpPanelTotals,
@@ -218,7 +223,7 @@ export async function impl_deactivateRsvpLink(
   return { status: 'ok', linkId }
 }
 
-// ── getInstanceRsvpPanel ─────────────────────────────────────────────────────
+// ── shared RSVP data (panel + export) ────────────────────────────────────────
 
 type RsvpRow = {
   id: string
@@ -244,28 +249,39 @@ type PersonRow = {
   anonymized_at: string | null
 }
 
+/** One RSVP after resolution — the phone shape is chosen by the caller. */
+type DerivedRsvpRow<P> = {
+  rsvp_id: string
+  display_kind: RsvpPanelRow['display_kind']
+  display_name: string | null
+  status: RsvpStatus
+  children_count: number
+  followup_consent: boolean
+  phone: P
+  created_at: string
+  updated_at: string
+  attended: boolean
+}
+
+type InstanceRsvpData = {
+  totals: RsvpPanelTotals
+  buckets: Record<RsvpBucket, number>
+  children: { expected: number; checked_in: number }
+  /** The single row derivation shared by panel and export, so they can't drift. */
+  deriveRows: <P>(phone: (phoneE164: string | null, followupConsent: boolean) => P) => Array<DerivedRsvpRow<P>>
+}
+
 /**
- * Read-only aggregation for the admin instance page: link state, totals
- * (headcount = Σ 1 + children_count), cross-tab bucket counts from
- * rsvp_checkin_crosstab, expected vs checked-in children, and the per-RSVP
- * list. Never writes.
+ * Loads everything the panel and the export show for one instance: the
+ * instance's RSVPs, its rsvp_checkin_crosstab rows (admin session only — the
+ * view is is_admin()-filtered, a service-role client would read zero rows),
+ * the roster rows of every resolved person, and the child check-in count.
+ * Read-only. Caller has already run requireActiveAdmin + the UUID check.
  */
-export async function impl_getInstanceRsvpPanel(
+async function loadInstanceRsvpData(
   instanceId: string,
   supabase: SupabaseClient,
-): Promise<GetInstanceRsvpPanelResult> {
-  const guard = await requireActiveAdmin(supabase)
-  if (guard.status !== 'ok') return { status: 'not_authorized' }
-  if (!UUID_RE.test(instanceId)) return { status: 'invalid_input' }
-
-  const publicEnabled = isRsvpPublicEnabled()
-
-  const active = await selectActiveLink(supabase, instanceId)
-  if (active.error) {
-    console.error('[getInstanceRsvpPanel] link', active.error)
-    return { status: 'error', message: 'Failed to fetch link' }
-  }
-
+): Promise<{ status: 'ok'; data: InstanceRsvpData } | { status: 'error'; message: string }> {
   const rsvps = await fetchAllPages<RsvpRow>('rsvps', (from, to) =>
     supabase
       .from('event_rsvps')
@@ -297,7 +313,7 @@ export async function impl_getInstanceRsvpPanel(
     .is('child.deleted_at', null)
     .is('child.parent.deleted_at', null)
   if (childErr) {
-    console.error('[getInstanceRsvpPanel] child_attendance', childErr)
+    console.error('[rsvp-admin] child_attendance', childErr)
     return { status: 'error', message: 'Failed to count child check-ins' }
   }
 
@@ -318,7 +334,7 @@ export async function impl_getInstanceRsvpPanel(
       .select('id, full_name, deleted_at, anonymized_at')
       .in('id', personIds.slice(i, i + IN_CHUNK))
     if (error) {
-      console.error('[getInstanceRsvpPanel] people', error)
+      console.error('[rsvp-admin] people', error)
       return { status: 'error', message: 'Failed to fetch people' }
     }
     for (const p of (data ?? []) as PersonRow[]) personById.set(p.id, p)
@@ -346,35 +362,91 @@ export async function impl_getInstanceRsvpPanel(
     }
   }
 
-  const rows: RsvpPanelRow[] = rsvps.map(r => {
-    const unit = unitByRsvp.get(r.id)
-    const resolvedId = unit?.resolved_person_id ?? null
-    const person = resolvedId ? personById.get(resolvedId) : undefined
-    let display_kind: RsvpPanelRow['display_kind']
-    let display_name: string | null
-    if (!resolvedId) {
-      display_kind = 'newcomer'
-      display_name = r.name
-    } else if (person && person.deleted_at === null && person.anonymized_at === null) {
-      display_kind = 'member'
-      display_name = person.full_name
-    } else {
-      display_kind = 'removed_member'
-      display_name = null
-    }
-    return {
-      rsvp_id: r.id,
-      display_kind,
-      display_name,
+  function deriveRows<P>(phone: (phoneE164: string | null, followupConsent: boolean) => P): Array<DerivedRsvpRow<P>> {
+    return rsvps!.map(r => {
+      const unit = unitByRsvp.get(r.id)
+      const resolvedId = unit?.resolved_person_id ?? null
+      const person = resolvedId ? personById.get(resolvedId) : undefined
+      let display_kind: RsvpPanelRow['display_kind']
+      let display_name: string | null
+      if (!resolvedId) {
+        display_kind = 'newcomer'
+        display_name = r.name
+      } else if (person && person.deleted_at === null && person.anonymized_at === null) {
+        display_kind = 'member'
+        display_name = person.full_name
+      } else {
+        display_kind = 'removed_member'
+        display_name = null
+      }
+      return {
+        rsvp_id: r.id,
+        display_kind,
+        display_name,
+        status: r.status,
+        children_count: r.children_count,
+        followup_consent: r.followup_consent,
+        phone: phone(r.phone_e164, r.followup_consent),
+        created_at: r.created_at,
+        updated_at: r.updated_at,
+        attended: unit?.attended ?? false,
+      }
+    })
+  }
+
+  return {
+    status: 'ok',
+    data: {
+      totals,
+      buckets,
+      children: { expected: totals.coming_children, checked_in: childCheckins ?? 0 },
+      deriveRows,
+    },
+  }
+}
+
+// ── getInstanceRsvpPanel ─────────────────────────────────────────────────────
+
+/**
+ * Read-only aggregation for the admin instance page: link state, totals
+ * (headcount = Σ 1 + children_count), cross-tab bucket counts from
+ * rsvp_checkin_crosstab, expected vs checked-in children, and the per-RSVP
+ * list. Never writes. Phones always masked.
+ */
+export async function impl_getInstanceRsvpPanel(
+  instanceId: string,
+  supabase: SupabaseClient,
+): Promise<GetInstanceRsvpPanelResult> {
+  const guard = await requireActiveAdmin(supabase)
+  if (guard.status !== 'ok') return { status: 'not_authorized' }
+  if (!UUID_RE.test(instanceId)) return { status: 'invalid_input' }
+
+  const publicEnabled = isRsvpPublicEnabled()
+
+  const active = await selectActiveLink(supabase, instanceId)
+  if (active.error) {
+    console.error('[getInstanceRsvpPanel] link', active.error)
+    return { status: 'error', message: 'Failed to fetch link' }
+  }
+
+  const loaded = await loadInstanceRsvpData(instanceId, supabase)
+  if (loaded.status === 'error') return loaded
+  const { totals, buckets, children } = loaded.data
+
+  const rows: RsvpPanelRow[] = loaded.data
+    .deriveRows(phoneE164 => (phoneE164 ? maskPhoneLast4(phoneE164) : null))
+    .map(r => ({
+      rsvp_id: r.rsvp_id,
+      display_kind: r.display_kind,
+      display_name: r.display_name,
       status: r.status,
       children_count: r.children_count,
       followup_consent: r.followup_consent,
-      phone_masked: r.phone_e164 ? maskPhoneLast4(r.phone_e164) : null,
+      phone_masked: r.phone,
       created_at: r.created_at,
       updated_at: r.updated_at,
-      attended: unit?.attended ?? false,
-    }
-  })
+      attended: r.attended,
+    }))
 
   let url: string | null = null
   if (publicEnabled && active.link) {
@@ -389,10 +461,146 @@ export async function impl_getInstanceRsvpPanel(
       publicEnabled,
       totals,
       buckets,
-      children: { expected: totals.coming_children, checked_in: childCheckins ?? 0 },
+      children,
       rows,
     },
   }
+}
+
+// ── getInstanceRsvpExport ────────────────────────────────────────────────────
+
+/**
+ * Data for the admin RSVP .xlsx export. Same rows/totals/buckets/children as
+ * the panel (shared loader + row builder), differing only in the phone rule:
+ * follow-up consent given -> full E.164 (the admin may contact them);
+ * otherwise last-4 mask; no phone -> ''. Not gated by RSVP_PUBLIC_ENABLED —
+ * existing RSVPs stay exportable after the public form is switched off.
+ */
+export async function impl_getInstanceRsvpExport(
+  instanceId: string,
+  supabase: SupabaseClient,
+): Promise<GetInstanceRsvpExportResult> {
+  const guard = await requireActiveAdmin(supabase)
+  if (guard.status !== 'ok') return { status: 'not_authorized' }
+  if (!UUID_RE.test(instanceId)) return { status: 'invalid_input' }
+
+  const { data: instance, error: instErr } = await supabase
+    .from('event_instances')
+    .select('id, scheduled_at')
+    .eq('id', instanceId)
+    .maybeSingle()
+  if (instErr) {
+    console.error('[getInstanceRsvpExport] instance', instErr)
+    return { status: 'error', message: 'Failed to fetch instance' }
+  }
+  if (!instance) return { status: 'not_found' }
+
+  const loaded = await loadInstanceRsvpData(instanceId, supabase)
+  if (loaded.status === 'error') return loaded
+  const { totals, buckets, children } = loaded.data
+
+  const rows: RsvpExportRow[] = loaded.data.deriveRows((phoneE164, followupConsent) => {
+    if (!phoneE164) return ''
+    return followupConsent ? phoneE164 : maskPhoneLast4(phoneE164)
+  })
+
+  return {
+    status: 'ok',
+    instance: instance as { id: string; scheduled_at: string },
+    totals,
+    buckets,
+    children,
+    rows,
+    full_phone_rows: rows.filter(r => r.followup_consent && r.phone !== '').length,
+  }
+}
+
+// ── listPersonRsvpHistory ────────────────────────────────────────────────────
+
+type HistoryUnit = {
+  rsvp_id: string
+  event_instance_id: string
+  rsvp_status: RsvpStatus
+  children_count: number
+  attended: boolean
+}
+type HistoryInstance = {
+  id: string
+  event_id: string
+  scheduled_at: string
+  status: string
+  event_name_snapshot: string
+  event_name_snapshot_id: string | null
+  event: { name: string; name_id: string | null } | null
+}
+
+/**
+ * Every RSVP that resolves to this person — matched at submit (person_id) OR
+ * via a later phone match — read from rsvp_checkin_crosstab on the admin
+ * session (the view is is_admin()-filtered; never the service role).
+ * Newest occurrence first. No phone is selected or returned.
+ */
+export async function impl_listPersonRsvpHistory(
+  personId: string,
+  supabase: SupabaseClient,
+  locale: 'en' | 'id',
+): Promise<ListPersonRsvpHistoryResult> {
+  const guard = await requireActiveAdmin(supabase)
+  if (guard.status !== 'ok') return { status: 'not_authorized' }
+  if (!UUID_RE.test(personId)) return { status: 'invalid_input' }
+
+  const units = await fetchAllPages<HistoryUnit>('history', (from, to) =>
+    supabase
+      .from('rsvp_checkin_crosstab')
+      .select('rsvp_id, event_instance_id, rsvp_status, children_count, attended')
+      .eq('resolved_person_id', personId)
+      .not('rsvp_id', 'is', null)
+      .order('rsvp_id', { ascending: true })
+      .range(from, to),
+  )
+  if (!units) return { status: 'error', message: 'Failed to fetch RSVP history' }
+
+  const instanceById = new Map<string, HistoryInstance>()
+  const instanceIds = [...new Set(units.map(u => u.event_instance_id))]
+  for (let i = 0; i < instanceIds.length; i += IN_CHUNK) {
+    const { data, error } = await supabase
+      .from('event_instances')
+      .select('id, event_id, scheduled_at, status, event_name_snapshot, event_name_snapshot_id, event:events(name, name_id)')
+      .in('id', instanceIds.slice(i, i + IN_CHUNK))
+    if (error) {
+      console.error('[listPersonRsvpHistory] instances', error)
+      return { status: 'error', message: 'Failed to fetch occurrences' }
+    }
+    for (const inst of (data ?? []) as unknown as HistoryInstance[]) instanceById.set(inst.id, inst)
+  }
+
+  const rows: PersonRsvpHistoryRow[] = []
+  for (const u of units) {
+    const inst = instanceById.get(u.event_instance_id)
+    if (!inst) continue
+    rows.push({
+      rsvp_id: u.rsvp_id,
+      instance_id: inst.id,
+      event_id: inst.event_id,
+      scheduled_at: inst.scheduled_at,
+      instance_status: inst.status,
+      display_name: displayInstanceName({
+        scheduledAt: new Date(inst.scheduled_at),
+        snapshot:    inst.event_name_snapshot,
+        snapshotId:  inst.event_name_snapshot_id,
+        liveName:    inst.event?.name ?? inst.event_name_snapshot,
+        liveNameId:  inst.event?.name_id ?? null,
+        locale,
+      }),
+      rsvp_status: u.rsvp_status,
+      children_count: u.children_count,
+      attended: u.attended,
+    })
+  }
+  rows.sort((a, b) =>
+    new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime() || a.rsvp_id.localeCompare(b.rsvp_id))
+
+  return { status: 'ok', rows }
 }
 
 // ── deleteRsvp ───────────────────────────────────────────────────────────────

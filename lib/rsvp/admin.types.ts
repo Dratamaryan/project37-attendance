@@ -83,3 +83,47 @@ export type DeleteRsvpResult =
   | NotAuthorized
   | InvalidInput
   | ActionError
+
+// ── export (S9-R3b) ──────────────────────────────────────────────────────────
+
+/**
+ * One RSVP in the admin .xlsx export. Same derivation as RsvpPanelRow; only
+ * the phone differs: full E.164 when followup_consent, else "•••• 1234",
+ * '' when the RSVP has no phone.
+ */
+export type RsvpExportRow = Omit<RsvpPanelRow, 'phone_masked'> & { phone: string }
+
+export type GetInstanceRsvpExportResult =
+  | {
+      status: 'ok'
+      instance: { id: string; scheduled_at: string }
+      totals: RsvpPanelTotals
+      buckets: Record<RsvpBucket, number>
+      children: { expected: number; checked_in: number }
+      rows: RsvpExportRow[]
+      full_phone_rows: number   // rows exported with a full phone (consented + phone present)
+    }
+  | { status: 'not_found' }
+  | NotAuthorized
+  | InvalidInput
+  | ActionError
+
+// ── per-person history (S9-R3b) ──────────────────────────────────────────────
+
+export type PersonRsvpHistoryRow = {
+  rsvp_id: string
+  instance_id: string
+  event_id: string
+  scheduled_at: string
+  instance_status: string
+  display_name: string          // occurrence name for the requested locale (displayInstanceName)
+  rsvp_status: RsvpStatus
+  children_count: number
+  attended: boolean
+}
+
+export type ListPersonRsvpHistoryResult =
+  | { status: 'ok'; rows: PersonRsvpHistoryRow[] }
+  | NotAuthorized
+  | InvalidInput
+  | ActionError

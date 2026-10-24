@@ -97,3 +97,17 @@ describe('RsvpPanel — link section by instance status', () => {
     expect(screen.queryByTestId('rsvp-scheduled-only')).not.toBeInTheDocument()
   })
 })
+
+describe('RsvpPanel — export', () => {
+  it.each([
+    ['active link', ACTIVE, true],
+    ['no link', INACTIVE, true],
+    ['flag off', INACTIVE, false],
+  ])('%s -> "Export to Excel" anchor to the per-instance RSVP export route', (_label, link, enabled) => {
+    render(<RsvpPanel instanceId={INSTANCE_ID} instanceStatus="completed" panel={panel(link, enabled)} whatsAppUrls={null} />)
+    const a = screen.getByTestId('rsvp-export-link')
+    expect(a.tagName).toBe('A')
+    expect(a).toHaveAttribute('href', `/api/admin/export/instance/${INSTANCE_ID}/rsvp`)
+    expect(a).toHaveTextContent('export_button')
+  })
+})
