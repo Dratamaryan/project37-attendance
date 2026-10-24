@@ -464,6 +464,48 @@ describe('RsvpForm — Turnstile widget', () => {
     expect(screen.getByTestId('rsvp-turnstile-unavailable')).toBeInTheDocument()
   })
 
+  it.each([['expired-callback'], ['error-callback']] as const)(
+    'token -> %s -> 15s without a new token shows the note; a fresh token hides it',
+    async (cb) => {
+      vi.useFakeTimers()
+      render(<RsvpForm action={action} turnstileSiteKey="site-key-1" />)
+      await act(async () => {})
+      await issueToken('tok-1')
+      await act(async () => {
+        vi.advanceTimersByTime(TURNSTILE_UNAVAILABLE_AFTER_MS * 2)
+      })
+      expect(screen.queryByTestId('rsvp-turnstile-unavailable')).not.toBeInTheDocument()
+
+      await act(async () => renderOpts[0][cb]())
+      expect(screen.getByRole('button', { name: 'form.submit_verifying' })).toBeDisabled()
+      await act(async () => {
+        vi.advanceTimersByTime(TURNSTILE_UNAVAILABLE_AFTER_MS - 1)
+      })
+      expect(screen.queryByTestId('rsvp-turnstile-unavailable')).not.toBeInTheDocument()
+      await act(async () => {
+        vi.advanceTimersByTime(1)
+      })
+      expect(screen.getByTestId('rsvp-turnstile-unavailable')).toBeInTheDocument()
+
+      await issueToken('tok-2')
+      expect(screen.queryByTestId('rsvp-turnstile-unavailable')).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'form.submit' })).toBeEnabled()
+    },
+  )
+
+  it('a fresh token after expiry inside 15s cancels the re-armed timer', async () => {
+    vi.useFakeTimers()
+    render(<RsvpForm action={action} turnstileSiteKey="site-key-1" />)
+    await act(async () => {})
+    await issueToken('tok-1')
+    await act(async () => renderOpts[0]['expired-callback']())
+    await issueToken('tok-2')
+    await act(async () => {
+      vi.advanceTimersByTime(TURNSTILE_UNAVAILABLE_AFTER_MS * 2)
+    })
+    expect(screen.queryByTestId('rsvp-turnstile-unavailable')).not.toBeInTheDocument()
+  })
+
   it('timer is cleared on unmount', () => {
     vi.useFakeTimers()
     const { unmount } = render(<RsvpForm action={action} turnstileSiteKey="site-key-1" />)

@@ -114,8 +114,16 @@ export function TurnstileWidget({ siteKey, onToken, resetSignal, onUnavailable }
               onUnavailableRef.current?.(false)
               onTokenRef.current(token)
             },
-            'error-callback': () => onTokenRef.current(null),
-            'expired-callback': () => onTokenRef.current(null),
+            // A failed or slow auto-refresh still surfaces the unavailable
+            // note: no new token within the window -> onUnavailable(true).
+            'error-callback': () => {
+              onTokenRef.current(null)
+              armTimer(timerRef, onUnavailableRef)
+            },
+            'expired-callback': () => {
+              onTokenRef.current(null)
+              armTimer(timerRef, onUnavailableRef)
+            },
           }) ?? null
       })
       .catch((err: unknown) => {
