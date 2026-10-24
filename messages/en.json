@@ -474,15 +474,25 @@
           "section": {
             "details": "Occurrence details"
           },
-          "image_url_label": "Invite image URL",
-          "image_url_placeholder": "https://…",
-          "image_url_help": "Shown in the invite email for this occurrence. Paste a link — uploads aren't supported. Leave blank to remove.",
-          "submit": "Save changes",
-          "submit_pending": "Saving...",
-          "cancel": "Cancel",
+          "image": {
+            "label": "Occurrence image",
+            "none": "No image yet.",
+            "choose_button": "Upload image",
+            "replace_button": "Replace image",
+            "remove_button": "Remove image",
+            "uploading": "Uploading…",
+            "removing": "Removing…",
+            "uploaded": "Image uploaded.",
+            "removed": "Image removed.",
+            "help_public": "Anyone with the link can see this image — it's shown in invite emails and on the public RSVP page for this occurrence. JPG, PNG or WebP, max 4 MB.",
+            "help_consent": "Don't upload photos of members without their consent.",
+            "error_invalid_type": "Use a JPG, PNG or WebP image.",
+            "error_too_large": "Image is larger than 4 MB.",
+            "error_not_found": "This occurrence no longer exists."
+          },
+          "back": "Back to occurrence",
           "error_banner": "Couldn't save. Please try again.",
-          "forbidden_banner": "You don't have permission to do this.",
-          "field_error_image_url": "Enter a valid https:// URL"
+          "forbidden_banner": "You don't have permission to do this."
         }
       },
       "invite": {

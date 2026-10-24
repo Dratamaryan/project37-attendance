@@ -6,6 +6,7 @@ import { listEvents, listInstancesForEvent } from '@/lib/actions/events'
 import { NotAuthorized } from '@/app/admin/_components/not-authorized'
 import { requireActiveAdmin } from '@/lib/auth/require-admin'
 import { formatJakarta } from '@/lib/events/timezone'
+import { displayInstanceName } from '@/lib/events/display'
 import Link from 'next/link'
 import { InstanceEditForm } from '../../../../_components/InstanceEditForm'
 
@@ -41,6 +42,14 @@ export default async function AdminInstanceEditPage({ params }: Props) {
 
   const shortDate = formatJakarta(new Date(instance.scheduled_at), 'PP')
   const eventDisplayName = locale === 'id' ? (event.name_id ?? event.name) : event.name
+  const displayName = displayInstanceName({
+    scheduledAt: new Date(instance.scheduled_at),
+    snapshot:    instance.event_name_snapshot,
+    snapshotId:  instance.event_name_snapshot_id,
+    liveName:    event.name,
+    liveNameId:  event.name_id,
+    locale:      locale as 'en' | 'id',
+  })
 
   return (
     <main className="px-4 md:px-6 py-8">
@@ -68,7 +77,7 @@ export default async function AdminInstanceEditPage({ params }: Props) {
           {te('title')}
         </h1>
 
-        <InstanceEditForm eventId={eventId} instance={instance} />
+        <InstanceEditForm eventId={eventId} instance={instance} displayName={displayName} />
       </div>
     </main>
   )

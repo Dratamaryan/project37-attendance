@@ -474,15 +474,25 @@
           "section": {
             "details": "Detail sesi"
           },
-          "image_url_label": "URL gambar undangan",
-          "image_url_placeholder": "https://…",
-          "image_url_help": "Ditampilkan pada email undangan untuk sesi ini. Tempel tautan — unggah berkas tidak didukung. Kosongkan untuk menghapus.",
-          "submit": "Simpan perubahan",
-          "submit_pending": "Menyimpan...",
-          "cancel": "Batal",
+          "image": {
+            "label": "Gambar sesi",
+            "none": "Belum ada gambar.",
+            "choose_button": "Unggah gambar",
+            "replace_button": "Ganti gambar",
+            "remove_button": "Hapus gambar",
+            "uploading": "Mengunggah…",
+            "removing": "Menghapus…",
+            "uploaded": "Gambar berhasil diunggah.",
+            "removed": "Gambar dihapus.",
+            "help_public": "Siapa pun yang memiliki tautan dapat melihat gambar ini — gambar ditampilkan di email undangan dan halaman RSVP publik untuk sesi ini. JPG, PNG, atau WebP, maks. 4 MB.",
+            "help_consent": "Jangan unggah foto umat tanpa persetujuan mereka.",
+            "error_invalid_type": "Gunakan gambar JPG, PNG, atau WebP.",
+            "error_too_large": "Ukuran gambar melebihi 4 MB.",
+            "error_not_found": "Sesi ini sudah tidak ada."
+          },
+          "back": "Kembali ke sesi",
           "error_banner": "Gagal menyimpan. Silakan coba lagi.",
-          "forbidden_banner": "Anda tidak memiliki izin untuk melakukan ini.",
-          "field_error_image_url": "Masukkan URL https:// yang valid"
+          "forbidden_banner": "Anda tidak memiliki izin untuk melakukan ini."
         }
       },
       "invite": {

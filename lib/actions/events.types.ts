@@ -44,11 +44,10 @@ export type EventInstanceRow = {
   created_at: string
 }
 
-// Occurrence-details edit surface (T10) — image today, room for more fields
-// later (subtopics/description) as an add-a-field change to this type.
-export type UpdateInstanceInput = {
-  image_url?: string | null
-}
+// Occurrence-details edit surface (T10) — no fields today: image_url moved to
+// lib/storage/event-images (S9-P0). Room for more fields later
+// (subtopics/description) as an add-a-field change to this type.
+export type UpdateInstanceInput = Record<string, never>
 
 export type UpdateInstanceResult =
   | { status: 'ok'; instance_id: string }

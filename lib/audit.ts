@@ -18,6 +18,8 @@ export const AUDIT_ACTIONS = {
   EVENT_UPDATE:            'event.update',
   EVENT_INSTANCE_CANCEL:   'event_instance.cancel',
   EVENT_INSTANCE_UPDATE:   'event_instance.update',
+  EVENT_IMAGE_UPLOAD:      'event_image.upload',
+  EVENT_IMAGE_REMOVE:      'event_image.remove',
   ATTENDANCE_CREATE:       'attendance.create',
   CHILD_CREATE:            'child.create',
   CHILD_UPDATE:            'child.update',

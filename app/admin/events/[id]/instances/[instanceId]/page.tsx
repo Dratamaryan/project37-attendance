@@ -99,17 +99,30 @@ export default async function AdminInstanceDetailPage({ params }: Props) {
 
         {/* Instance header */}
         <div className="flex items-start justify-between gap-4 mb-8">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <h1 className="font-heading text-2xl font-semibold text-charcoal">
-                {dateStr}
-              </h1>
-              <StatusBadge status={instance.status} />
-            </div>
-            <p className="text-muted text-sm">{displayName}</p>
-            {instance.notes && (
-              <p className="text-muted text-sm mt-1 italic">{instance.notes}</p>
+          <div className="flex items-start gap-4">
+            {instance.image_url && (
+              // <img>, not next/image (S9-P0): legacy pasted URLs may be on any
+              // host, so remotePatterns can't cover them.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={instance.image_url}
+                alt={displayName}
+                className="w-24 h-24 rounded-lg border border-line object-cover flex-shrink-0"
+                data-testid="instance-image"
+              />
             )}
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <h1 className="font-heading text-2xl font-semibold text-charcoal">
+                  {dateStr}
+                </h1>
+                <StatusBadge status={instance.status} />
+              </div>
+              <p className="text-muted text-sm">{displayName}</p>
+              {instance.notes && (
+                <p className="text-muted text-sm mt-1 italic">{instance.notes}</p>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center gap-3">

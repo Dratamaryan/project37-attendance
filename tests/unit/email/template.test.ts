@@ -97,4 +97,24 @@ describe('renderInviteEmail — T4-06', () => {
     const withoutImage = renderInviteEmail({ ...BASE_INPUT, imageUrl: null })
     expect(withImage.text).toBe(withoutImage.text)
   })
+
+  // ── imageUrl attribute escape (S9-P0) ───────────────────────────────────
+
+  it('HTML-attribute-escapes imageUrl containing " < > & — cannot break out of src', () => {
+    const { html } = renderInviteEmail({
+      ...BASE_INPUT,
+      imageUrl: 'https://cdn.example.com/a.jpg?x=1&y="2"><script>alert(1)</script>',
+    })
+    expect(html).toContain(
+      '<img src="https://cdn.example.com/a.jpg?x=1&amp;y=&quot;2&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;" width="600"',
+    )
+    expect(html).not.toContain('<script>')
+    expect(html).not.toContain('"2">')
+  })
+
+  it('leaves an ordinary Supabase public URL unchanged', () => {
+    const url = 'https://abc.supabase.co/storage/v1/object/public/event-images/instances/i/u.png'
+    const { html } = renderInviteEmail({ ...BASE_INPUT, imageUrl: url })
+    expect(html).toContain(`<img src="${url}" width="600"`)
+  })
 })

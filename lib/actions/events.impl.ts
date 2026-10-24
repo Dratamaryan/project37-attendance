@@ -97,21 +97,15 @@ function validateUpdateInput(input: UpdateEventInput): { field: string; message:
   return null
 }
 
-// Paste-a-URL only (locked decision, no Storage/upload flow). https + parseable
-// is the bar — NOT extension-sniffed, since CDN URLs (S3 presigned, imgix, …)
-// routinely have no file extension at all.
+// No field is updatable here today — image_url is owned by
+// lib/storage/event-images (S9-P0 upload/remove actions). Any key, image_url
+// included, is rejected before touching the DB.
 function validateUpdateInstanceInput(
   input: UpdateInstanceInput,
 ): { field: string; message: string } | null {
-  if ('image_url' in input && input.image_url !== undefined && input.image_url !== null && input.image_url !== '') {
-    if (!input.image_url.startsWith('https://')) {
-      return { field: 'image_url', message: 'Image URL must start with https://' }
-    }
-    try {
-      new URL(input.image_url)
-    } catch {
-      return { field: 'image_url', message: 'Invalid URL' }
-    }
+  const [field] = Object.keys(input)
+  if (field !== undefined) {
+    return { field, message: 'Field is not updatable via updateInstance' }
   }
   return null
 }
@@ -340,10 +334,10 @@ export async function impl_cancelInstance({
 }
 
 // ── updateInstance ───────────────────────────────────────────────────────────
-// Occurrence-details edit surface (T10): image_url today, structured so a
-// future field (subtopics/description) is an add-a-field change here, not a
-// redesign. Empty string clears the field (stored as null) — same convention
-// as EventForm's optional-field trim-to-null handling.
+// Occurrence-details edit surface (T10): no fields today (image_url moved to
+// lib/storage/event-images, S9-P0), structured so a future field
+// (subtopics/description) is an add-a-field change here, not a redesign.
+// Until then every call returns invalid_input without touching the DB.
 
 export async function impl_updateInstance({
   supabase,
@@ -366,8 +360,8 @@ export async function impl_updateInstance({
   const actorId = claims.claims.sub
 
   const updatePayload: Record<string, unknown> = {}
-  if (input.image_url !== undefined) {
-    updatePayload.image_url = input.image_url === '' ? null : input.image_url
+  if (Object.keys(updatePayload).length === 0) {
+    return { status: 'invalid_input', field: 'input', message: 'No updatable fields' }
   }
 
   const { data: rows, error: updateError } = await supabase

@@ -130,6 +130,21 @@ describe('AdminInstanceDetailPage', () => {
     expect(screen.getByTestId('instance-export-link')).toHaveTextContent('checkin.attendees.export_button')
   })
 
+  it('image_url set -> header thumbnail <img> with the occurrence name as alt (S9-P0)', async () => {
+    const imageUrl = 'http://127.0.0.1:54321/storage/v1/object/public/event-images/instances/i/u.png'
+    mockListInstancesForEvent.mockResolvedValue({ status: 'ok', instances: [{ ...INSTANCE, image_url: imageUrl }] })
+    render(await AdminInstanceDetailPage({ params }))
+    const img = screen.getByTestId('instance-image')
+    expect(img).toHaveAttribute('src', imageUrl)
+    expect(img.getAttribute('alt')).toBeTruthy()
+  })
+
+  it('image_url null -> no thumbnail', async () => {
+    mockListInstancesForEvent.mockResolvedValue({ status: 'ok', instances: [{ ...INSTANCE, image_url: null }] })
+    render(await AdminInstanceDetailPage({ params }))
+    expect(screen.queryByTestId('instance-image')).not.toBeInTheDocument()
+  })
+
   it('keeps the header: breadcrumb, status badge, edit link, cancel control for a scheduled instance', async () => {
     render(await AdminInstanceDetailPage({ params }))
     expect(screen.getByText('admin.events.instance.breadcrumb_events')).toHaveAttribute('href', '/admin/events')

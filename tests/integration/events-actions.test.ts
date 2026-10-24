@@ -10,7 +10,6 @@ import {
   impl_createEvent,
   impl_updateEvent,
   impl_cancelInstance,
-  impl_updateInstance,
   impl_listEvents,
   impl_listInstancesForEvent,
 } from '@/lib/actions/events.impl'
@@ -626,115 +625,9 @@ describe('event server actions', () => {
   })
 
   // ── updateInstance (T10) ─────────────────────────────────────────────────
-
-  it('ACT-15: updateInstance as admin — set image_url → ok; round-trip read-back; audit row with changed_fields', async () => {
-    const url = 'https://cdn.example.com/act-15.jpg'
-
-    const result = await impl_updateInstance({
-      supabase: adminSession,
-      adminSupabase: serviceAdmin,
-      instanceId: seedInstanceId,
-      input: { image_url: url },
-    })
-
-    expect(result.status).toBe('ok')
-    if (result.status !== 'ok') return
-    expect(result.instance_id).toBe(seedInstanceId)
-
-    const { data: inst } = await serviceAdmin
-      .from('event_instances')
-      .select('image_url')
-      .eq('id', seedInstanceId)
-      .single()
-    expect((inst as { image_url: string | null } | null)?.image_url).toBe(url)
-
-    const { data: auditRows } = await serviceAdmin
-      .from('audit_log')
-      .select('details_json')
-      .eq('entity_type', 'event_instance')
-      .eq('entity_id', seedInstanceId)
-      .eq('action', 'event_instance.update')
-    expect((auditRows ?? []).length).toBeGreaterThanOrEqual(1)
-    const details = (auditRows ?? [])[0]?.details_json as { changed_fields: string[] } | undefined
-    expect(details?.changed_fields).toEqual(['image_url'])
-  })
-
-  it('ACT-16: updateInstance as admin — clear image_url (empty string → null) round-trip', async () => {
-    await serviceAdmin
-      .from('event_instances')
-      .update({ image_url: 'https://cdn.example.com/act-16-before.jpg' })
-      .eq('id', seedInstanceId)
-
-    const result = await impl_updateInstance({
-      supabase: adminSession,
-      adminSupabase: serviceAdmin,
-      instanceId: seedInstanceId,
-      input: { image_url: '' },
-    })
-
-    expect(result.status).toBe('ok')
-
-    const { data: inst } = await serviceAdmin
-      .from('event_instances')
-      .select('image_url')
-      .eq('id', seedInstanceId)
-      .single()
-    expect((inst as { image_url: string | null } | null)?.image_url).toBeNull()
-  })
-
-  it('ACT-17: updateInstance as organizer → forbidden; row-count proof image_url unchanged', async () => {
-    const { data: before } = await serviceAdmin
-      .from('event_instances')
-      .select('image_url')
-      .eq('id', seedInstanceId)
-      .single()
-
-    const result = await impl_updateInstance({
-      supabase: organizerSession,
-      adminSupabase: serviceAdmin,
-      instanceId: seedInstanceId,
-      input: { image_url: 'https://cdn.example.com/act-17-should-not-apply.jpg' },
-    })
-
-    expect(result.status).toBe('forbidden')
-
-    const { data: after } = await serviceAdmin
-      .from('event_instances')
-      .select('image_url')
-      .eq('id', seedInstanceId)
-      .single()
-    expect((after as { image_url: string | null } | null)?.image_url).toBe(
-      (before as { image_url: string | null } | null)?.image_url,
-    )
-  })
-
-  it('ACT-18: updateInstance as admin — non-https URL → invalid_input; no DB change, no audit row', async () => {
-    const { count: auditBefore } = await serviceAdmin
-      .from('audit_log')
-      .select('*', { count: 'exact', head: true })
-      .eq('entity_type', 'event_instance')
-      .eq('entity_id', seedInstanceId)
-      .eq('action', 'event_instance.update')
-
-    const result = await impl_updateInstance({
-      supabase: adminSession,
-      adminSupabase: serviceAdmin,
-      instanceId: seedInstanceId,
-      input: { image_url: 'http://cdn.example.com/insecure.jpg' },
-    })
-
-    expect(result.status).toBe('invalid_input')
-    if (result.status !== 'invalid_input') return
-    expect(result.field).toBe('image_url')
-
-    const { count: auditAfter } = await serviceAdmin
-      .from('audit_log')
-      .select('*', { count: 'exact', head: true })
-      .eq('entity_type', 'event_instance')
-      .eq('entity_id', seedInstanceId)
-      .eq('action', 'event_instance.update')
-    expect(auditAfter ?? 0).toBe(auditBefore ?? 0)
-  })
+  // ACT-15..18 (paste-a-URL image_url) removed in S9-P0: image_url is now owned
+  // by lib/storage/event-images. updateInstance's rejection of image_url is
+  // covered in tests/integration/event-images.test.ts.
 
   // ── listEvents ────────────────────────────────────────────────────────────
 

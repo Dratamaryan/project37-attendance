@@ -43,6 +43,18 @@ const OPT_OUT_EN =
 const LOCATION_FALLBACK_ID = 'Lokasi akan diinformasikan kemudian'
 const LOCATION_FALLBACK_EN = 'Location to be announced'
 
+// HTML-attribute escape for values interpolated into a double-quoted
+// attribute. Legacy pasted image_url values are arbitrary strings; uploaded
+// ones are well-formed, but neither should be able to break out of src="…".
+function escapeAttr(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
 /**
  * Renders the single bilingual invite email: Indonesian block first, English
  * block below, one-line opt-out in both (F/3 — there is no per-recipient
@@ -63,7 +75,7 @@ export function renderInviteEmail(input: InviteEmailInput): RenderedEmail {
   // keeps the template's zero-inline-style minimalism intact. No <img> at all
   // when absent — never a broken-image placeholder.
   const imageBlock = input.imageUrl
-    ? `<img src="${input.imageUrl}" width="600" alt="Undangan: ${nameId} / Invitation: ${nameEn}"/>`
+    ? `<img src="${escapeAttr(input.imageUrl)}" width="600" alt="Undangan: ${nameId} / Invitation: ${nameEn}"/>`
     : ''
 
   const html = [
