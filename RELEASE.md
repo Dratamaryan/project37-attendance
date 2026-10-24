@@ -383,3 +383,28 @@ branch-expected ref for remote ops.
   (RLS 42501) with the identical policy confirmed by catalog on staging and prod; old objects
   retained by design (sent invites embed the URL); local storage container now v1.80.2
   (matches the linked remote pin). Backlog: escape event names in the invite email (S11-T16).
+- S9-R3 VERIFIED (2026-10-24): admin RSVP panel, cross-tab view, export and person history
+  (a3ef562 + f291ca5; migration 20261024120000_sprint9_r3_rsvp_crosstab.sql).
+  rsvp_checkin_crosstab (security_invoker, rows only when is_admin(); REVOKE ALL from PUBLIC,
+  anon and authenticated, then SELECT to authenticated only) resolves each RSVP to a person by
+  person_id or a live roster phone match and buckets it against check-ins (7 values incl.
+  walk_in); read-time only, never writes attendance. Admin instance page: on-demand RSVP link
+  (get/deactivate behind server-only RSVP_PUBLIC_ENABLED; rsvp.link_create /
+  rsvp.link_deactivate audit), copy + WhatsApp share (ID default, EN toggle), totals (headcount
+  = Σ 1 + children_count), cross-tab, children expected vs checked in, response list with
+  junk-delete (rsvp.delete audit). GET /api/admin/export/instance/[id]/rsvp: admin-only xlsx
+  (Responses + Summary), full phone only where follow-up consent, sheet-safe, export.create
+  audit with full_phone_rows. Person page: RSVP history read from the view. Panel and export
+  share one row builder. Verification rungs (CLAUDE.md rule 17): Local Docker ✓ verified:vitest
+  (rsvp-admin 35, rsvp-export-route 13, rsvp-person-history 9 + unit/page/component; gate
+  1429/1429, lint/typecheck/build) / Staging ✓ verified:server-side (catalog SQL) +
+  verified:live-staging (s9-r3-staging-uat 13/13; owner UAT 2026-10-24: totals, buckets and
+  list exact, WhatsApp ID+EN text and dates, export phone rule and Summary exact, person
+  history, delete, deactivate → new token; cleanup zero residue) / Prod ✓ verified:server-side
+  (catalog SQL) + verified:live (owner: not-live note, zero panel, empty export, empty history;
+  anon view read 42501). View catalog identical on staging and prod: 1 of 24 privilege cells
+  (authenticated SELECT), security_invoker=on, is_admin() filter. Posture: the public page is
+  S9-R1 (links 404 until then); prod RSVP_PUBLIC_ENABLED off until go-live; staging behind
+  Vercel Deployment Protection; service role reads zero rows from the view by design (every
+  reader uses the admin RLS session). Staging UAT audit rows kept on purpose. No real PII at
+  any rung. Backlog: StatusBadge i18n + duplicate child-row testid (S11-T17).
