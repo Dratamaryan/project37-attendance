@@ -408,3 +408,27 @@ branch-expected ref for remote ops.
   Vercel Deployment Protection; service role reads zero rows from the view by design (every
   reader uses the admin RLS session). Staging UAT audit rows kept on purpose. No real PII at
   any rung. Backlog: StatusBadge i18n + duplicate child-row testid (S11-T17).
+- S9-R1 VERIFIED (2026-10-24): public RSVP form /rsvp/[token] (564c2c7 + 533ffec; no
+  migration). Anon page + server action through a cookie-less server-only anon client
+  (lib/supabase/anon.ts, CLAUDE.md rule 12's 4th client) calling the R0 RPCs; server-only
+  RSVP_GATE_SECRET, unset → fail closed ("unavailable"), never logged. Hadir / Mungkin / Tidak
+  hadir, phone normalized with region ID ('+' for foreign numbers), optional name, children 1..20
+  (hidden when not attending), one follow-up consent box (interim copy until R5) + privacy link.
+  The success state carries only the visitor's own status and children, identical for member and
+  newcomer (no name or phone echoed). One generic "not available" view for every dead link; 404
+  while RSVP_PUBLIC_ENABLED is off. Locale = cookie else id, never the admin default
+  (i18n/request.ts now honors an explicit locale override). Metadata noindex/nofollow,
+  no-referrer, og:image = poster. Verification rungs (CLAUDE.md rule 17): Local Docker ✓
+  verified:vitest (rsvp-public 14 incl. member/newcomer deep-equal, resubmit, closed / flag off /
+  missing and wrong gate write no row, limit; parse/format unit, page/metadata, form incl.
+  consent-unticked; gate 1570/1570, lint/typecheck/build) / Staging ✓ verified:live-staging
+  (owner UAT A–H through the real page 2026-10-24; s9-r1-staging-uat verify: all planned-row
+  assertions PASS — member matched with typed name discarded and updated in place, newcomer
+  stored without a person, consent withdrawn on resubmit, no people or attendance writes;
+  successful submits prove the Preview gate secret; cleanup zero residue) / Prod ✓ verified:live
+  (owner: /rsvp/<anything> → 404, admin panel not-live). Deviation: one off-plan manual owner
+  submit left a stray synthetic row (v-count 3, v-phones 1), removed by cleanup; not an app
+  defect. Posture: prod RSVP_PUBLIC_ENABLED off until go-live; no IP/UA capture; staging UAT
+  audit rows kept on purpose. No real PII at any rung. Open (prove later): admin-default-en
+  override end-to-end (R4 staging); WhatsApp og:image card + prod gate secret (R6 go-live).
+  Backlog: <html lang> follows the admin default on /rsvp (S11-T18).
