@@ -6,9 +6,11 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 vi.mock('server-only', () => ({}))
 
 import { buildRsvpUrl, isRsvpPublicEnabled } from '../admin.impl'
+import { getRsvpGateSecret, isRsvpPublicEnabled as configIsRsvpPublicEnabled } from '../config'
 
 const ORIGINAL_FLAG = process.env.RSVP_PUBLIC_ENABLED
 const ORIGINAL_URL = process.env.NEXT_PUBLIC_APP_URL
+const ORIGINAL_GATE = process.env.RSVP_GATE_SECRET
 
 function setEnv(key: string, value: string | undefined) {
   if (value === undefined) delete process.env[key]
@@ -18,6 +20,24 @@ function setEnv(key: string, value: string | undefined) {
 afterEach(() => {
   setEnv('RSVP_PUBLIC_ENABLED', ORIGINAL_FLAG)
   setEnv('NEXT_PUBLIC_APP_URL', ORIGINAL_URL)
+  setEnv('RSVP_GATE_SECRET', ORIGINAL_GATE)
+})
+
+describe('lib/rsvp/config', () => {
+  it('admin.impl re-exports the same isRsvpPublicEnabled', () => {
+    expect(isRsvpPublicEnabled).toBe(configIsRsvpPublicEnabled)
+  })
+
+  it.each([
+    ['abc', 'abc'],
+    ['  abc  ', 'abc'],
+    ['', null],
+    ['   ', null],
+    [undefined, null],
+  ])('RSVP_GATE_SECRET=%j -> %j', (value, expected) => {
+    setEnv('RSVP_GATE_SECRET', value)
+    expect(getRsvpGateSecret()).toBe(expected)
+  })
 })
 
 describe('isRsvpPublicEnabled', () => {

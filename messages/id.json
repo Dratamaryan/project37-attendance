@@ -997,5 +997,59 @@
         "ATTENDANCE_SUMMARY_MANUAL_TRIGGER": "Ringkasan kehadiran dijalankan manual"
       }
     }
+  },
+  "rsvp": {
+    "meta": {
+      "title": "RSVP · {event}",
+      "title_generic": "RSVP"
+    },
+    "closed": {
+      "title": "Tautan tidak tersedia",
+      "body": "Tautan RSVP ini sudah ditutup atau tidak berlaku lagi. Silakan hubungi panitia acara."
+    },
+    "form": {
+      "title": "Apakah Anda akan hadir?",
+      "status_label": "Jawaban Anda",
+      "status_coming": "Hadir",
+      "status_maybe": "Mungkin",
+      "status_not_coming": "Tidak hadir",
+      "phone_label": "Nomor HP / WhatsApp",
+      "phone_placeholder": "0812…",
+      "phone_help": "Untuk nomor luar Indonesia, awali dengan + dan kode negara.",
+      "name_label": "Nama",
+      "name_optional": "(opsional)",
+      "name_help": "Opsional — boleh dikosongkan.",
+      "children_label": "Membawa anak?",
+      "children_no": "Tidak",
+      "children_yes": "Ya",
+      "children_count_label": "Jumlah anak",
+      "consent_label_interim": "Saya bersedia dihubungi panitia untuk informasi kegiatan berikutnya.",
+      "privacy_link": "Kebijakan Privasi",
+      "submit": "Kirim",
+      "submit_pending": "Mengirim…"
+    },
+    "errors": {
+      "status_required": "Silakan pilih salah satu jawaban.",
+      "phone_empty": "Nomor HP wajib diisi.",
+      "phone_too_short": "Nomor terlalu pendek.",
+      "phone_too_long": "Nomor terlalu panjang.",
+      "phone_invalid_for_country": "Nomor tidak valid. Untuk nomor luar Indonesia, awali dengan +.",
+      "phone_unsupported_country": "Nomor tidak valid. Untuk nomor luar Indonesia, awali dengan +.",
+      "name_too_long": "Maksimal 100 karakter.",
+      "children_required": "Silakan pilih jumlah anak.",
+      "children_out_of_range": "Jumlah anak harus antara 1 dan 20.",
+      "invalid_summary": "Silakan periksa kembali isian yang ditandai.",
+      "limit": "Kuota RSVP untuk acara ini sudah penuh.",
+      "unavailable": "RSVP sedang tidak dapat diproses. Silakan coba lagi nanti.",
+      "generic": "Terjadi kesalahan. Periksa kembali isian Anda lalu coba lagi."
+    },
+    "success": {
+      "title": "Terima kasih!",
+      "body": "Jawaban Anda sudah kami terima.",
+      "recap_status": "Jawaban Anda: {status}",
+      "recap_children": "Membawa anak: {count}",
+      "recap_no_children": "Membawa anak: tidak",
+      "edit": "Ubah jawaban"
+    }
   }
 }

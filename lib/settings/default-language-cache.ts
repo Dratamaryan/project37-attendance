@@ -1,7 +1,7 @@
 import 'server-only'
 
-import { createClient } from '@supabase/supabase-js'
 import { unstable_cache } from 'next/cache'
+import { createAnonServerClient } from '@/lib/supabase/anon'
 import { DEFAULT_LANGUAGE_CACHE_TAG } from './constants'
 
 export { DEFAULT_LANGUAGE_CACHE_TAG }
@@ -9,31 +9,17 @@ export { DEFAULT_LANGUAGE_CACHE_TAG }
 const FALLBACK = 'id'
 const REVALIDATE_SECONDS = 300
 
-/**
- * A bare anon-key client, deliberately NOT lib/supabase/server.ts's
- * cookie-backed createClient(): this function is wrapped in unstable_cache
- * and must return the same result regardless of which visitor's request
- * triggered the cache miss. Pulling next/headers cookies() into
- * cached-function scope would be a Next.js dynamic-API-in-cache misuse, and
- * is unnecessary here — get_default_language() is granted to anon and
- * returns a single global value, not anything user-specific.
- */
-function createAnonRpcClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-  if (!url || !key) {
-    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY env vars.')
-  }
-
-  return createClient(url, key, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  })
-}
-
+// The cookie-less anon client (lib/supabase/anon.ts), deliberately NOT
+// lib/supabase/server.ts's cookie-backed createClient(): this function is
+// wrapped in unstable_cache and must return the same result regardless of
+// which visitor's request triggered the cache miss. Pulling next/headers
+// cookies() into cached-function scope would be a Next.js
+// dynamic-API-in-cache misuse, and is unnecessary here —
+// get_default_language() is granted to anon and returns a single global
+// value, not anything user-specific.
 const readDefaultLanguage = unstable_cache(
   async (): Promise<string> => {
-    const client = createAnonRpcClient()
+    const client = createAnonServerClient()
     const { data, error } = await client.rpc('get_default_language')
 
     if (error || typeof data !== 'string' || !data) {

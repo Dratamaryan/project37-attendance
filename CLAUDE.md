@@ -33,6 +33,7 @@
     - `lib/supabase/client.ts` — Client Components only.
     - `lib/supabase/server.ts` — Server Components, Server Actions, Route Handlers.
     - `lib/supabase/admin.ts` — server contexts that must bypass RLS only (API routes, scheduled functions). Never import in pages or components.
+    - `lib/supabase/anon.ts` — `createAnonServerClient()`: cookie-less, session-less anon client (server-only). Only for the anon-granted RPCs `get_default_language`, `get_rsvp_context`, `submit_rsvp`. Never for table reads/writes.
 
     This separation ensures the service role key never reaches the client bundle, and that the principle of least privilege is enforced at the architectural level — not just trusted to code review.
 

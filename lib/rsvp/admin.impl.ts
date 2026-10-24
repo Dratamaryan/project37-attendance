@@ -15,6 +15,7 @@ import { requireActiveAdmin } from '@/lib/auth/require-admin'
 import { AUDIT_ACTIONS, logAudit } from '@/lib/audit'
 import { maskPhoneLast4 } from '@/lib/utils/mask-phone'
 import { displayInstanceName } from '@/lib/events/display'
+import { isRsvpPublicEnabled } from './config'
 import {
   RSVP_BUCKETS,
   type DeactivateRsvpLinkResult,
@@ -37,16 +38,9 @@ const IN_CHUNK = 100           // keep .in() URLs short
 
 // ── config ───────────────────────────────────────────────────────────────────
 
-/**
- * Public RSVP go-live switch. Server-only env var — deliberately no
- * NEXT_PUBLIC_ variant, so the flag can't be read (or flipped) client-side.
- * Staging true; prod false until go-live. Case- and whitespace-insensitive
- * (Vercel values were entered as TRUE/FALSE); anything but "true", including
- * unset, is off.
- */
-export function isRsvpPublicEnabled(): boolean {
-  return (process.env.RSVP_PUBLIC_ENABLED ?? '').trim().toLowerCase() === 'true'
-}
+// isRsvpPublicEnabled lives in ./config (shared with the public RSVP page);
+// re-exported here so existing importers/tests keep working.
+export { isRsvpPublicEnabled }
 
 /** NEXT_PUBLIC_APP_URL as an http(s) origin, or null when unset/unparseable. */
 function appBaseUrl(): string | null {

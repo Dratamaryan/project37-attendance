@@ -997,5 +997,59 @@
         "ATTENDANCE_SUMMARY_MANUAL_TRIGGER": "Attendance summary run manually"
       }
     }
+  },
+  "rsvp": {
+    "meta": {
+      "title": "RSVP · {event}",
+      "title_generic": "RSVP"
+    },
+    "closed": {
+      "title": "This link is not available",
+      "body": "This RSVP link has closed or is no longer valid. Please contact the event organisers."
+    },
+    "form": {
+      "title": "Will you attend?",
+      "status_label": "Your answer",
+      "status_coming": "Attending",
+      "status_maybe": "Maybe",
+      "status_not_coming": "Not attending",
+      "phone_label": "Phone / WhatsApp number",
+      "phone_placeholder": "0812…",
+      "phone_help": "For a non-Indonesian number, start with + and the country code.",
+      "name_label": "Name",
+      "name_optional": "(optional)",
+      "name_help": "Optional — you can leave this blank.",
+      "children_label": "Bringing children?",
+      "children_no": "No",
+      "children_yes": "Yes",
+      "children_count_label": "Number of children",
+      "consent_label_interim": "I’m happy to be contacted by the organisers about upcoming events.",
+      "privacy_link": "Privacy Policy",
+      "submit": "Send",
+      "submit_pending": "Sending…"
+    },
+    "errors": {
+      "status_required": "Please choose an answer.",
+      "phone_empty": "Please enter your phone number.",
+      "phone_too_short": "This number is too short.",
+      "phone_too_long": "This number is too long.",
+      "phone_invalid_for_country": "This number doesn’t look valid. For a non-Indonesian number, start with +.",
+      "phone_unsupported_country": "This number doesn’t look valid. For a non-Indonesian number, start with +.",
+      "name_too_long": "Please use at most 100 characters.",
+      "children_required": "Please choose the number of children.",
+      "children_out_of_range": "Number of children must be between 1 and 20.",
+      "invalid_summary": "Please check the highlighted fields.",
+      "limit": "RSVPs for this event are full.",
+      "unavailable": "RSVP can’t be processed right now. Please try again later.",
+      "generic": "Something went wrong. Please check your answers and try again."
+    },
+    "success": {
+      "title": "Thank you!",
+      "body": "We’ve received your response.",
+      "recap_status": "Your answer: {status}",
+      "recap_children": "Children: {count}",
+      "recap_no_children": "Children: none",
+      "edit": "Change my answer"
+    }
   }
 }
