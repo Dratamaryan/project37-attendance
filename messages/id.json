@@ -493,6 +493,83 @@
           "back": "Kembali ke sesi",
           "error_banner": "Gagal menyimpan. Silakan coba lagi.",
           "forbidden_banner": "Anda tidak memiliki izin untuk melakukan ini."
+        },
+        "rsvp": {
+          "title": "RSVP",
+          "link_title": "Tautan RSVP",
+          "not_live": "RSVP belum aktif — tautan belum bisa dibagikan sampai RSVP publik diaktifkan.",
+          "link_inactive": "Belum ada tautan aktif. Buat tautan untuk mulai menerima respons.",
+          "link_scheduled_only": "Tautan RSVP hanya bisa dibuat untuk sesi yang terjadwal.",
+          "get_link_button": "Dapatkan tautan RSVP",
+          "getting_link": "Mengambil tautan…",
+          "link_label": "Tautan RSVP publik",
+          "copy_button": "Salin",
+          "copied": "Tersalin",
+          "share_whatsapp": "Bagikan via WhatsApp",
+          "whatsapp_lang_label": "Bahasa pesan WhatsApp",
+          "whatsapp_lang_id": "ID",
+          "whatsapp_lang_en": "EN",
+          "deactivate_button": "Nonaktifkan",
+          "deactivate_confirm": {
+            "title": "Nonaktifkan tautan RSVP",
+            "message": "Nonaktifkan tautan ini? Siapa pun yang memegangnya tidak bisa merespons lagi.",
+            "confirm": "Nonaktifkan",
+            "cancel": "Simpan tautan"
+          },
+          "error_closed": "Tautan RSVP hanya tersedia untuk sesi yang terjadwal.",
+          "error_misconfigured": "Tautan RSVP belum dikonfigurasi dengan benar. Hubungi administrator aplikasi.",
+          "error_not_found": "Sesi ini sudah tidak ada.",
+          "error_generic": "Terjadi kesalahan. Silakan coba lagi.",
+          "error_load": "Gagal memuat RSVP.",
+          "whatsapp_message": "Mohon konfirmasi kehadiran untuk {event} ({date}): {url}",
+          "totals": {
+            "title": "Ringkasan",
+            "coming_headcount": "Perkiraan jumlah hadir (untuk konsumsi)",
+            "coming_detail": "{people} orang hadir + {children} anak",
+            "maybe": "Mungkin: {people} orang ({headcount} termasuk anak)",
+            "not_coming": "Tidak hadir: {count}",
+            "responses": "Total respons: {count}"
+          },
+          "crosstab": {
+            "title": "RSVP vs kehadiran",
+            "bucket": "Kelompok",
+            "count": "Jumlah",
+            "buckets": {
+              "coming_came": "Hadir · datang",
+              "coming_no_show": "Hadir · tidak datang",
+              "maybe_came": "Mungkin · datang",
+              "maybe_no_show": "Mungkin · tidak datang",
+              "not_coming_came": "Tidak hadir · tetap datang",
+              "not_coming_no_show": "Tidak hadir · tidak datang",
+              "walk_in": "Datang tanpa RSVP"
+            },
+            "children": "Anak: {expected} diharapkan · {checked_in} check-in"
+          },
+          "list": {
+            "title": "Respons",
+            "empty": "Belum ada respons.",
+            "removed_member": "Anggota yang dihapus",
+            "no_name": "(tanpa nama)",
+            "no_phone": "—",
+            "badge_member": "Anggota",
+            "badge_newcomer": "Pendatang baru",
+            "status": {
+              "coming": "Hadir",
+              "maybe": "Mungkin",
+              "not_coming": "Tidak hadir"
+            },
+            "children": "{count} anak",
+            "followup_yes": "Boleh dihubungi",
+            "attended": "Datang",
+            "submitted": "Dikirim {time}",
+            "updated": "Diperbarui {time}",
+            "delete_button": "Hapus",
+            "delete_confirm": {
+              "message": "Hapus respons ini?",
+              "confirm": "Hapus",
+              "cancel": "Batal"
+            }
+          }
         }
       },
       "invite": {

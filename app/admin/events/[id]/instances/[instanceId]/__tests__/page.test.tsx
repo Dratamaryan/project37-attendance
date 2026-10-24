@@ -5,6 +5,9 @@
 // /checkin/[instanceId]/attendees — impl_getInstanceAttendees on the server
 // client + the shared AttendeesList — plus the per-instance export link. The
 // data layer itself is covered in tests/integration/instance-attendees.test.ts.
+// S9-R3: the RSVP panel is mounted after the attendees block, fed by
+// impl_getInstanceRsvpPanel on the same session client (data layer covered in
+// tests/integration/rsvp-admin.test.ts).
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import AdminInstanceDetailPage from '../page'
@@ -46,6 +49,43 @@ const mockImpl = vi.fn()
 vi.mock('@/lib/actions/instance-attendees.impl', () => ({
   impl_getInstanceAttendees: (...args: unknown[]) => mockImpl(...args),
 }))
+
+const mockRsvpImpl = vi.fn()
+vi.mock('@/lib/rsvp/admin.impl', () => ({
+  impl_getInstanceRsvpPanel: (...args: unknown[]) => mockRsvpImpl(...args),
+}))
+const mockShare = vi.fn()
+vi.mock('@/lib/rsvp/share', () => ({
+  buildWhatsAppShareUrl: (...args: unknown[]) => mockShare(...args),
+  formatShareDateLabel: (_d: Date, locale: string) => `date-${locale}`,
+}))
+vi.mock('@/app/admin/events/_components/RsvpPanel', () => ({
+  RsvpPanel: ({ instanceId, instanceStatus, panel, whatsAppUrls }: {
+    instanceId: string
+    instanceStatus: string
+    panel: { rows: unknown[] }
+    whatsAppUrls: { id: string; en: string } | null
+  }) => (
+    <div data-testid="rsvp-panel">
+      {`${instanceId}|${instanceStatus}|${panel.rows.length}|${whatsAppUrls ? `${whatsAppUrls.id},${whatsAppUrls.en}` : 'none'}`}
+    </div>
+  ),
+}))
+
+const RSVP_URL = 'http://localhost:3000/rsvp/tok'
+function rsvpPanel(url: string | null) {
+  return {
+    status: 'ok',
+    panel: {
+      link: { active: url !== null, url },
+      publicEnabled: true,
+      totals: {},
+      buckets: {},
+      children: { expected: 0, checked_in: 0 },
+      rows: [{ rsvp_id: 'r1' }, { rsvp_id: 'r2' }, { rsvp_id: 'r3' }],
+    },
+  }
+}
 
 const mockListEvents = vi.fn()
 const mockListInstancesForEvent = vi.fn()
@@ -99,6 +139,8 @@ describe('AdminInstanceDetailPage', () => {
       adults: [{ attendance_id: 'a1' }, { attendance_id: 'a2' }],
       children: [{ child_attendance_id: 'c1' }],
     })
+    mockRsvpImpl.mockResolvedValue(rsvpPanel(null))
+    mockShare.mockImplementation(({ locale }: { locale: string }) => `https://wa.me/?text=${locale}`)
   })
 
   it('unauthenticated -> redirect to /login, no attendee data fetched', async () => {
@@ -113,6 +155,8 @@ describe('AdminInstanceDetailPage', () => {
     expect(screen.getByText('title')).toBeInTheDocument()
     expect(screen.queryByTestId('attendees-list')).not.toBeInTheDocument()
     expect(mockImpl).not.toHaveBeenCalled()
+    expect(screen.queryByTestId('rsvp-panel')).not.toBeInTheDocument()
+    expect(mockRsvpImpl).not.toHaveBeenCalled()
   })
 
   it('admin -> shared attendee list from impl_getInstanceAttendees on the session client', async () => {
@@ -168,5 +212,40 @@ describe('AdminInstanceDetailPage', () => {
     expect(screen.queryByTestId('attendees-list')).not.toBeInTheDocument()
     expect(screen.queryByTestId('instance-export-link')).not.toBeInTheDocument()
     expect(screen.getByText('admin.events.instance.edit_button')).toBeInTheDocument()
+  })
+
+  it('admin -> RsvpPanel mounted after the attendees list, fed by impl_getInstanceRsvpPanel on the session client (S9-R3)', async () => {
+    render(await AdminInstanceDetailPage({ params }))
+    expect(mockRsvpImpl).toHaveBeenCalledWith(INSTANCE_ID, sessionClient)
+    const panel = screen.getByTestId('rsvp-panel')
+    expect(panel).toHaveTextContent(`${INSTANCE_ID}|scheduled|3|none`)
+    // DOM order: attendees list precedes the RSVP panel.
+    const list = screen.getByTestId('attendees-list')
+    expect(list.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(mockShare).not.toHaveBeenCalled()
+  })
+
+  it('active link url -> BOTH share urls (id + en) built server-side, independent of the UI locale (en here)', async () => {
+    mockRsvpImpl.mockResolvedValue(rsvpPanel(RSVP_URL))
+    render(await AdminInstanceDetailPage({ params }))
+    expect(mockShare).toHaveBeenCalledTimes(2)
+    expect(mockShare).toHaveBeenCalledWith(expect.objectContaining({ url: RSVP_URL, locale: 'id', dateLabel: 'date-id' }))
+    expect(mockShare).toHaveBeenCalledWith(expect.objectContaining({ url: RSVP_URL, locale: 'en', dateLabel: 'date-en' }))
+    expect(screen.getByTestId('rsvp-panel'))
+      .toHaveTextContent(`${INSTANCE_ID}|scheduled|3|https://wa.me/?text=id,https://wa.me/?text=en`)
+  })
+
+  it('passes the instance status to the panel (completed)', async () => {
+    mockListInstancesForEvent.mockResolvedValue({ status: 'ok', instances: [{ ...INSTANCE, status: 'completed' }] })
+    render(await AdminInstanceDetailPage({ params }))
+    expect(screen.getByTestId('rsvp-panel')).toHaveTextContent(`${INSTANCE_ID}|completed|3|none`)
+  })
+
+  it('RSVP panel error -> alert in its place; attendees still render', async () => {
+    mockRsvpImpl.mockResolvedValue({ status: 'error', message: 'x' })
+    render(await AdminInstanceDetailPage({ params }))
+    expect(screen.queryByTestId('rsvp-panel')).not.toBeInTheDocument()
+    expect(screen.getByTestId('rsvp-panel-error')).toHaveTextContent('admin.events.instance.rsvp.error_load')
+    expect(screen.getByTestId('attendees-list')).toBeInTheDocument()
   })
 })

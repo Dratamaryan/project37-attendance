@@ -41,6 +41,9 @@ export const AUDIT_ACTIONS = {
   DATA_DEACTIVATE_TEST_USERS: 'data.deactivate_test_users',
   PEOPLE_ANONYMIZE:        'people.anonymize',
   NOTIFY_DAILY_CAP_DEFERRED: 'notify.daily_cap_deferred',
+  RSVP_LINK_CREATE:        'rsvp.link_create',
+  RSVP_LINK_DEACTIVATE:    'rsvp.link_deactivate',
+  RSVP_DELETE:             'rsvp.delete',
 } as const
 
 export type AuditAction = typeof AUDIT_ACTIONS[keyof typeof AUDIT_ACTIONS]

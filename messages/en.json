@@ -493,6 +493,83 @@
           "back": "Back to occurrence",
           "error_banner": "Couldn't save. Please try again.",
           "forbidden_banner": "You don't have permission to do this."
+        },
+        "rsvp": {
+          "title": "RSVP",
+          "link_title": "RSVP link",
+          "not_live": "RSVP isn't live yet — links can't be shared until public RSVP is switched on.",
+          "link_inactive": "No active link. Get one to start collecting responses.",
+          "link_scheduled_only": "RSVP links can only be created for scheduled occurrences.",
+          "get_link_button": "Get RSVP link",
+          "getting_link": "Getting link…",
+          "link_label": "Public RSVP link",
+          "copy_button": "Copy",
+          "copied": "Copied",
+          "share_whatsapp": "Share via WhatsApp",
+          "whatsapp_lang_label": "WhatsApp message language",
+          "whatsapp_lang_id": "ID",
+          "whatsapp_lang_en": "EN",
+          "deactivate_button": "Deactivate",
+          "deactivate_confirm": {
+            "title": "Deactivate RSVP link",
+            "message": "Deactivate this link? Anyone holding it will no longer be able to respond.",
+            "confirm": "Deactivate",
+            "cancel": "Keep link"
+          },
+          "error_closed": "RSVP links are only available for scheduled occurrences.",
+          "error_misconfigured": "RSVP links aren't configured correctly. Contact the app administrator.",
+          "error_not_found": "This occurrence no longer exists.",
+          "error_generic": "Something went wrong. Please try again.",
+          "error_load": "Couldn't load RSVPs.",
+          "whatsapp_message": "Please confirm your attendance for {event} ({date}): {url}",
+          "totals": {
+            "title": "Totals",
+            "coming_headcount": "Expected headcount (food count)",
+            "coming_detail": "{people, plural, one {# person} other {# people}} coming + {children, plural, one {# child} other {# children}}",
+            "maybe": "Maybe: {people} people ({headcount} incl. children)",
+            "not_coming": "Not coming: {count}",
+            "responses": "Total responses: {count}"
+          },
+          "crosstab": {
+            "title": "RSVP vs check-in",
+            "bucket": "Group",
+            "count": "Count",
+            "buckets": {
+              "coming_came": "Coming · came",
+              "coming_no_show": "Coming · didn't come",
+              "maybe_came": "Maybe · came",
+              "maybe_no_show": "Maybe · didn't come",
+              "not_coming_came": "Not coming · came anyway",
+              "not_coming_no_show": "Not coming · didn't come",
+              "walk_in": "Walk-in (no RSVP)"
+            },
+            "children": "Children: {expected} expected · {checked_in} checked in"
+          },
+          "list": {
+            "title": "Responses",
+            "empty": "No responses yet.",
+            "removed_member": "Removed member",
+            "no_name": "(no name)",
+            "no_phone": "—",
+            "badge_member": "Member",
+            "badge_newcomer": "Newcomer",
+            "status": {
+              "coming": "Coming",
+              "maybe": "Maybe",
+              "not_coming": "Not coming"
+            },
+            "children": "{count, plural, one {# child} other {# children}}",
+            "followup_yes": "Follow-up OK",
+            "attended": "Came",
+            "submitted": "Submitted {time}",
+            "updated": "Updated {time}",
+            "delete_button": "Delete",
+            "delete_confirm": {
+              "message": "Delete this response?",
+              "confirm": "Delete",
+              "cancel": "Keep"
+            }
+          }
         }
       },
       "invite": {

@@ -11,6 +11,9 @@ import { displayInstanceName } from '@/lib/events/display'
 import Link from 'next/link'
 import { CancelInstanceDialog } from '../../../_components/CancelInstanceDialog'
 import { AttendeesList } from '@/components/attendees/AttendeesList'
+import { impl_getInstanceRsvpPanel } from '@/lib/rsvp/admin.impl'
+import { buildWhatsAppShareUrl, formatShareDateLabel, type ShareLocale } from '@/lib/rsvp/share'
+import { RsvpPanel } from '../../../_components/RsvpPanel'
 
 type Props = {
   params: Promise<{ id: string; instanceId: string }>
@@ -46,6 +49,7 @@ export default async function AdminInstanceDetailPage({ params }: Props) {
 
   const t      = await getTranslations('admin.events.instance')
   const tA     = await getTranslations('checkin.attendees')
+  const tR     = await getTranslations('admin.events.instance.rsvp')
   const locale = await getLocale()
 
   // Fetch parent event (D8)
@@ -68,6 +72,9 @@ export default async function AdminInstanceDetailPage({ params }: Props) {
   // (S8-T5 C4): RLS server client, phones masked server-side, soft-deleted excluded.
   const attendees = await impl_getInstanceAttendees({ supabase, instanceId })
 
+  // RSVP panel (S9-R3) — RLS server client; read-time cross-tab, never writes.
+  const rsvp = await impl_getInstanceRsvpPanel(instanceId, supabase)
+
   const dateStr    = formatJakarta(new Date(instance.scheduled_at), 'PPP p')
   const shortDate  = formatJakarta(new Date(instance.scheduled_at), 'PP')
   const displayName = displayInstanceName({
@@ -80,6 +87,24 @@ export default async function AdminInstanceDetailPage({ params }: Props) {
   })
 
   const eventDisplayName = locale === 'id' ? (event.name_id ?? event.name) : event.name
+
+  // Both WhatsApp share texts are built here, independent of the admin's UI
+  // locale — the panel defaults to Indonesian and lets the admin switch.
+  const rsvpUrl = rsvp.status === 'ok' ? rsvp.panel.link.url : null
+  const shareUrl = (shareLocale: ShareLocale, url: string) => buildWhatsAppShareUrl({
+    eventName: displayInstanceName({
+      scheduledAt: new Date(instance.scheduled_at),
+      snapshot:    instance.event_name_snapshot,
+      snapshotId:  instance.event_name_snapshot_id,
+      liveName:    event.name,
+      liveNameId:  event.name_id,
+      locale:      shareLocale,
+    }),
+    dateLabel: formatShareDateLabel(new Date(instance.scheduled_at), shareLocale),
+    url,
+    locale: shareLocale,
+  })
+  const whatsAppUrls = rsvpUrl ? { id: shareUrl('id', rsvpUrl), en: shareUrl('en', rsvpUrl) } : null
 
   return (
     <main className="px-4 md:px-6 py-8">
@@ -158,6 +183,18 @@ export default async function AdminInstanceDetailPage({ params }: Props) {
           </>
         ) : (
           <p role="alert" className="text-sm text-red-600 py-4">{tA('error')}</p>
+        )}
+
+        {/* RSVP — link, totals, cross-tab, responses (S9-R3) */}
+        {rsvp.status === 'ok' ? (
+          <RsvpPanel
+            instanceId={instanceId}
+            instanceStatus={instance.status}
+            panel={rsvp.panel}
+            whatsAppUrls={whatsAppUrls}
+          />
+        ) : (
+          <p role="alert" data-testid="rsvp-panel-error" className="text-sm text-red-600 py-4">{tR('error_load')}</p>
         )}
       </div>
     </main>
