@@ -108,6 +108,23 @@ describe('RsvpForm — submission', () => {
     expect(sent.status).toBe('not_coming')
     expect(sent).not.toHaveProperty('bringing_children')
     expect(sent).not.toHaveProperty('children_count')
+    // Consent never ticked -> the checkbox is not submitted at all.
+    expect(sent).not.toHaveProperty('followup_consent')
+  })
+
+  it('consent ticked then unticked is not submitted', async () => {
+    action.mockResolvedValue({ kind: 'success', status: 'coming', children: 0 })
+    const user = userEvent.setup()
+    render(<RsvpForm action={action} />)
+    await fillValid(user)
+    const consent = screen.getByLabelText('form.consent_label_interim')
+    await user.click(consent)
+    await user.click(consent)
+    expect(consent).not.toBeChecked()
+    await user.click(screen.getByRole('button', { name: 'form.submit' }))
+
+    await waitFor(() => expect(action).toHaveBeenCalledTimes(1))
+    expect(lastFormData()).not.toHaveProperty('followup_consent')
   })
 
   it('shows the pending label while the action runs', async () => {
