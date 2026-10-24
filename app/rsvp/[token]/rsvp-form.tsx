@@ -13,10 +13,13 @@ import {
   type RsvpPublicStatus,
 } from '@/lib/rsvp/public.types'
 import { RsvpNotAvailable } from './rsvp-not-available'
+import { TurnstileWidget } from './turnstile-widget'
 
 type Props = {
   /** submitRsvp with the token bound by the page. */
   action: (prevState: RsvpFormState, formData: FormData) => Promise<RsvpFormState>
+  /** S9-R4: the Turnstile site key when RSVP_TURNSTILE_ENABLED is on, else null (no widget). */
+  turnstileSiteKey?: string | null
 }
 
 const STATUS_LABEL_KEY: Record<RsvpPublicStatus, string> = {
@@ -48,7 +51,7 @@ function FieldError({ id, message }: { id: string; message: string | null }) {
   )
 }
 
-export function RsvpForm({ action }: Props) {
+export function RsvpForm({ action, turnstileSiteKey = null }: Props) {
   const t = useTranslations('rsvp')
   const [state, formAction, isPending] = useActionState(action, RSVP_INITIAL_STATE)
 
@@ -63,6 +66,11 @@ export function RsvpForm({ action }: Props) {
   // The success state the visitor chose to edit — a NEW success (a fresh
   // object from the next submit) shows the thank-you view again.
   const [dismissedSuccess, setDismissedSuccess] = useState<RsvpFormState | null>(null)
+  // Single-use Turnstile token; the widget clears it on expiry/error and when
+  // `state` changes (every non-success result — success unmounts the form).
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null)
+  const awaitingTurnstile = turnstileSiteKey !== null && turnstileToken === null
+  const [turnstileUnavailable, setTurnstileUnavailable] = useState(false)
 
   if (state.kind === 'closed') {
     return <RsvpNotAvailable title={t('closed.title')} body={t('closed.body')} headingLevel={2} />
@@ -85,7 +93,11 @@ export function RsvpForm({ action }: Props) {
         </ul>
         <button
           type="button"
-          onClick={() => setDismissedSuccess(state)}
+          onClick={() => {
+            setDismissedSuccess(state)
+            // The token behind this success is spent; the remounted widget issues a new one.
+            setTurnstileToken(null)
+          }}
           className="w-full min-h-[44px] py-3 border border-line text-sm text-charcoal rounded-sm hover:bg-white transition-colors"
         >
           {t('success.edit')}
@@ -109,6 +121,12 @@ export function RsvpForm({ action }: Props) {
         <div role="alert" className={BANNER_CLASSES}>{t('errors.unavailable')}</div>
       )}
       {state.kind === 'error' && <div role="alert" className={BANNER_CLASSES}>{t('errors.generic')}</div>}
+
+      {/* Honeypot (S9-R4): off-screen rather than display:none or sr-only, so
+          naive bots still fill it while people and screen readers never meet it. */}
+      <div aria-hidden="true" className="absolute -left-[10000px] top-auto w-px h-px overflow-hidden">
+        <input type="text" name="website" tabIndex={-1} autoComplete="off" />
+      </div>
 
       {/* Status */}
       <fieldset aria-describedby={errors.status ? 'rsvp-status-error' : undefined}>
@@ -251,13 +269,31 @@ export function RsvpForm({ action }: Props) {
         </div>
       </div>
 
+      {turnstileSiteKey !== null && (
+        <>
+          <TurnstileWidget
+            siteKey={turnstileSiteKey}
+            onToken={setTurnstileToken}
+            resetSignal={state}
+            onUnavailable={setTurnstileUnavailable}
+          />
+          <input type="hidden" name="cf-turnstile-response" value={turnstileToken ?? ''} />
+        </>
+      )}
+
       <button
         type="submit"
-        disabled={isPending}
+        disabled={isPending || awaitingTurnstile}
         className="w-full min-h-[44px] py-3 bg-charcoal text-cream text-sm font-medium rounded-sm hover:bg-ink-2 active:translate-y-px transition-all disabled:opacity-60 disabled:cursor-not-allowed"
       >
-        {isPending ? t('form.submit_pending') : t('form.submit')}
+        {isPending ? t('form.submit_pending') : awaitingTurnstile ? t('form.submit_verifying') : t('form.submit')}
       </button>
+      {/* Still fail-closed: the note only explains why submit stays disabled. */}
+      {turnstileSiteKey !== null && turnstileUnavailable && (
+        <p role="status" className="text-xs text-[#A85959] -mt-3" data-testid="rsvp-turnstile-unavailable">
+          {t('form.turnstile_unavailable')}
+        </p>
+      )}
     </form>
   )
 }

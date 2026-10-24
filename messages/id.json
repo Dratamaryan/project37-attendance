@@ -1026,7 +1026,9 @@
       "consent_label_interim": "Saya bersedia dihubungi panitia untuk informasi kegiatan berikutnya.",
       "privacy_link": "Kebijakan Privasi",
       "submit": "Kirim",
-      "submit_pending": "Mengirim…"
+      "submit_pending": "Mengirim…",
+      "submit_verifying": "Memverifikasi…",
+      "turnstile_unavailable": "Verifikasi keamanan tidak dapat dimuat. Matikan pemblokir iklan atau gunakan browser lain, lalu muat ulang halaman."
     },
     "errors": {
       "status_required": "Silakan pilih salah satu jawaban.",

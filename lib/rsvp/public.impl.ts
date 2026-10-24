@@ -17,7 +17,14 @@ import { enUS, id as idLocale } from 'date-fns/locale'
 import { createAnonServerClient } from '@/lib/supabase/anon'
 import { JAKARTA_TZ } from '@/lib/events/timezone'
 import { normalizePhone } from '@/lib/utils/phone'
-import { getRsvpGateSecret, isRsvpPublicEnabled } from './config'
+import {
+  getRsvpGateSecret,
+  getRsvpTurnstileKeys,
+  isRsvpPublicEnabled,
+  isRsvpTurnstileEnabled,
+} from './config'
+import { getRsvpClientIp, rsvpThrottle, rsvpThrottleKey } from './throttle'
+import { verifyTurnstile, type TurnstileVerdict } from './turnstile'
 import {
   RSVP_CHILDREN_MAX,
   RSVP_CHILDREN_MIN,
@@ -239,10 +246,38 @@ export function parseRsvpFormData(
 
 // ── submit ───────────────────────────────────────────────────────────────────
 
+/** S9-R4 honeypot field: hidden off-screen in the form; humans leave it empty. */
+export const RSVP_HONEYPOT_FIELD = 'website'
+/** Turnstile token field (the form's controlled hidden input, Cloudflare's conventional name). */
+export const RSVP_TURNSTILE_FIELD = 'cf-turnstile-response'
+/** Real tokens are well under this; anything longer is rejected unverified. */
+export const RSVP_TURNSTILE_TOKEN_MAX = 2048
+
+/** Injectable abuse-control seams — tests pass fakes; the server action passes defaultSubmitDeps. */
+export type RsvpSubmitDeps = {
+  verifyTurnstile: (token: string, secret: string) => Promise<TurnstileVerdict>
+  /** true = allowed. Called only when a client IP is known. */
+  throttle: (key: string) => boolean
+  getClientIp: () => Promise<string | null>
+}
+
+export const defaultSubmitDeps: RsvpSubmitDeps = {
+  verifyTurnstile: (token, secret) => verifyTurnstile(token, secret),
+  throttle: (key) => rsvpThrottle.checkAndCount(key),
+  getClientIp: getRsvpClientIp,
+}
+
+/**
+ * Order: flag -> token -> parse -> honeypot -> throttle -> Turnstile -> gate
+ * -> RPC. Every abuse check sits before the gate read, so a blocked submit
+ * never reaches the database; blocks read as the generic 'unavailable'
+ * (honeypot: a fake 'success') so a bot learns nothing.
+ */
 export async function impl_submitRsvp(
   token: unknown,
   formData: FormData,
   client: SupabaseClient,
+  deps: RsvpSubmitDeps = defaultSubmitDeps,
 ): Promise<RsvpFormState> {
   // Flag off reads as closed: the page itself 404s, so a stale tab gets the
   // same "not available" view as any other dead link.
@@ -252,6 +287,37 @@ export async function impl_submitRsvp(
   const parsed = parseRsvpFormData(formData)
   if (!parsed.ok) return { kind: 'invalid', fieldErrors: parsed.fieldErrors }
   const { input } = parsed
+
+  // Honeypot: indistinguishable from a real success, but nothing is written
+  // and nothing downstream (throttle, siteverify, RPC) runs.
+  if (field(formData, RSVP_HONEYPOT_FIELD).trim() !== '') {
+    console.warn('[rsvp] honeypot')
+    return { kind: 'success', status: input.status, children: input.children }
+  }
+
+  // Soft per-IP throttle. The IP is hashed into the key immediately; no IP ->
+  // no throttle (fail open — it is a brake, not a gate).
+  const ip = await deps.getClientIp()
+  if (ip !== null && !deps.throttle(rsvpThrottleKey(ip, token))) {
+    console.warn('[rsvp] throttled')
+    return { kind: 'unavailable' }
+  }
+
+  if (isRsvpTurnstileEnabled()) {
+    const keys = getRsvpTurnstileKeys()
+    if (!keys) {
+      console.error('[rsvp] RSVP_TURNSTILE_ENABLED is on but a Turnstile key is not set — public RSVP submissions are failing closed')
+      return { kind: 'unavailable' }
+    }
+    const turnstileToken = field(formData, RSVP_TURNSTILE_FIELD)
+    if (turnstileToken === '' || turnstileToken.length > RSVP_TURNSTILE_TOKEN_MAX) {
+      console.warn('[rsvp] turnstile token missing or oversized')
+      return { kind: 'unavailable' }
+    }
+    if ((await deps.verifyTurnstile(turnstileToken, keys.secretKey)) !== 'ok') {
+      return { kind: 'unavailable' }
+    }
+  }
 
   const gate = getRsvpGateSecret()
   if (!gate) {

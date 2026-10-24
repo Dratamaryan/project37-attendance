@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import { NextIntlClientProvider } from 'next-intl'
 import { getMessages, getTranslations } from 'next-intl/server'
 import { PublicShell } from '@/components/PublicShell'
+import { getRsvpTurnstileKeys, isRsvpTurnstileEnabled } from '@/lib/rsvp/config'
 import { submitRsvp } from '@/lib/rsvp/public'
 import { getRsvpPageData, resolveRsvpLocale } from '@/lib/rsvp/public.impl'
 import type { RsvpLocale } from '@/lib/rsvp/public.types'
@@ -81,6 +82,10 @@ export default async function RsvpPage({ params }: Props) {
 
   const { event } = data
   const messages = await getMessages({ locale })
+  // Server-derived: the form only learns the (public) site key, and only when
+  // the toggle is on. Toggle on + a missing key renders no widget; the submit
+  // then fails closed server-side.
+  const turnstileSiteKey = isRsvpTurnstileEnabled() ? (getRsvpTurnstileKeys()?.siteKey ?? null) : null
 
   return (
     <PublicShell logoHref={null} locale={locale}>
@@ -108,7 +113,7 @@ export default async function RsvpPage({ params }: Props) {
         {/* Pinned to the page's own locale: the root layout's provider follows
             i18n/request.ts (cookie else admin default), which /rsvp does not. */}
         <NextIntlClientProvider locale={locale} messages={{ rsvp: messages.rsvp }}>
-          <RsvpForm action={submitRsvp.bind(null, token)} />
+          <RsvpForm action={submitRsvp.bind(null, token)} turnstileSiteKey={turnstileSiteKey} />
         </NextIntlClientProvider>
       </main>
     </PublicShell>

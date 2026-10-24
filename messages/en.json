@@ -1026,7 +1026,9 @@
       "consent_label_interim": "I’m happy to be contacted by the organisers about upcoming events.",
       "privacy_link": "Privacy Policy",
       "submit": "Send",
-      "submit_pending": "Sending…"
+      "submit_pending": "Sending…",
+      "submit_verifying": "Verifying…",
+      "turnstile_unavailable": "The security check couldn’t load. Turn off your ad blocker or try another browser, then reload the page."
     },
     "errors": {
       "status_required": "Please choose an answer.",

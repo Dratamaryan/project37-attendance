@@ -19,7 +19,7 @@ import { randomUUID } from 'crypto'
 vi.mock('server-only', () => ({}))
 
 import { createAnonServerClient } from '@/lib/supabase/anon'
-import { impl_getRsvpPageData, impl_submitRsvp } from '@/lib/rsvp/public.impl'
+import { impl_getRsvpPageData, impl_submitRsvp, type RsvpSubmitDeps } from '@/lib/rsvp/public.impl'
 import type { RsvpFormState } from '@/lib/rsvp/public.types'
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -64,6 +64,17 @@ const personIds: string[] = []
 
 const ORIGINAL_FLAG = process.env.RSVP_PUBLIC_ENABLED
 const ORIGINAL_GATE = process.env.RSVP_GATE_SECRET
+const TURNSTILE_ENV = ['RSVP_TURNSTILE_ENABLED', 'RSVP_TURNSTILE_SITE_KEY', 'RSVP_TURNSTILE_SECRET_KEY'] as const
+const ORIGINAL_TURNSTILE = TURNSTILE_ENV.map((k) => process.env[k])
+
+// S9-R4 deps for the live suite: injected, never a global fetch stub (supabase-js
+// shares global fetch). No client IP -> throttle skipped; the verifier would
+// fail if reached, and the Turnstile toggle is off unless a test turns it on.
+const NO_ABUSE_DEPS: RsvpSubmitDeps = {
+  verifyTurnstile: async () => 'fail',
+  throttle: () => true,
+  getClientIp: async () => null,
+}
 
 function setEnv(key: string, value: string | undefined) {
   if (value === undefined) delete process.env[key]
@@ -171,7 +182,7 @@ function form(fields: Record<string, string>): FormData {
 }
 
 function submit(token: string, fields: Record<string, string>): Promise<RsvpFormState> {
-  return impl_submitRsvp(token, form(fields), createAnonServerClient())
+  return impl_submitRsvp(token, form(fields), createAnonServerClient(), NO_ABUSE_DEPS)
 }
 
 /** No full phone, no local-format phone, no roster name anywhere in a state. */
@@ -194,11 +205,13 @@ beforeAll(() => {
 beforeEach(() => {
   setEnv('RSVP_PUBLIC_ENABLED', 'true')
   setEnv('RSVP_GATE_SECRET', LOCAL_GATE)
+  for (const k of TURNSTILE_ENV) setEnv(k, undefined)
 })
 
 afterEach(() => {
   setEnv('RSVP_PUBLIC_ENABLED', ORIGINAL_FLAG)
   setEnv('RSVP_GATE_SECRET', ORIGINAL_GATE)
+  TURNSTILE_ENV.forEach((k, i) => setEnv(k, ORIGINAL_TURNSTILE[i]))
   vi.restoreAllMocks()
 })
 
@@ -412,5 +425,51 @@ describe('impl_submitRsvp (live anon RPC)', () => {
       status: 'maybe',
       children: 0,
     })
+  })
+})
+
+describe('impl_submitRsvp — S9-R4 abuse controls (live anon RPC)', () => {
+  const answers = (phone: string) => ({ status: 'coming', phone: localFormat(phone) })
+
+  it('honeypot -> the normal success state, and zero rows written', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { instanceId } = await createInstance()
+    const { token } = await createLink(instanceId)
+    const phone = nextPhone()
+    expect(await submit(token, { ...answers(phone), website: 'https://spam.example' })).toEqual({
+      kind: 'success',
+      status: 'coming',
+      children: 0,
+    })
+    expect(await rsvpRows(instanceId)).toHaveLength(0)
+  })
+
+  it('throttled -> unavailable, zero rows', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { instanceId } = await createInstance()
+    const { token } = await createLink(instanceId)
+    const deps: RsvpSubmitDeps = { ...NO_ABUSE_DEPS, getClientIp: async () => '203.0.113.9', throttle: () => false }
+    expect(await impl_submitRsvp(token, form(answers(nextPhone())), createAnonServerClient(), deps)).toEqual({
+      kind: 'unavailable',
+    })
+    expect(await rsvpRows(instanceId)).toHaveLength(0)
+  })
+
+  it('Turnstile on: verifier fail -> zero rows; verifier ok -> row written', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    setEnv('RSVP_TURNSTILE_ENABLED', 'true')
+    setEnv('RSVP_TURNSTILE_SITE_KEY', 'local-site-key')
+    setEnv('RSVP_TURNSTILE_SECRET_KEY', 'local-secret-key')
+    const { instanceId } = await createInstance()
+    const { token } = await createLink(instanceId)
+    const phone = nextPhone()
+    const fields = { ...answers(phone), 'cf-turnstile-response': 'tok' }
+
+    expect(await submit(token, fields)).toEqual({ kind: 'unavailable' })
+    expect(await rsvpRows(instanceId)).toHaveLength(0)
+
+    const ok: RsvpSubmitDeps = { ...NO_ABUSE_DEPS, verifyTurnstile: async () => 'ok' }
+    expect((await impl_submitRsvp(token, form(fields), createAnonServerClient(), ok)).kind).toBe('success')
+    expect(await rsvpRows(instanceId)).toHaveLength(1)
   })
 })

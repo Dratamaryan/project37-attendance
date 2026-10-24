@@ -3,7 +3,7 @@
 // Page + metadata composition for the public /rsvp/[token] (S9-R1). The data
 // layer (anon RPCs, flag, gate) is covered by lib/rsvp/__tests__/public.test.ts
 // and tests/integration/rsvp-public.test.ts; here getRsvpPageData is mocked.
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import type { RsvpPageData } from '@/lib/rsvp/public.types'
 
@@ -60,9 +60,17 @@ vi.mock('@/components/PublicShell', () => ({
 }))
 
 let capturedAction: ((prev: unknown, formData: FormData) => unknown) | null = null
+let capturedSiteKey: string | null | undefined
 vi.mock('../rsvp-form', () => ({
-  RsvpForm: ({ action }: { action: (prev: unknown, formData: FormData) => unknown }) => {
+  RsvpForm: ({
+    action,
+    turnstileSiteKey,
+  }: {
+    action: (prev: unknown, formData: FormData) => unknown
+    turnstileSiteKey?: string | null
+  }) => {
     capturedAction = action
+    capturedSiteKey = turnstileSiteKey
     return <div data-testid="rsvp-form-stub">{typeof action}</div>
   },
 }))
@@ -82,6 +90,14 @@ vi.mock('@/lib/rsvp/public.impl', async (importOriginal) => ({
 import RsvpPage, { generateMetadata, dynamic } from '../page'
 
 const TOKEN = 'AbCdEfGhIjKlMnOpQrStUvWxYz012-_9'
+const TURNSTILE_ENV = ['RSVP_TURNSTILE_ENABLED', 'RSVP_TURNSTILE_SITE_KEY', 'RSVP_TURNSTILE_SECRET_KEY'] as const
+const ORIGINAL_TURNSTILE = TURNSTILE_ENV.map((k) => process.env[k])
+afterAll(() => {
+  TURNSTILE_ENV.forEach((k, i) => {
+    if (ORIGINAL_TURNSTILE[i] === undefined) delete process.env[k]
+    else process.env[k] = ORIGINAL_TURNSTILE[i]
+  })
+})
 const params = Promise.resolve({ token: TOKEN })
 
 const OPEN: RsvpPageData = {
@@ -100,6 +116,8 @@ beforeEach(() => {
   providerProps.length = 0
   shellProps.length = 0
   capturedAction = null
+  capturedSiteKey = undefined
+  for (const k of TURNSTILE_ENV) delete process.env[k]
   mockLocaleCookie = undefined
   mockPageData.mockResolvedValue(OPEN)
 })
@@ -153,6 +171,29 @@ describe('RsvpPage', () => {
     const fd = new FormData()
     await capturedAction?.(prev, fd)
     expect(mockSubmit).toHaveBeenCalledWith(TOKEN, prev, fd)
+  })
+
+  it('S9-R4: Turnstile off -> no site key passed to the form', async () => {
+    process.env.RSVP_TURNSTILE_SITE_KEY = 'site-key'
+    process.env.RSVP_TURNSTILE_SECRET_KEY = 'secret-key'
+    render(await RsvpPage({ params }))
+    expect(capturedSiteKey).toBeNull()
+  })
+
+  it('S9-R4: Turnstile on -> only the site key reaches the form, never the secret', async () => {
+    process.env.RSVP_TURNSTILE_ENABLED = 'true'
+    process.env.RSVP_TURNSTILE_SITE_KEY = ' site-key '
+    process.env.RSVP_TURNSTILE_SECRET_KEY = 'secret-key-value'
+    const { container } = render(await RsvpPage({ params }))
+    expect(capturedSiteKey).toBe('site-key')
+    expect(container.innerHTML).not.toContain('secret-key-value')
+  })
+
+  it('S9-R4: Turnstile on but a key missing -> no widget (submit fails closed server-side)', async () => {
+    process.env.RSVP_TURNSTILE_ENABLED = 'true'
+    process.env.RSVP_TURNSTILE_SITE_KEY = 'site-key'
+    render(await RsvpPage({ params }))
+    expect(capturedSiteKey).toBeNull()
   })
 
   it('no locale cookie -> id everywhere, even though the admin default is en', async () => {

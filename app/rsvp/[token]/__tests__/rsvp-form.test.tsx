@@ -2,12 +2,14 @@
 //
 // Client behaviour of the public RSVP form (S9-R1): status-dependent children
 // section, 1..20 count select, field errors / banners, success recap, and
-// "Change my answer" returning to a pre-filled form.
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+// "Change my answer" returning to a pre-filled form. S9-R4: honeypot markup and
+// the Turnstile widget lifecycle against a fake window.turnstile.
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { RsvpFormState } from '@/lib/rsvp/public.types'
 import { RsvpForm } from '../rsvp-form'
+import { TURNSTILE_SCRIPT_SRC, TURNSTILE_UNAVAILABLE_AFTER_MS, type TurnstileApi } from '../turnstile-widget'
 
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string, params?: Record<string, string | number>) =>
@@ -85,6 +87,7 @@ describe('RsvpForm — submission', () => {
 
     await waitFor(() => expect(action).toHaveBeenCalledTimes(1))
     expect(lastFormData()).toEqual({
+      website: '', // S9-R4 honeypot, empty for a person
       status: 'coming',
       phone: '081234567890',
       name: 'Budi',
@@ -234,5 +237,238 @@ describe('RsvpForm — success', () => {
     expect(await screen.findByTestId('rsvp-success')).toHaveTextContent('success.recap_status form.status_maybe')
     expect(action).toHaveBeenCalledTimes(2)
     expect(lastFormData()).toMatchObject({ status: 'maybe', phone: '081234567890' })
+  })
+})
+
+// ── S9-R4 ────────────────────────────────────────────────────────────────────
+
+describe('RsvpForm — honeypot', () => {
+  it('off-screen, aria-hidden, untabbable "website" input; not display:none or sr-only', () => {
+    const { container } = render(<RsvpForm action={action} />)
+    const input = container.querySelector('input[name="website"]') as HTMLInputElement
+    expect(input).not.toBeNull()
+    expect(input.tabIndex).toBe(-1)
+    expect(input.getAttribute('autocomplete')).toBe('off')
+    expect(input.type).toBe('text')
+    const wrapper = input.parentElement as HTMLElement
+    expect(wrapper.getAttribute('aria-hidden')).toBe('true')
+    expect(wrapper.className).toContain('absolute')
+    expect(wrapper.className).toContain('-left-[10000px]')
+    expect(wrapper.className).not.toContain('sr-only')
+    expect(wrapper.className).not.toContain('hidden ')
+    expect(wrapper.style.display).not.toBe('none')
+  })
+
+  it('is submitted empty by a person', async () => {
+    action.mockResolvedValue({ kind: 'success', status: 'coming', children: 0 })
+    const user = userEvent.setup()
+    render(<RsvpForm action={action} />)
+    await fillValid(user)
+    await user.click(screen.getByRole('button', { name: 'form.submit' }))
+    await waitFor(() => expect(action).toHaveBeenCalledTimes(1))
+    expect(lastFormData()).toMatchObject({ website: '' })
+  })
+})
+
+describe('RsvpForm — Turnstile widget', () => {
+  type RenderOpts = Parameters<TurnstileApi['render']>[1]
+  let renderOpts: RenderOpts[]
+  let fake: { render: ReturnType<typeof vi.fn>; reset: ReturnType<typeof vi.fn>; remove: ReturnType<typeof vi.fn> }
+
+  beforeEach(() => {
+    renderOpts = []
+    fake = {
+      render: vi.fn((_el: HTMLElement, opts: RenderOpts) => {
+        renderOpts.push(opts)
+        return 'widget-1'
+      }),
+      reset: vi.fn(),
+      remove: vi.fn(),
+    }
+    window.turnstile = fake as unknown as TurnstileApi
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    delete window.turnstile
+    // jsdom never loads the script: fail any pending load so the module-level
+    // loader forgets it and the next test starts clean.
+    document.head.querySelectorAll(`script[src="${TURNSTILE_SCRIPT_SRC}"]`).forEach((el) => {
+      el.dispatchEvent(new Event('error'))
+      el.remove()
+    })
+  })
+
+  const scriptTag = () => document.head.querySelector(`script[src="${TURNSTILE_SCRIPT_SRC}"]`) as HTMLScriptElement
+
+  const issueToken = (token: string) => act(() => renderOpts.at(-1)?.callback(token))
+
+  it('no site key -> no widget, no script, no token field; submit enabled', () => {
+    delete window.turnstile
+    const { container } = render(<RsvpForm action={action} turnstileSiteKey={null} />)
+    expect(screen.queryByTestId('rsvp-turnstile')).not.toBeInTheDocument()
+    expect(document.head.querySelector(`script[src="${TURNSTILE_SCRIPT_SRC}"]`)).toBeNull()
+    expect(container.querySelector('input[name="cf-turnstile-response"]')).toBeNull()
+    expect(screen.getByRole('button', { name: 'form.submit' })).toBeEnabled()
+  })
+
+  it('site key -> renders once with sitekey, action rsvp, auto refresh, own response field off', async () => {
+    render(<RsvpForm action={action} turnstileSiteKey="site-key-1" />)
+    expect(screen.getByTestId('rsvp-turnstile')).toBeInTheDocument()
+    await waitFor(() => expect(fake.render).toHaveBeenCalledTimes(1))
+    expect(renderOpts[0]).toMatchObject({
+      sitekey: 'site-key-1',
+      action: 'rsvp',
+      'refresh-expired': 'auto',
+      'response-field': false,
+    })
+  })
+
+  it('loads api.js (explicit render) once when turnstile is not on the page yet', () => {
+    delete window.turnstile
+    render(<RsvpForm action={action} turnstileSiteKey="site-key-1" />)
+    const scripts = document.head.querySelectorAll(`script[src="${TURNSTILE_SCRIPT_SRC}"]`)
+    expect(scripts).toHaveLength(1)
+    expect(TURNSTILE_SCRIPT_SRC).toBe('https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit')
+  })
+
+  it('submit is disabled ("verifying") until a token exists, then submits it', async () => {
+    action.mockResolvedValue({ kind: 'success', status: 'coming', children: 0 })
+    const user = userEvent.setup()
+    render(<RsvpForm action={action} turnstileSiteKey="site-key-1" />)
+    await fillValid(user)
+    expect(screen.getByRole('button', { name: 'form.submit_verifying' })).toBeDisabled()
+
+    await waitFor(() => expect(fake.render).toHaveBeenCalled())
+    await issueToken('tok-abc')
+    await user.click(screen.getByRole('button', { name: 'form.submit' }))
+    await waitFor(() => expect(action).toHaveBeenCalledTimes(1))
+    expect(lastFormData()).toMatchObject({ 'cf-turnstile-response': 'tok-abc' })
+  })
+
+  it('expired / error callbacks clear the token and disable submit again', async () => {
+    render(<RsvpForm action={action} turnstileSiteKey="site-key-1" />)
+    await waitFor(() => expect(fake.render).toHaveBeenCalled())
+    await issueToken('tok-1')
+    expect(screen.getByRole('button', { name: 'form.submit' })).toBeEnabled()
+    await act(() => renderOpts[0]['expired-callback']())
+    expect(screen.getByRole('button', { name: 'form.submit_verifying' })).toBeDisabled()
+    await issueToken('tok-2')
+    await act(() => renderOpts[0]['error-callback']())
+    expect(screen.getByRole('button', { name: 'form.submit_verifying' })).toBeDisabled()
+  })
+
+  it.each<RsvpFormState>([
+    { kind: 'unavailable' },
+    { kind: 'limit' },
+    { kind: 'error' },
+    { kind: 'invalid', fieldErrors: { phone: 'too_short' } },
+  ])('after a $kind result: widget reset, token cleared, submit disabled', async (result) => {
+    action.mockResolvedValue(result)
+    const user = userEvent.setup()
+    const { container } = render(<RsvpForm action={action} turnstileSiteKey="site-key-1" />)
+    await fillValid(user)
+    await waitFor(() => expect(fake.render).toHaveBeenCalled())
+    await issueToken('tok-used')
+    expect(fake.reset).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('button', { name: 'form.submit' }))
+    await waitFor(() => expect(fake.reset).toHaveBeenCalledWith('widget-1'))
+    expect(screen.getByRole('button', { name: 'form.submit_verifying' })).toBeDisabled()
+    expect((container.querySelector('input[name="cf-turnstile-response"]') as HTMLInputElement).value).toBe('')
+  })
+
+  it('success unmounts the widget (remove); "Ubah jawaban" mounts a fresh one', async () => {
+    action.mockResolvedValue({ kind: 'success', status: 'coming', children: 0 })
+    const user = userEvent.setup()
+    render(<RsvpForm action={action} turnstileSiteKey="site-key-1" />)
+    await fillValid(user)
+    await waitFor(() => expect(fake.render).toHaveBeenCalledTimes(1))
+    await issueToken('tok-1')
+    await user.click(screen.getByRole('button', { name: 'form.submit' }))
+    await screen.findByTestId('rsvp-success')
+    expect(fake.remove).toHaveBeenCalledWith('widget-1')
+
+    await user.click(screen.getByRole('button', { name: 'success.edit' }))
+    await waitFor(() => expect(fake.render).toHaveBeenCalledTimes(2))
+    expect(screen.getByRole('button', { name: 'form.submit_verifying' })).toBeDisabled()
+    expect(fake.reset).not.toHaveBeenCalled()
+  })
+
+  // ── R2: blocked-script / no-token fallback (still fail-closed) ──
+
+  it('script load failure -> unavailable note (role=status), submit stays disabled', async () => {
+    delete window.turnstile
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {})
+    render(<RsvpForm action={action} turnstileSiteKey="site-key-1" />)
+    expect(screen.queryByTestId('rsvp-turnstile-unavailable')).not.toBeInTheDocument()
+
+    await act(async () => {
+      scriptTag().dispatchEvent(new Event('error'))
+    })
+    const note = await screen.findByTestId('rsvp-turnstile-unavailable')
+    expect(note).toHaveAttribute('role', 'status')
+    expect(note).toHaveTextContent('form.turnstile_unavailable')
+    expect(screen.getByRole('button', { name: 'form.submit_verifying' })).toBeDisabled()
+    expect(err).toHaveBeenCalled()
+  })
+
+  it('15s without a token -> note shown; a token then hides it and enables submit', async () => {
+    vi.useFakeTimers()
+    render(<RsvpForm action={action} turnstileSiteKey="site-key-1" />)
+    await act(async () => {}) // let loadTurnstile resolve and render
+    expect(fake.render).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      vi.advanceTimersByTime(TURNSTILE_UNAVAILABLE_AFTER_MS - 1)
+    })
+    expect(screen.queryByTestId('rsvp-turnstile-unavailable')).not.toBeInTheDocument()
+    await act(async () => {
+      vi.advanceTimersByTime(1)
+    })
+    expect(screen.getByTestId('rsvp-turnstile-unavailable')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'form.submit_verifying' })).toBeDisabled()
+
+    await issueToken('late-token')
+    expect(screen.queryByTestId('rsvp-turnstile-unavailable')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'form.submit' })).toBeEnabled()
+  })
+
+  it('a token inside 15s clears the timer — no note later', async () => {
+    vi.useFakeTimers()
+    render(<RsvpForm action={action} turnstileSiteKey="site-key-1" />)
+    await act(async () => {})
+    await issueToken('tok')
+    await act(async () => {
+      vi.advanceTimersByTime(TURNSTILE_UNAVAILABLE_AFTER_MS * 2)
+    })
+    expect(screen.queryByTestId('rsvp-turnstile-unavailable')).not.toBeInTheDocument()
+  })
+
+  it('reset after an error re-arms the 15s timer', async () => {
+    action.mockResolvedValue({ kind: 'unavailable' })
+    const user = userEvent.setup()
+    render(<RsvpForm action={action} turnstileSiteKey="site-key-1" />)
+    await fillValid(user)
+    await waitFor(() => expect(fake.render).toHaveBeenCalled())
+    await issueToken('tok-used')
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    await act(async () => {
+      screen.getByRole('button', { name: 'form.submit' }).click()
+    })
+    await act(async () => {})
+    expect(fake.reset).toHaveBeenCalledWith('widget-1')
+    await act(async () => {
+      vi.advanceTimersByTime(TURNSTILE_UNAVAILABLE_AFTER_MS)
+    })
+    expect(screen.getByTestId('rsvp-turnstile-unavailable')).toBeInTheDocument()
+  })
+
+  it('timer is cleared on unmount', () => {
+    vi.useFakeTimers()
+    const { unmount } = render(<RsvpForm action={action} turnstileSiteKey="site-key-1" />)
+    expect(vi.getTimerCount()).toBe(1)
+    unmount()
+    expect(vi.getTimerCount()).toBe(0)
   })
 })

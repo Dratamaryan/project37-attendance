@@ -2,11 +2,14 @@
 // form-data parsing/validation, WIB event-header formatting per locale,
 // locale/token/image guards, and submit result mapping against a fake anon
 // client. The real RPCs are covered in tests/integration/rsvp-public.test.ts.
+// S9-R4: honeypot / throttle / Turnstile ordering and fail-closed paths via
+// injected deps (no network, no real throttle state).
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 vi.mock('server-only', () => ({}))
 
+import { rsvpThrottleKey } from '../throttle'
 import {
   formatRsvpEventView,
   impl_getRsvpPageData,
@@ -15,12 +18,15 @@ import {
   parseRsvpFormData,
   resolveRsvpLocale,
   safeImageUrl,
+  type RsvpSubmitDeps,
 } from '../public.impl'
 
 const GATE = 'unit-test-gate-value'
 const TOKEN = 'AbCdEfGhIjKlMnOpQrStUvWxYz012-_9'
 const ORIGINAL_FLAG = process.env.RSVP_PUBLIC_ENABLED
 const ORIGINAL_GATE = process.env.RSVP_GATE_SECRET
+const TURNSTILE_ENV = ['RSVP_TURNSTILE_ENABLED', 'RSVP_TURNSTILE_SITE_KEY', 'RSVP_TURNSTILE_SECRET_KEY'] as const
+const ORIGINAL_TURNSTILE = TURNSTILE_ENV.map((k) => process.env[k])
 
 function setEnv(key: string, value: string | undefined) {
   if (value === undefined) delete process.env[key]
@@ -35,6 +41,15 @@ function form(fields: Record<string, string>): FormData {
 
 const VALID = { status: 'coming', phone: '081234567890' }
 
+/** Fake abuse-control deps: no IP (throttle skipped) and a verifier that fails unless told otherwise. */
+function makeDeps(overrides: Partial<{ ip: string | null; allowed: boolean; verdict: 'ok' | 'fail' }> = {}) {
+  const verifyTurnstile = vi.fn(async () => overrides.verdict ?? 'fail')
+  const throttle = vi.fn<(key: string) => boolean>(() => overrides.allowed ?? true)
+  const getClientIp = vi.fn(async () => (overrides.ip === undefined ? null : overrides.ip))
+  const deps: RsvpSubmitDeps = { verifyTurnstile, throttle, getClientIp }
+  return { deps, verifyTurnstile, throttle, getClientIp }
+}
+
 function fakeClient(result: { data?: unknown; error?: { code: string; message: string } | null }) {
   const rpc = vi.fn().mockResolvedValue({ data: result.data ?? null, error: result.error ?? null })
   return { client: { rpc } as unknown as SupabaseClient, rpc }
@@ -43,11 +58,13 @@ function fakeClient(result: { data?: unknown; error?: { code: string; message: s
 beforeEach(() => {
   setEnv('RSVP_PUBLIC_ENABLED', 'true')
   setEnv('RSVP_GATE_SECRET', GATE)
+  for (const k of TURNSTILE_ENV) setEnv(k, undefined)
 })
 
 afterEach(() => {
   setEnv('RSVP_PUBLIC_ENABLED', ORIGINAL_FLAG)
   setEnv('RSVP_GATE_SECRET', ORIGINAL_GATE)
+  TURNSTILE_ENV.forEach((k, i) => setEnv(k, ORIGINAL_TURNSTILE[i]))
   vi.restoreAllMocks()
 })
 
@@ -331,7 +348,7 @@ describe('impl_submitRsvp mapping', () => {
 
   it('sends the normalized input with the gate', async () => {
     const { client, rpc } = fakeClient({ data: { ok: true } })
-    expect(await impl_submitRsvp(TOKEN, valid(), client)).toEqual({
+    expect(await impl_submitRsvp(TOKEN, valid(), client, makeDeps().deps)).toEqual({
       kind: 'success',
       status: 'coming',
       children: 2,
@@ -357,29 +374,29 @@ describe('impl_submitRsvp mapping', () => {
   ])('RPC %j -> %j', async (data, expected) => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     const { client } = fakeClient({ data })
-    expect(await impl_submitRsvp(TOKEN, valid(), client)).toEqual(expected)
+    expect(await impl_submitRsvp(TOKEN, valid(), client, makeDeps().deps)).toEqual(expected)
   })
 
   it('RPC transport error -> unavailable', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     const { client } = fakeClient({ error: { code: 'PGRST202', message: 'not found' } })
-    expect(await impl_submitRsvp(TOKEN, valid(), client)).toEqual({ kind: 'unavailable' })
+    expect(await impl_submitRsvp(TOKEN, valid(), client, makeDeps().deps)).toEqual({ kind: 'unavailable' })
   })
 
   it('flag off / malformed token -> closed, no RPC', async () => {
     const { client, rpc } = fakeClient({ data: { ok: true } })
     setEnv('RSVP_PUBLIC_ENABLED', 'FALSE')
-    expect(await impl_submitRsvp(TOKEN, valid(), client)).toEqual({ kind: 'closed' })
+    expect(await impl_submitRsvp(TOKEN, valid(), client, makeDeps().deps)).toEqual({ kind: 'closed' })
     setEnv('RSVP_PUBLIC_ENABLED', 'true')
-    expect(await impl_submitRsvp('../etc', valid(), client)).toEqual({ kind: 'closed' })
-    expect(await impl_submitRsvp(undefined, valid(), client)).toEqual({ kind: 'closed' })
+    expect(await impl_submitRsvp('../etc', valid(), client, makeDeps().deps)).toEqual({ kind: 'closed' })
+    expect(await impl_submitRsvp(undefined, valid(), client, makeDeps().deps)).toEqual({ kind: 'closed' })
     expect(rpc).not.toHaveBeenCalled()
   })
 
   it('validation errors return before the gate / RPC', async () => {
     setEnv('RSVP_GATE_SECRET', undefined)
     const { client, rpc } = fakeClient({ data: { ok: true } })
-    expect(await impl_submitRsvp(TOKEN, form({ phone: '' }), client)).toEqual({
+    expect(await impl_submitRsvp(TOKEN, form({ phone: '' }), client, makeDeps().deps)).toEqual({
       kind: 'invalid',
       fieldErrors: { status: 'required', phone: 'empty' },
     })
@@ -390,7 +407,7 @@ describe('impl_submitRsvp mapping', () => {
     setEnv('RSVP_GATE_SECRET', gate)
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     const { client, rpc } = fakeClient({ data: { ok: true } })
-    expect(await impl_submitRsvp(TOKEN, valid(), client)).toEqual({ kind: 'unavailable' })
+    expect(await impl_submitRsvp(TOKEN, valid(), client, makeDeps().deps)).toEqual({ kind: 'unavailable' })
     expect(errorSpy).toHaveBeenCalledTimes(1)
     expect(rpc).not.toHaveBeenCalled()
   })
@@ -398,8 +415,176 @@ describe('impl_submitRsvp mapping', () => {
   it('gate value never appears in logs (gate rejected by RPC)', async () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     const { client } = fakeClient({ data: { ok: false, code: 'unavailable' } })
-    await impl_submitRsvp(TOKEN, valid(), client)
+    await impl_submitRsvp(TOKEN, valid(), client, makeDeps().deps)
     expect(errorSpy).toHaveBeenCalled()
     expect(JSON.stringify(errorSpy.mock.calls)).not.toContain(GATE)
+  })
+})
+
+// ── S9-R4 abuse controls ─────────────────────────────────────────────────────
+
+describe('impl_submitRsvp — S9-R4 order and fail-closed', () => {
+  const valid = () => form({ ...VALID, bringing_children: 'yes', children_count: '2' })
+  const withFields = (extra: Record<string, string>) =>
+    form({ ...VALID, bringing_children: 'yes', children_count: '2', ...extra })
+  const IP = '203.0.113.9'
+
+  function enableTurnstile(keys: { site?: string; secret?: string } = {}) {
+    setEnv('RSVP_TURNSTILE_ENABLED', 'TRUE')
+    setEnv('RSVP_TURNSTILE_SITE_KEY', keys.site ?? 'site-key')
+    setEnv('RSVP_TURNSTILE_SECRET_KEY', keys.secret ?? 'secret-key')
+  }
+
+  it('invalid parse never reaches the IP read, throttle, verifier or RPC', async () => {
+    enableTurnstile()
+    const { client, rpc } = fakeClient({ data: { ok: true } })
+    const d = makeDeps({ ip: IP, verdict: 'ok' })
+    const r = await impl_submitRsvp(TOKEN, form({ phone: '', website: 'spam', 'cf-turnstile-response': 'tok' }), client, d.deps)
+    expect(r.kind).toBe('invalid')
+    expect(d.getClientIp).not.toHaveBeenCalled()
+    expect(d.throttle).not.toHaveBeenCalled()
+    expect(d.verifyTurnstile).not.toHaveBeenCalled()
+    expect(rpc).not.toHaveBeenCalled()
+  })
+
+  it.each([['http://spam.example'], ['  x  ']])(
+    'honeypot %j -> success echoing input; no throttle, verifier or RPC; PII-free warn',
+    async (website) => {
+      enableTurnstile()
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const { client, rpc } = fakeClient({ data: { ok: true } })
+      const d = makeDeps({ ip: IP, verdict: 'ok' })
+      expect(await impl_submitRsvp(TOKEN, withFields({ website, 'cf-turnstile-response': 'tok' }), client, d.deps)).toEqual({
+        kind: 'success',
+        status: 'coming',
+        children: 2,
+      })
+      expect(d.getClientIp).not.toHaveBeenCalled()
+      expect(d.throttle).not.toHaveBeenCalled()
+      expect(d.verifyTurnstile).not.toHaveBeenCalled()
+      expect(rpc).not.toHaveBeenCalled()
+      expect(warn).toHaveBeenCalledWith('[rsvp] honeypot')
+      expect(JSON.stringify(warn.mock.calls)).not.toContain('81234567890')
+    },
+  )
+
+  it('whitespace-only honeypot is treated as empty', async () => {
+    const { client, rpc } = fakeClient({ data: { ok: true } })
+    await impl_submitRsvp(TOKEN, withFields({ website: '   ' }), client, makeDeps().deps)
+    expect(rpc).toHaveBeenCalledTimes(1)
+  })
+
+  it('throttled -> unavailable; no verifier or RPC; warn carries no IP or hash', async () => {
+    enableTurnstile()
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { client, rpc } = fakeClient({ data: { ok: true } })
+    const d = makeDeps({ ip: IP, allowed: false, verdict: 'ok' })
+    expect(await impl_submitRsvp(TOKEN, withFields({ 'cf-turnstile-response': 'tok' }), client, d.deps)).toEqual({
+      kind: 'unavailable',
+    })
+    expect(d.throttle).toHaveBeenCalledWith(rsvpThrottleKey(IP, TOKEN))
+    expect(d.verifyTurnstile).not.toHaveBeenCalled()
+    expect(rpc).not.toHaveBeenCalled()
+    expect(warn).toHaveBeenCalledWith('[rsvp] throttled')
+    const logged = JSON.stringify(warn.mock.calls)
+    expect(logged).not.toContain(IP)
+    expect(logged).not.toContain(rsvpThrottleKey(IP, TOKEN).split(':')[0])
+  })
+
+  it('throttle key is sha256(ip):token — never the raw IP', async () => {
+    const { client } = fakeClient({ data: { ok: true } })
+    const d = makeDeps({ ip: IP })
+    await impl_submitRsvp(TOKEN, valid(), client, d.deps)
+    const key = d.throttle.mock.calls[0][0]
+    expect(key).toMatch(new RegExp(`^[0-9a-f]{64}:${TOKEN}$`))
+    expect(key).not.toContain(IP)
+  })
+
+  it('no client IP -> throttle skipped, submit proceeds', async () => {
+    const { client, rpc } = fakeClient({ data: { ok: true } })
+    const d = makeDeps({ ip: null })
+    expect((await impl_submitRsvp(TOKEN, valid(), client, d.deps)).kind).toBe('success')
+    expect(d.throttle).not.toHaveBeenCalled()
+    expect(rpc).toHaveBeenCalledTimes(1)
+  })
+
+  it('toggle off -> verifier never called and the token field is ignored', async () => {
+    const { client, rpc } = fakeClient({ data: { ok: true } })
+    const d = makeDeps({ verdict: 'fail' })
+    expect((await impl_submitRsvp(TOKEN, withFields({ 'cf-turnstile-response': 'x'.repeat(5000) }), client, d.deps)).kind).toBe(
+      'success',
+    )
+    expect(d.verifyTurnstile).not.toHaveBeenCalled()
+    expect(rpc).toHaveBeenCalledTimes(1)
+  })
+
+  it('toggle on + verifier ok -> verifies with the secret, then calls the RPC', async () => {
+    enableTurnstile()
+    const { client, rpc } = fakeClient({ data: { ok: true } })
+    const d = makeDeps({ verdict: 'ok' })
+    expect((await impl_submitRsvp(TOKEN, withFields({ 'cf-turnstile-response': 'tok-123' }), client, d.deps)).kind).toBe(
+      'success',
+    )
+    expect(d.verifyTurnstile).toHaveBeenCalledWith('tok-123', 'secret-key')
+    expect(rpc).toHaveBeenCalledTimes(1)
+  })
+
+  it('toggle on + verifier fail -> unavailable, no RPC', async () => {
+    enableTurnstile()
+    const { client, rpc } = fakeClient({ data: { ok: true } })
+    const d = makeDeps({ verdict: 'fail' })
+    expect(await impl_submitRsvp(TOKEN, withFields({ 'cf-turnstile-response': 'tok' }), client, d.deps)).toEqual({
+      kind: 'unavailable',
+    })
+    expect(rpc).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['missing secret', { secret: '' }],
+    ['blank secret', { secret: '   ' }],
+    ['missing site key', { site: '' }],
+  ])('toggle on + %s -> unavailable, one console.error, no verifier or RPC', async (_label, keys) => {
+    enableTurnstile(keys)
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { client, rpc } = fakeClient({ data: { ok: true } })
+    const d = makeDeps({ verdict: 'ok' })
+    expect(await impl_submitRsvp(TOKEN, withFields({ 'cf-turnstile-response': 'tok' }), client, d.deps)).toEqual({
+      kind: 'unavailable',
+    })
+    expect(err).toHaveBeenCalledTimes(1)
+    expect(d.verifyTurnstile).not.toHaveBeenCalled()
+    expect(rpc).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['missing', undefined],
+    ['empty', ''],
+    ['oversized (2049)', 'x'.repeat(2049)],
+  ])('toggle on + %s token -> unavailable without siteverify', async (_label, tok) => {
+    enableTurnstile()
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { client, rpc } = fakeClient({ data: { ok: true } })
+    const d = makeDeps({ verdict: 'ok' })
+    const fd = tok === undefined ? valid() : withFields({ 'cf-turnstile-response': tok })
+    expect(await impl_submitRsvp(TOKEN, fd, client, d.deps)).toEqual({ kind: 'unavailable' })
+    expect(d.verifyTurnstile).not.toHaveBeenCalled()
+    expect(rpc).not.toHaveBeenCalled()
+  })
+
+  it('2048-char token is accepted for verification', async () => {
+    enableTurnstile()
+    const { client } = fakeClient({ data: { ok: true } })
+    const d = makeDeps({ verdict: 'ok' })
+    await impl_submitRsvp(TOKEN, withFields({ 'cf-turnstile-response': 'x'.repeat(2048) }), client, d.deps)
+    expect(d.verifyTurnstile).toHaveBeenCalledTimes(1)
+  })
+
+  it('abuse checks run before the gate: throttled with no gate secret logs no gate error', async () => {
+    setEnv('RSVP_GATE_SECRET', undefined)
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { client } = fakeClient({ data: { ok: true } })
+    await impl_submitRsvp(TOKEN, valid(), client, makeDeps({ ip: IP, allowed: false }).deps)
+    expect(err).not.toHaveBeenCalled()
   })
 })

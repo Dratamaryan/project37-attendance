@@ -6,11 +6,19 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 vi.mock('server-only', () => ({}))
 
 import { buildRsvpUrl, isRsvpPublicEnabled } from '../admin.impl'
-import { getRsvpGateSecret, isRsvpPublicEnabled as configIsRsvpPublicEnabled } from '../config'
+import {
+  getRsvpGateSecret,
+  getRsvpTurnstileKeys,
+  isRsvpPublicEnabled as configIsRsvpPublicEnabled,
+  isRsvpTurnstileEnabled,
+} from '../config'
 
 const ORIGINAL_FLAG = process.env.RSVP_PUBLIC_ENABLED
 const ORIGINAL_URL = process.env.NEXT_PUBLIC_APP_URL
 const ORIGINAL_GATE = process.env.RSVP_GATE_SECRET
+const ORIGINAL_TS_ENABLED = process.env.RSVP_TURNSTILE_ENABLED
+const ORIGINAL_TS_SITE = process.env.RSVP_TURNSTILE_SITE_KEY
+const ORIGINAL_TS_SECRET = process.env.RSVP_TURNSTILE_SECRET_KEY
 
 function setEnv(key: string, value: string | undefined) {
   if (value === undefined) delete process.env[key]
@@ -21,6 +29,9 @@ afterEach(() => {
   setEnv('RSVP_PUBLIC_ENABLED', ORIGINAL_FLAG)
   setEnv('NEXT_PUBLIC_APP_URL', ORIGINAL_URL)
   setEnv('RSVP_GATE_SECRET', ORIGINAL_GATE)
+  setEnv('RSVP_TURNSTILE_ENABLED', ORIGINAL_TS_ENABLED)
+  setEnv('RSVP_TURNSTILE_SITE_KEY', ORIGINAL_TS_SITE)
+  setEnv('RSVP_TURNSTILE_SECRET_KEY', ORIGINAL_TS_SECRET)
 })
 
 describe('lib/rsvp/config', () => {
@@ -53,6 +64,42 @@ describe('isRsvpPublicEnabled', () => {
   ])('RSVP_PUBLIC_ENABLED=%j -> %s', (value, expected) => {
     setEnv('RSVP_PUBLIC_ENABLED', value)
     expect(isRsvpPublicEnabled()).toBe(expected)
+  })
+})
+
+describe('isRsvpTurnstileEnabled (S9-R4)', () => {
+  it.each([
+    ['true', true],
+    ['TRUE', true],
+    [' True ', true],
+    ['false', false],
+    ['', false],
+    [undefined, false],
+    ['1', false],
+  ])('RSVP_TURNSTILE_ENABLED=%j -> %s', (value, expected) => {
+    setEnv('RSVP_TURNSTILE_ENABLED', value)
+    expect(isRsvpTurnstileEnabled()).toBe(expected)
+  })
+})
+
+describe('getRsvpTurnstileKeys (S9-R4)', () => {
+  it('both set -> trimmed pair', () => {
+    setEnv('RSVP_TURNSTILE_SITE_KEY', '  site  ')
+    setEnv('RSVP_TURNSTILE_SECRET_KEY', ' secret ')
+    expect(getRsvpTurnstileKeys()).toEqual({ siteKey: 'site', secretKey: 'secret' })
+  })
+
+  it.each([
+    [undefined, 'secret'],
+    ['', 'secret'],
+    ['   ', 'secret'],
+    ['site', undefined],
+    ['site', ''],
+    ['site', '  '],
+  ])('site=%j secret=%j -> null', (site, secret) => {
+    setEnv('RSVP_TURNSTILE_SITE_KEY', site)
+    setEnv('RSVP_TURNSTILE_SECRET_KEY', secret)
+    expect(getRsvpTurnstileKeys()).toBeNull()
   })
 })
 
