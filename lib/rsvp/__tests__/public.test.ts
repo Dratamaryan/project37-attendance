@@ -101,6 +101,27 @@ describe('parseRsvpFormData — phone (region ID)', () => {
     expect(r.ok && r.input.phoneE164).toBe(e164)
   })
 
+  // S9-R2 G6: a '+' prefix overrides the hard-coded ID region.
+  it.each([
+    ['+61412345678', '+61412345678'],
+    ['+61 412 345 678', '+61412345678'],
+  ])('overseas %j stays international -> %s', (phone, e164) => {
+    const r = parseRsvpFormData(form({ ...VALID, phone }))
+    expect(r.ok && r.input.phoneE164).toBe(e164)
+  })
+
+  // S9-R2 G6 (D2): KNOWN LIMITATION, pinned. The public form parses with region
+  // ID and has no country picker, so an overseas number typed without '+' is
+  // read as an Indonesian national number that libphonenumber accepts. It
+  // never matches a roster person holding the real +61 number.
+  it.each([
+    ['61412345678', '+6261412345678'],
+    ['0412345678', '+62412345678'],
+  ])('known limitation: overseas %j without + normalizes to %s', (phone, e164) => {
+    const r = parseRsvpFormData(form({ ...VALID, phone }))
+    expect(r.ok && r.input.phoneE164).toBe(e164)
+  })
+
   it.each([
     ['', 'empty'],
     ['   ', 'empty'],
@@ -362,6 +383,21 @@ describe('impl_submitRsvp mapping', () => {
       p_followup_consent: true,
       p_status: 'coming',
     })
+  })
+
+  // S9-R2 G5: every input variant reaches the RPC as the same E.164, so the
+  // (event_instance_id, phone_e164) upsert lands them on one row.
+  it('phone variants 0812…, +62 812…, 62812…, 812…, 0812-…-… send one E.164', async () => {
+    const variants = ['081234567890', '+62 812 3456 7890', '6281234567890', '81234567890', '0812-3456-7890']
+    const { client, rpc } = fakeClient({ data: { ok: true } })
+    for (const phone of variants) {
+      const state = await impl_submitRsvp(TOKEN, form({ ...VALID, phone }), client, makeDeps().deps)
+      expect(state.kind).toBe('success')
+    }
+    expect(rpc).toHaveBeenCalledTimes(variants.length)
+    for (const call of rpc.mock.calls) {
+      expect(call[1]).toMatchObject({ p_phone_e164: '+6281234567890' })
+    }
   })
 
   it.each([
