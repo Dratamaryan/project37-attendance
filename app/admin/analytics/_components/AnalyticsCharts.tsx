@@ -7,6 +7,7 @@
 
 import dynamic from 'next/dynamic'
 import type { TrendRow, NewVsReturningRow } from '@/lib/actions/analytics.types'
+import type { RsvpChartRow } from '@/lib/actions/rsvp-analytics.types'
 
 const AttendanceTrendChart = dynamic(
   () => import('./AttendanceTrendChart'),
@@ -20,6 +21,16 @@ const AttendanceTrendChart = dynamic(
 
 const NewVsReturningChart = dynamic(
   () => import('./NewVsReturningChart'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="bg-cream-2 border border-line rounded-sm animate-pulse" style={{ height: 280 }} />
+    ),
+  },
+)
+
+const RsvpVsActualChart = dynamic(
+  () => import('./RsvpVsActualChart'),
   {
     ssr: false,
     loading: () => (
@@ -86,5 +97,37 @@ export function AnalyticsCharts({
         />
       </section>
     </>
+  )
+}
+
+type RsvpChartLabels = {
+  coming: string
+  adults: string
+  children: string
+  empty: string
+  error: string
+}
+
+// Same client boundary for the S9-R7 RSVP-vs-actual chart, rendered in the
+// RSVP section below the rest of the page.
+export function AnalyticsRsvpChart({
+  data,
+  hasError,
+  labels,
+}: {
+  data: RsvpChartRow[] | null
+  hasError: boolean
+  labels: RsvpChartLabels
+}) {
+  return (
+    <RsvpVsActualChart
+      data={data}
+      labelComing={labels.coming}
+      labelAdults={labels.adults}
+      labelChildren={labels.children}
+      emptyMessage={labels.empty}
+      errorMessage={labels.error}
+      hasError={hasError}
+    />
   )
 }

@@ -16,6 +16,8 @@ import type {
   GetTopAttendeesResult,
   GetNewVsReturningMonthlyResult,
 } from './analytics.types'
+import { impl_getRsvpAnalytics } from './rsvp-analytics.impl'
+import type { GetRsvpAnalyticsResult } from './rsvp-analytics.types'
 
 export async function getKpiSummary(
   filters: AnalyticsFilters,
@@ -51,4 +53,11 @@ export async function getNewVsReturningMonthly(
 ): Promise<GetNewVsReturningMonthlyResult> {
   const supabase = await createClient()
   return impl_getNewVsReturningMonthly({ supabase, filters })
+}
+
+export async function getRsvpAnalytics(
+  filters: AnalyticsFilters,
+): Promise<GetRsvpAnalyticsResult> {
+  const supabase = await createClient()
+  return impl_getRsvpAnalytics({ supabase, filters })
 }

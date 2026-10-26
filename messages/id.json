@@ -387,7 +387,41 @@
         "parish_none": "—"
       },
       "empty": "Tidak ada data untuk rentang filter ini",
-      "error": "Gagal memuat data"
+      "error": "Gagal memuat data",
+      "rsvp": {
+        "title": "RSVP",
+        "note": "Sesi yang sudah lewat dengan tautan RSVP (yang dibatalkan tidak dihitung)",
+        "note_count": "{count} sesi yang sudah lewat dengan tautan RSVP (yang dibatalkan tidak dihitung)",
+        "empty": "Tidak ada sesi yang sudah lewat dengan tautan RSVP dalam rentang ini",
+        "error": "Gagal memuat data RSVP",
+        "kpi": {
+          "coming_headcount": "Jumlah orang hadir (RSVP)",
+          "coming_headcount_note": "RSVP hadir, termasuk anak",
+          "coming_people": "Hadir (orang)",
+          "maybe_people": "Mungkin",
+          "actual_adults": "Dewasa check-in",
+          "actual_children": "Anak check-in",
+          "show_up_rate": "Tingkat kehadiran",
+          "show_up_rate_note": "RSVP hadir yang check-in",
+          "no_show_rate": "Tingkat tidak hadir",
+          "no_show_rate_note": "RSVP hadir yang tidak check-in",
+          "walk_in_share": "Porsi tanpa RSVP",
+          "walk_in_share_note": "Dewasa check-in tanpa RSVP",
+          "newcomer_rsvps": "RSVP pendatang baru",
+          "became_members": "Menjadi anggota",
+          "became_members_note": "Per pengiriman terakhir",
+          "funnel_response_rate": "Diundang → merespons",
+          "funnel_attendance_rate": "Diundang → hadir",
+          "funnel_note": "Dari undangan terkirim"
+        },
+        "chart": {
+          "title": "RSVP vs kehadiran",
+          "note": "Jumlah orang RSVP hadir (batang) dibandingkan dewasa dan anak yang check-in (garis), per sesi",
+          "coming": "Jumlah orang hadir (RSVP)",
+          "adults": "Dewasa check-in",
+          "children": "Anak check-in"
+        }
+      }
     },
     "events": {
       "title": "Kelola Acara",

@@ -5,8 +5,10 @@ import {
   getEventAttendanceTrend,
   getTopAttendees,
   getNewVsReturningMonthly,
+  getRsvpAnalytics,
 } from '@/lib/actions/analytics'
 import { KpiCards } from './_components/KpiCards'
+import { RsvpSection } from './_components/RsvpSection'
 import { AnalyticsFiltersControls } from './_components/AnalyticsFiltersControls'
 import { AnalyticsCharts } from './_components/AnalyticsCharts'
 import { TopAttendeesTable } from './_components/TopAttendeesTable'
@@ -20,18 +22,20 @@ export default async function AdminAnalyticsPage({ searchParams }: Props) {
   const filters = parseAnalyticsFilters(params)
   const t = await getTranslations('admin.analytics')
 
-  const [kpiResult, trendResult, nvrResult, topResult] =
+  const [kpiResult, trendResult, nvrResult, topResult, rsvpResult] =
     await Promise.all([
       getKpiSummary(filters),
       getEventAttendanceTrend(filters),
       getNewVsReturningMonthly(filters),
       getTopAttendees(filters, 10),
+      getRsvpAnalytics(filters),
     ])
 
   const kpi         = kpiResult.status === 'ok'    ? kpiResult.data    : null
   const trend       = trendResult.status === 'ok'  ? trendResult.data  : null
   const nvr         = nvrResult.status === 'ok'    ? nvrResult.data    : null
   const top         = topResult.status === 'ok'    ? topResult.data    : null
+  const rsvp        = rsvpResult.status === 'ok'   ? rsvpResult.data   : null
 
   return (
     <main className="px-4 md:px-6 py-8">
@@ -86,6 +90,11 @@ export default async function AdminAnalyticsPage({ searchParams }: Props) {
             hasError={topResult.status === 'error'}
           />
         </section>
+
+        <RsvpSection
+          data={rsvp}
+          hasError={rsvpResult.status !== 'ok'}
+        />
       </div>
     </main>
   )

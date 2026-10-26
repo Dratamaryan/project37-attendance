@@ -387,7 +387,41 @@
         "parish_none": "—"
       },
       "empty": "No data for this filter range",
-      "error": "Could not load data"
+      "error": "Could not load data",
+      "rsvp": {
+        "title": "RSVP",
+        "note": "Past occurrences with an RSVP link (cancelled excluded)",
+        "note_count": "{count, plural, one {# past occurrence} other {# past occurrences}} with an RSVP link (cancelled excluded)",
+        "empty": "No past occurrences with an RSVP link in this range",
+        "error": "Could not load RSVP data",
+        "kpi": {
+          "coming_headcount": "Coming headcount",
+          "coming_headcount_note": "RSVP'd coming, incl. children",
+          "coming_people": "Coming (people)",
+          "maybe_people": "Maybe",
+          "actual_adults": "Adults checked in",
+          "actual_children": "Children checked in",
+          "show_up_rate": "Show-up rate",
+          "show_up_rate_note": "Coming RSVPs who checked in",
+          "no_show_rate": "No-show rate",
+          "no_show_rate_note": "Coming RSVPs who didn't check in",
+          "walk_in_share": "Walk-in share",
+          "walk_in_share_note": "Adults checked in without an RSVP",
+          "newcomer_rsvps": "Newcomer RSVPs",
+          "became_members": "Became members",
+          "became_members_note": "As of last submit",
+          "funnel_response_rate": "Invited → responded",
+          "funnel_attendance_rate": "Invited → attended",
+          "funnel_note": "Of sent invitations"
+        },
+        "chart": {
+          "title": "RSVP vs actual",
+          "note": "Coming headcount (bar) against adults and children checked in (lines), per occurrence",
+          "coming": "Coming headcount",
+          "adults": "Adults checked in",
+          "children": "Children checked in"
+        }
+      }
     },
     "events": {
       "title": "Manage Events",
