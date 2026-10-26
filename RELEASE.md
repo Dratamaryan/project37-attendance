@@ -476,3 +476,37 @@ branch-expected ref for remote ops.
   variants and overseas. No real PII at any rung. Lesson for R6: script a "drive" phase that
   submits via the staging RPC with the gate secret; owner steps visual-only with one-line pass
   criteria. Detail: docs/sprint-9-task-r2-verify.md (local).
+- S9-R5 VERIFIED (2026-10-26): RSVP retention + privacy policy v2 (9c4bb9c + 91eba64; migration
+  20261026120000_sprint9_r5_rsvp_retention.sql). RSVP phone + name anonymized N = 90 days
+  (app_settings.rsvp_retention_days, NOT NULL DEFAULT 90, CHECK > 0) after the instance ends
+  (end WIB date, same expression as rsvp_instance_open; all statuses incl. cancelled) by
+  run_rsvp_retention_pass (service_role only; own fail-safe guard, separate from
+  run_retention_pass): phone/name → NULL, anonymized_at set, person_id / status / children /
+  followup_consent / updated_at kept (M1), and the person the crosstab resolves at scrub time is
+  frozen in event_rsvps.retained_person_id; one rsvp.anonymize audit row per instance (counts
+  only, actor NULL); idempotent. anonymize_person also scrubs the person's RSVPs (own rows +
+  newcomer rows on their old phone; frozen only if the person was live; rsvp_rows in the audit).
+  rsvp_checkin_crosstab reads COALESCE(person_id, retained_person_id, phone match), so a scrub
+  never changes buckets, panel or person history. consent_policy_version → v2, shipped with the
+  v2 text (id + en, verbatim from the owner's docs; Cloudflare Turnstile Privacy Addendum
+  linked). Cron route runs both passes regardless of the other's result (B1) and reports
+  anonymized_count + rsvp_anonymized_count. Panel / export: "Anonymized" replaces only a
+  newcomer's typed-name fallback, follow-up label hidden, phone empty, excluded from
+  full_phone_rows (D1). Form: consent key renamed (text unchanged), privacy link opens in a new
+  tab. PolicyMarkdown renders https:// links only. Verification rungs (CLAUDE.md rule 17): Local
+  Docker ✓ verified:vitest (rsvp-retention T1–T7 incl. crosstab/panel/history invariant, WIB
+  boundary, grants; cron route unit; export / panel / form / PolicyMarkdown / privacy page;
+  gate 1734/1734, lint/typecheck/build) / Staging ✓ verified:live-staging (2026-10-26, run by
+  Claude Code under owner delegation: guarded dry-run listed exactly the R5 migration, push,
+  post-push catalog — 90/v2, retained_person_id uuid nullable, both functions EXECUTE
+  service_role only, crosstab security_invoker=on; git-staging deploy of 91eba64;
+  s9-r5-staging-smoke setup / drive returned 4 / verify 8/8 PASS / cleanup zero residue;
+  V1 /privacy "Versi: v2", V2 Cloudflare addendum in a new tab, V3 RSVP policy link in a new tab
+  with the typed phone kept) / Prod ✓ verified:live (owner checks 1–4 PASS; check 5, a manual
+  authorised cron call, not run — cron route verified:vitest, function verified:live-staging).
+  Deviation: V3 had no open staging link; with owner approval the S9-R2 smoke setup provided one
+  (nothing submitted) and its cleanup removed it with zero residue. Posture: scrubbed phones
+  persist in Drive backups up to 370 days; anonymize_person's RSVP scrub and the D1 display are
+  verified:vitest only. No real PII at any rung. Open: confirm both counts on the first
+  scheduled prod cron run. Backlog: 16 audit actions still unlabeled in the audit-log UI; no
+  admin UI for retention settings. Detail: docs/sprint-9-task-r5-verify.md (local).
