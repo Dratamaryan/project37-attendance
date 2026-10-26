@@ -457,3 +457,22 @@ branch-expected ref for remote ops.
   live; no runtime log access by design). End state: staging RSVP_TURNSTILE_ENABLED=true;
   Production Turnstile widget + RSVP_TURNSTILE_* not created yet (R6 go-live). No real PII at any
   rung. Detail: docs/sprint-9-task-r4-verify.md (local).
+- S9-R2 VERIFIED to staging (2026-10-26; no prod rung, R2 ships no deploy): public RSVP member
+  match / newcomer behaviour, verify-only (4e2211c; no app code, no migration). Pinned: newcomer
+  → roster add → resubmit keeps the row and links person_id with name NULL; a soft-deleted
+  member resubmitting is stored unlinked (typed name kept, blank → NULL); the member's people row
+  is never written; resubmit keeps id/created_at, advances updated_at, old token after rotation
+  → closed; five phone formats → one row; overseas +61 matches; panel shows roster name for
+  members, typed name for newcomers; known limitation pinned (foreign number without '+' is read
+  as Indonesian). Verification rungs (CLAUDE.md rule 17): Local Docker ✓ verified:vitest
+  (rsvp-match 9/9 + public unit; gate 1665/1665, lint/typecheck/build) / Staging ✓
+  verified:live-staging with operator deviation (s9-r2-staging-smoke, owner steps through the
+  real page: member matched with typed name dropped, resubmit in the other format overwrote the
+  same row, member people row deep-equals snapshot, typed name stored nowhere, no attendance;
+  final verify 6/8 PASS — the 2 FAILs are operator typos: NEWCOMER typed as …2433 instead of
+  …2796, that row has the correct newcomer shape but the strict check is unmet; a stray …2432
+  row was removed via the admin panel between verify runs; cleanup zero residue). Roster-name
+  display (step E) not observed live — verified:vitest only (G7), as are the f/g edge cases,
+  variants and overseas. No real PII at any rung. Lesson for R6: script a "drive" phase that
+  submits via the staging RPC with the gate secret; owner steps visual-only with one-line pass
+  criteria. Detail: docs/sprint-9-task-r2-verify.md (local).
