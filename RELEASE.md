@@ -510,3 +510,30 @@ branch-expected ref for remote ops.
   verified:vitest only. No real PII at any rung. Open: confirm both counts on the first
   scheduled prod cron run. Backlog: 16 audit actions still unlabeled in the audit-log UI; no
   admin UI for retention settings. Detail: docs/sprint-9-task-r5-verify.md (local).
+- S9-R7 VERIFIED (2026-10-27): RSVP analytics on /admin/analytics (0450cc9 + eadc859 + 0d19aa8;
+  migration 20261026180000_sprint9_r7_rsvp_instance_metrics.sql). View rsvp_instance_metrics
+  (security_invoker=on, own is_admin() filter, REVOKE ALL anon, SELECT authenticated): one row
+  per non-cancelled, ended instance with any RSVP link (active or deactivated); RSVP counts from
+  rsvp_checkin_crosstab (coming people / headcount Σ1+children, maybe, coming came / no-show,
+  walk-ins, newcomer RSVPs, became members as of last submit), actual adults / children = every
+  attendance / child_attendance row (soft-deleted kept), funnel from 'sent' invitations
+  (responded via a DISTINCT resolved-person CTE, attended via attendance — P1 reshape; local
+  EXPLAIN 138 ms at 30 instances × 200 RSVPs × 150 invitations, no per-invitation crosstab).
+  impl_getRsvpAnalytics: requireActiveAdmin, paging, from/to on scheduled_at with WIB day
+  bounds (to inclusive), eventType; pooled Σ/Σ KPIs, zero denominator → '—'; no-show shown as
+  100 − rounded show-up. UI: RSVP section below Top Attendees — 12 KPI cards + RSVP-vs-actual
+  ComposedChart (dynamic ssr:false), en + id. Verification rungs (CLAUDE.md rule 17): Local
+  Docker ✓ verified:vitest (rsvp-analytics view/impl/access incl. retention-frozen
+  became_members, pooling + WIB-bound unit tests, RsvpSection / RsvpVsActualChart component
+  tests; gate 1768/1768, lint/typecheck/build) / Staging ✓ verified:live-staging (2026-10-27,
+  run by Claude Code under owner delegation: first dry-run refused by the guard — CLI still
+  linked to prod from R5; owner relinked; dry-run listed exactly the R7 migration, push,
+  post-push security_invoker=on / anon SELECT false / authenticated SELECT true, INSERT false;
+  git-staging deploys of eadc859 and 0d19aa8; s9-r7-staging-smoke setup on 2026-10-07 / verify
+  6/6 PASS twice / cleanup zero residue; V1 cards 6 · 67% · 33% · 40% · 1 PASS; V2 values PASS
+  but legend/tooltip contrast FAIL → fixed in 0d19aa8 → V2 re-run PASS) / Prod ✓ verified:live
+  (owner checks 1–3 PASS). Defect: Recharts drew the coming-headcount legend + tooltip text in
+  the bar's cream fill; not caught locally because component tests stub the chart. Deviations:
+  smoke recomputes pooling (app pooling verified:vitest + V1). Observed pre-existing (R6 item
+  18): old KPI cards filter on checked_in_at and Top Attendees ignores dates. No real PII at any
+  rung. Detail: docs/sprint-9-task-r7-verify.md (local).
