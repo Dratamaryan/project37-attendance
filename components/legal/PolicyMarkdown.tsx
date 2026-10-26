@@ -6,19 +6,52 @@ type Props = {
 
 // Minimal, dependency-free renderer for the fixed Markdown subset used by the
 // self-authored legal docs in content/legal/: '#'/'##' headings, '- ' lists,
-// '**bold**'/'*italic*' inline spans, and plain paragraphs. Renders only React
-// text/element nodes (never dangerouslySetInnerHTML), so there is no HTML
-// injection surface regardless of what the source file contains.
+// '**bold**'/'*italic*' inline spans, '[text](https://…)' links, and plain
+// paragraphs. Renders only React text/element nodes (never
+// dangerouslySetInnerHTML), so there is no HTML injection surface regardless
+// of what the source file contains.
+//
+// Links: only an absolute https:// URL becomes an <a> (new tab, no opener, no
+// referrer); any other scheme — javascript:, http:, mailto:, relative — and
+// any link text containing brackets is left as the literal source text.
+const INLINE_RE = /(\[[^[\]]+\]\([^()\s]+\)|\*\*[^*]+\*\*|\*[^*]+\*)/g
+const LINK_RE = /^\[([^[\]]+)\]\(([^()\s]+)\)$/
+
+function safeHttpsUrl(raw: string): string | null {
+  try {
+    const parsed = new URL(raw)
+    return parsed.protocol === 'https:' && raw.startsWith('https://') ? raw : null
+  } catch {
+    return null
+  }
+}
+
 function renderInline(text: string): ReactNode[] {
   return text
-    .split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g)
+    .split(INLINE_RE)
     .filter(Boolean)
     .map((part, i) => {
+      const link = LINK_RE.exec(part)
+      if (link) {
+        const href = safeHttpsUrl(link[2])
+        if (!href) return part
+        return (
+          <a
+            key={i}
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline underline-offset-2 hover:text-charcoal"
+          >
+            {link[1]}
+          </a>
+        )
+      }
       if (part.startsWith('**') && part.endsWith('**')) {
-        return <strong key={i}>{part.slice(2, -2)}</strong>
+        return <strong key={i}>{renderInline(part.slice(2, -2))}</strong>
       }
       if (part.startsWith('*') && part.endsWith('*')) {
-        return <em key={i}>{part.slice(1, -1)}</em>
+        return <em key={i}>{renderInline(part.slice(1, -1))}</em>
       }
       return part
     })

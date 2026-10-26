@@ -39,6 +39,8 @@ export type RsvpPanelRow = {
   created_at: string
   updated_at: string
   attended: boolean
+  // S9-R5: phone and name scrubbed by retention; resolution is unchanged.
+  anonymized: boolean
 }
 
 export type RsvpPanel = {

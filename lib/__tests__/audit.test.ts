@@ -79,6 +79,20 @@ describe('logAudit', () => {
   })
 })
 
+describe('RSVP_ANONYMIZE (S9-R5)', () => {
+  it('matches the action string run_rsvp_retention_pass() writes', () => {
+    expect(AUDIT_ACTIONS.RSVP_ANONYMIZE).toBe('rsvp.anonymize')
+  })
+
+  it.each(['en', 'id'] as const)('has an audit-log label in %s', async (locale) => {
+    const messages = (await import(`../../messages/${locale}.json`)).default as {
+      admin: { audit_log: { actions: Record<string, string> } }
+    }
+    expect(messages.admin.audit_log.actions.RSVP_ANONYMIZE).toEqual(expect.any(String))
+    expect(messages.admin.audit_log.actions.RSVP_ANONYMIZE.length).toBeGreaterThan(0)
+  })
+})
+
 describe('AuditAction type', () => {
   it('rejects arbitrary strings at compile time', () => {
     // @ts-expect-error — 'people.hack' is not a valid AuditAction

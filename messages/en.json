@@ -550,6 +550,7 @@
             "title": "Responses",
             "empty": "No responses yet.",
             "removed_member": "Removed member",
+            "anonymized": "Anonymized",
             "no_name": "(no name)",
             "no_phone": "—",
             "badge_member": "Member",
@@ -994,7 +995,8 @@
         "APP_USER_DEACTIVATE": "User deactivated",
         "APP_USER_REACTIVATE": "User reactivated",
         "BIRTHDAY_DIGEST_MANUAL_TRIGGER": "Birthday digest run manually",
-        "ATTENDANCE_SUMMARY_MANUAL_TRIGGER": "Attendance summary run manually"
+        "ATTENDANCE_SUMMARY_MANUAL_TRIGGER": "Attendance summary run manually",
+        "RSVP_ANONYMIZE": "RSVPs anonymized (retention)"
       }
     }
   },
@@ -1023,7 +1025,7 @@
       "children_no": "No",
       "children_yes": "Yes",
       "children_count_label": "Number of children",
-      "consent_label_interim": "I’m happy to be contacted by the organisers about upcoming events.",
+      "consent_label": "I’m happy to be contacted by the organisers about upcoming events.",
       "privacy_link": "Privacy Policy",
       "submit": "Send",
       "submit_pending": "Sending…",

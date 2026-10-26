@@ -82,7 +82,7 @@ describe('RsvpForm — submission', () => {
     await user.type(screen.getByLabelText(/form\.name_label/), 'Budi')
     await user.click(screen.getByLabelText('form.children_yes'))
     await user.selectOptions(screen.getByLabelText('form.children_count_label'), '3')
-    await user.click(screen.getByLabelText('form.consent_label_interim'))
+    await user.click(screen.getByLabelText('form.consent_label'))
     await user.click(screen.getByRole('button', { name: 'form.submit' }))
 
     await waitFor(() => expect(action).toHaveBeenCalledTimes(1))
@@ -120,7 +120,7 @@ describe('RsvpForm — submission', () => {
     const user = userEvent.setup()
     render(<RsvpForm action={action} />)
     await fillValid(user)
-    const consent = screen.getByLabelText('form.consent_label_interim')
+    const consent = screen.getByLabelText('form.consent_label')
     await user.click(consent)
     await user.click(consent)
     expect(consent).not.toBeChecked()
@@ -241,6 +241,25 @@ describe('RsvpForm — success', () => {
 })
 
 // ── S9-R4 ────────────────────────────────────────────────────────────────────
+
+describe('RsvpForm — privacy policy link (S9-R5)', () => {
+  it('opens /privacy in a new tab, so the filled-in form is never unmounted', async () => {
+    const user = userEvent.setup()
+    render(<RsvpForm action={action} />)
+    await fillValid(user)
+    await user.type(screen.getByLabelText(/form\.name_label/), 'Budi')
+    await user.click(screen.getByLabelText('form.consent_label'))
+
+    const link = screen.getByRole('link', { name: 'form.privacy_link' })
+    expect(link).toHaveAttribute('href', '/privacy')
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+
+    expect(screen.getByLabelText(/form\.phone_label/)).toHaveValue('081234567890')
+    expect(screen.getByLabelText(/form\.name_label/)).toHaveValue('Budi')
+    expect(screen.getByLabelText('form.consent_label')).toBeChecked()
+  })
+})
 
 describe('RsvpForm — honeypot', () => {
   it('off-screen, aria-hidden, untabbable "website" input; not display:none or sr-only', () => {

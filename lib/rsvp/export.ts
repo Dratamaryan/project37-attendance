@@ -57,7 +57,8 @@ const BUCKET_LABEL: Record<RsvpBucket, string> = {
 
 function exportName(r: RsvpExportRow): string {
   if (r.display_kind === 'removed_member') return 'Removed member'
-  return r.display_name ?? '(no name)'
+  // Same rule as the panel: a scrub only replaces a newcomer's typed name.
+  return r.display_name ?? (r.anonymized ? 'Anonymized' : '(no name)')
 }
 
 export function mapRsvpToExportRow(r: RsvpExportRow): RsvpResponseExportRow {

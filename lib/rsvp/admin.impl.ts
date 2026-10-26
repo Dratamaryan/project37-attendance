@@ -227,6 +227,7 @@ type RsvpRow = {
   followup_consent: boolean
   status: RsvpStatus
   person_id: string | null
+  anonymized_at: string | null
   created_at: string
   updated_at: string
 }
@@ -255,6 +256,7 @@ type DerivedRsvpRow<P> = {
   created_at: string
   updated_at: string
   attended: boolean
+  anonymized: boolean
 }
 
 type InstanceRsvpData = {
@@ -279,7 +281,7 @@ async function loadInstanceRsvpData(
   const rsvps = await fetchAllPages<RsvpRow>('rsvps', (from, to) =>
     supabase
       .from('event_rsvps')
-      .select('id, phone_e164, name, children_count, followup_consent, status, person_id, created_at, updated_at')
+      .select('id, phone_e164, name, children_count, followup_consent, status, person_id, anonymized_at, created_at, updated_at')
       .eq('event_instance_id', instanceId)
       .order('created_at', { ascending: true })
       .order('id', { ascending: true })
@@ -384,6 +386,7 @@ async function loadInstanceRsvpData(
         created_at: r.created_at,
         updated_at: r.updated_at,
         attended: unit?.attended ?? false,
+        anonymized: r.anonymized_at !== null,
       }
     })
   }
@@ -440,6 +443,7 @@ export async function impl_getInstanceRsvpPanel(
       created_at: r.created_at,
       updated_at: r.updated_at,
       attended: r.attended,
+      anonymized: r.anonymized,
     }))
 
   let url: string | null = null

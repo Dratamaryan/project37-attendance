@@ -98,7 +98,9 @@ export function RsvpPanel({ instanceId, instanceStatus, panel, whatsAppUrls }: P
 
   function displayName(row: RsvpPanelRow): string {
     if (row.display_kind === 'removed_member') return t('list.removed_member')
-    return row.display_name ?? t('list.no_name')
+    // Members keep their roster name after an RSVP scrub; only a newcomer's
+    // typed name is gone, so only that fallback changes.
+    return row.display_name ?? t(row.anonymized ? 'list.anonymized' : 'list.no_name')
   }
 
   return (
@@ -316,7 +318,7 @@ export function RsvpPanel({ instanceId, instanceStatus, panel, whatsAppUrls }: P
                     <p className="text-xs text-muted mt-0.5">
                       {t(`list.status.${row.status}`)}
                       {' · '}{t('list.children', { count: row.children_count })}
-                      {row.followup_consent && <> · {t('list.followup_yes')}</>}
+                      {row.followup_consent && !row.anonymized && <> · {t('list.followup_yes')}</>}
                       {' · '}<span className="font-mono">{row.phone_masked ?? t('list.no_phone')}</span>
                     </p>
                     <p className="text-xs text-muted mt-0.5 tabular-nums">

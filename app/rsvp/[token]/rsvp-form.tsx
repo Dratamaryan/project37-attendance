@@ -246,8 +246,8 @@ export function RsvpForm({ action, turnstileSiteKey = null }: Props) {
         </fieldset>
       )}
 
-      {/* Follow-up consent — per-submission only. Copy is INTERIM pending the
-          S9-R5 privacy-policy amendment (key: form.consent_label_interim). */}
+      {/* Follow-up consent — per-submission only. The policy link opens in a
+          new tab: the form is controlled state, so navigating away would lose it. */}
       <div className="flex items-start gap-3">
         <input
           id="rsvp-consent"
@@ -259,10 +259,15 @@ export function RsvpForm({ action, turnstileSiteKey = null }: Props) {
         />
         <div>
           <label htmlFor="rsvp-consent" className="text-sm text-ink-2 cursor-pointer leading-snug">
-            {t('form.consent_label_interim')}
+            {t('form.consent_label')}
           </label>
           <p className="text-xs mt-1">
-            <Link href="/privacy" className="text-muted underline underline-offset-2 hover:text-charcoal">
+            <Link
+              href="/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-muted underline underline-offset-2 hover:text-charcoal"
+            >
               {t('form.privacy_link')}
             </Link>
           </p>

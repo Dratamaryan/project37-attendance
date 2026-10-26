@@ -550,6 +550,7 @@
             "title": "Respons",
             "empty": "Belum ada respons.",
             "removed_member": "Anggota yang dihapus",
+            "anonymized": "Dianonimkan",
             "no_name": "(tanpa nama)",
             "no_phone": "—",
             "badge_member": "Anggota",
@@ -994,7 +995,8 @@
         "APP_USER_DEACTIVATE": "Pengguna dinonaktifkan",
         "APP_USER_REACTIVATE": "Pengguna diaktifkan kembali",
         "BIRTHDAY_DIGEST_MANUAL_TRIGGER": "Digest ulang tahun dijalankan manual",
-        "ATTENDANCE_SUMMARY_MANUAL_TRIGGER": "Ringkasan kehadiran dijalankan manual"
+        "ATTENDANCE_SUMMARY_MANUAL_TRIGGER": "Ringkasan kehadiran dijalankan manual",
+        "RSVP_ANONYMIZE": "RSVP dianonimkan (retensi)"
       }
     }
   },
@@ -1023,7 +1025,7 @@
       "children_no": "Tidak",
       "children_yes": "Ya",
       "children_count_label": "Jumlah anak",
-      "consent_label_interim": "Saya bersedia dihubungi panitia untuk informasi kegiatan berikutnya.",
+      "consent_label": "Saya bersedia dihubungi panitia untuk informasi kegiatan berikutnya.",
       "privacy_link": "Kebijakan Privasi",
       "submit": "Kirim",
       "submit_pending": "Mengirim…",

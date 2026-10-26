@@ -44,6 +44,8 @@ export const AUDIT_ACTIONS = {
   RSVP_LINK_CREATE:        'rsvp.link_create',
   RSVP_LINK_DEACTIVATE:    'rsvp.link_deactivate',
   RSVP_DELETE:             'rsvp.delete',
+  // Written only by run_rsvp_retention_pass() (SQL), never by logAudit().
+  RSVP_ANONYMIZE:          'rsvp.anonymize',
 } as const
 
 export type AuditAction = typeof AUDIT_ACTIONS[keyof typeof AUDIT_ACTIONS]

@@ -111,3 +111,40 @@ describe('RsvpPanel — export', () => {
     expect(a).toHaveTextContent('export_button')
   })
 })
+
+describe('RsvpPanel — anonymized rows (S9-R5)', () => {
+  const row = (over: Partial<RsvpPanelData['rows'][number]>): RsvpPanelData['rows'][number] => ({
+    rsvp_id: 'r1', display_kind: 'newcomer', display_name: null, status: 'coming', children_count: 0,
+    followup_consent: true, phone_masked: null, created_at: '2026-07-01T10:00:00Z',
+    updated_at: '2026-07-01T10:00:00Z', attended: true, anonymized: true, ...over,
+  })
+
+  // The panel sees the same row shape whether a member resolved via person_id
+  // or via the frozen retained_person_id — both arrive as kind 'member' with
+  // the roster name (resolution is covered in rsvp-retention.test.ts).
+  it.each([
+    ['member matched at submit', row({ display_kind: 'member', display_name: '[SYNTH] Member' }), '[SYNTH] Member', 'list.badge_member'],
+    ['member via frozen link', row({ display_kind: 'member', display_name: '[SYNTH] Door Newcomer' }), '[SYNTH] Door Newcomer', 'list.badge_member'],
+    ['removed member', row({ display_kind: 'removed_member', display_name: null }), 'list.removed_member', null],
+    ['unresolved newcomer', row({ display_kind: 'newcomer', display_name: null }), 'list.anonymized', 'list.badge_newcomer'],
+  ])('%s -> name "%s"... follow-up label hidden, kind badge kept', (_label, r, name, badge) => {
+    render(<RsvpPanel instanceId={INSTANCE_ID} instanceStatus="completed" panel={{ ...panel(INACTIVE), rows: [r] }} whatsAppUrls={null} />)
+    expect(screen.getByTestId('rsvp-row-name')).toHaveTextContent(name)
+    expect(screen.queryByText(/list\.followup_yes/)).not.toBeInTheDocument()
+    if (badge) expect(screen.getByText(badge)).toBeInTheDocument()
+  })
+
+  it('newcomer who left the name blank, not scrubbed -> "no name", not the anonymized label', () => {
+    render(<RsvpPanel instanceId={INSTANCE_ID} instanceStatus="completed"
+      panel={{ ...panel(INACTIVE), rows: [row({ anonymized: false, display_name: null })] }} whatsAppUrls={null} />)
+    expect(screen.getByTestId('rsvp-row-name')).toHaveTextContent('list.no_name')
+  })
+
+  it('not anonymized -> name and follow-up label as before', () => {
+    render(<RsvpPanel instanceId={INSTANCE_ID} instanceStatus="completed"
+      panel={{ ...panel(INACTIVE), rows: [row({ anonymized: false, display_name: '[SYNTH] Newcomer', phone_masked: '•••• 1234' })] }}
+      whatsAppUrls={null} />)
+    expect(screen.getByTestId('rsvp-row-name')).toHaveTextContent('[SYNTH] Newcomer')
+    expect(screen.getByText(/list\.followup_yes/)).toBeInTheDocument()
+  })
+})
