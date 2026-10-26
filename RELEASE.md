@@ -432,3 +432,28 @@ branch-expected ref for remote ops.
   audit rows kept on purpose. No real PII at any rung. Open (prove later): admin-default-en
   override end-to-end (R4 staging); WhatsApp og:image card + prod gate secret (R6 go-live).
   Backlog: <html lang> follows the admin default on /rsvp (S11-T18).
+- S9-R4 VERIFIED to staging (2026-10-25; prod rung pending): public RSVP abuse controls
+  (33c7c05 + 93a4c35 + 50bf8b7; no migration, submit_rsvp unchanged). Order in impl_submitRsvp:
+  flag → token → parse → honeypot → throttle → Turnstile (if enabled) → gate → RPC; every block
+  happens before the gate read. Honeypot 'website' (off-screen aria-hidden, tabIndex -1) → fake
+  success, nothing written. Soft per-IP throttle in memory per instance: sha256(ip):token, 20 /
+  10 min, 5000-key cap; raw IP never stored/logged/persisted; no IP → skipped. Invisible
+  Cloudflare Turnstile via app-side siteverify (not Supabase [auth.captcha], which is GoTrue-only
+  and stays commented out): server-only RSVP_TURNSTILE_ENABLED / _SITE_KEY / _SECRET_KEY (no
+  NEXT_PUBLIC_; site key passed as a prop), fail closed when enabled, action 'rsvp', no remoteip.
+  Widget hand-rolled (no dependency): submit disabled until a token, reset after every
+  non-success, inline note when the script is blocked or no token arrives within 15 s (re-armed
+  on expiry/error, F1). Throttle / Turnstile failures → existing 'unavailable'. R1 (G) closed: no
+  response-time floor (member/newcomer statement-identical; ~0.13–0.14 ms local). Verification
+  rungs (CLAUDE.md rule 17): Local Docker ✓ verified:vitest (turnstile / throttle / order /
+  fail-closed / form / page tests; live-DB honeypot, throttled and Turnstile-fail write no row;
+  gate 1651/1651, lint/typecheck/build) / Staging ✓ verified:live-staging (2026-10-25, git-staging
+  deploy of 50bf8b7; Turnstile off: no widget, OFF submit ok, honeypot → thank-you + zero rows,
+  tab order skips the honeypot; admin default en → cookie-less /rsvp still Indonesian, restored
+  to id; Turnstile on: invisible widget issues a token under no-referrer, ON submit ok, tampered
+  token → generic try-later + zero rows; s9-r4-staging-uat verify 9/9 PASS, cleanup zero residue)
+  / Prod pending (/rsvp/* → 404 after main fast-forward). Throttle and log-line content are
+  verified:vitest only (in-memory state across Fluid instances is not deterministically testable
+  live; no runtime log access by design). End state: staging RSVP_TURNSTILE_ENABLED=true;
+  Production Turnstile widget + RSVP_TURNSTILE_* not created yet (R6 go-live). No real PII at any
+  rung. Detail: docs/sprint-9-task-r4-verify.md (local).
