@@ -557,3 +557,24 @@ branch-expected ref for remote ops.
   residue and live headers on /rsvp/<token>, /dashboard, /privacy — verified:live-staging;
   unauthenticated /login headers verified:local-build) / Prod: pending owner push + owner checks.
   No real PII at any rung. Detail: docs/sprint-9-task-r6-a1-verify.md (local).
+- S9-R6 A2 STAGING VERIFIED (2026-10-27; prod pending): admin RSVP health check (69fefec; no
+  migration; decision D7, AC 12). Settings "RSVP health" card, on-demand only (never on render),
+  admin-only (requireActiveAdmin + explicit role check; organizer/anon rejected), read-only, not
+  audited. Gate probe: anon submit_rsvp with the env gate and token 'rsvp-health.probe' ('.' never
+  occurs in a generated token -> 'closed' before validation/cap/insert): closed -> match,
+  unavailable -> mismatch, unset env -> missing-env (no RPC), anything else (incl. ok:true) ->
+  unknown. Turnstile: classifyTurnstileSecret posts siteverify with a dummy token (no remoteip,
+  5 s timeout, no-store): secret codes -> invalid-secret, success:true -> always-pass (architect
+  F1: Cloudflare test secret = bot protection off -> Problem), invalid-input-response -> valid,
+  else unknown; runs even when Turnstile is off. Probes in parallel, each capped at 6 s. No secret
+  value/length/prefix/hash returned, logged or rendered. en + id copy (N1 mismatch wording).
+  Verification rungs (rule 17): Local Docker ✓ verified:vitest (classify + impl unit, render/
+  sentinel SENTINELGATE222/SENTINELTSSECRET333/site key absent from action result and DOM,
+  integration correct gate -> match / wrong gate -> mismatch with event_rsvps count unchanged,
+  authz anon/organizer rejected + admin ok, en/id parity; gate 1862/1862, lint 0 errors,
+  typecheck, build) / Staging ✓ verified:live-staging (run by Claude Code under delegation: no db
+  push; git push staging; deploy dpl_2QtYWQbTqWr8xRArMNm68iiuRya6 READY; event_rsvps count 0 ->
+  Run check as admin on the git-staging alias -> 0, max created/updated_at null both times; card:
+  environment preview, Public RSVP On, Gate secret OK (match), Turnstile OK (on, both keys, secret
+  valid); staging gate value absent from card text) / Prod: pending owner push + owner checks.
+  No real PII at any rung.
