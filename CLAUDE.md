@@ -59,3 +59,17 @@
     - **Prod:** live verification after deploy.
 
     Real PII never enters staging. Data-mutation rehearsals on real data use a local restore of a prod dump (docs/backups/RUNBOOK.md §3).
+
+## Staging Release (standing rules, confirmed in S9-R6)
+
+18. Staging delegation. Claude Code runs staging releases itself — preflight + staging pin, `supabase db push --dry-run`, `supabase db push`, `git push origin staging`, staging smoke scripts, and visual checks — under the explicit stop conditions of the task prompt. On any stop: no fix-forward on staging; report and wait. Prod (db push, main fast-forward, prod checks) is owner-run; Claude Code never touches prod.
+
+19. Staging release report standard. Every staging release report contains:
+    1. Summary in plain English (3–5 lines): what shipped, overall PASS/FAIL, anything the owner must do next.
+    2. Context: branch, SHA(s), Supabase ref, deploy URL, timestamp (WIB).
+    3. Steps table: # | action | exact command | expected | actual | PASS/FAIL.
+    4. Evidence: raw output per step (trimmed, never paraphrased); synthetic data only, surrogate keys.
+    5. Verification level per claim (verified:vitest | verified:local-build | verified:server-side | verified:live-staging | unverified).
+    6. Deviations from the prompt, and every stop condition hit.
+    7. Residue: the cleanup result plus the zero-residue assertion output.
+    8. Owner checks: numbered one-liners, each with an explicit PASS criterion.
