@@ -315,6 +315,42 @@
         "flipped": "{count} acara ditandai selesai."
       }
     },
+    "rsvp_health": {
+      "title": "Kesehatan RSVP",
+      "help": "Memeriksa konfigurasi RSVP publik pada deployment ini. Hanya-baca — tidak ada data yang ditulis. Hanya berjalan saat tombol ditekan.",
+      "button": "Jalankan pemeriksaan",
+      "button_pending": "Memeriksa…",
+      "not_authorized": "Anda tidak berwenang menjalankan pemeriksaan ini.",
+      "error": "Pemeriksaan tidak dapat dijalankan. Coba lagi.",
+      "checked_at": "Diperiksa pada {time}",
+      "environment_label": "Lingkungan",
+      "public_label": "RSVP publik",
+      "public_on": "Aktif",
+      "public_off": "Nonaktif",
+      "status": {
+        "ok": "OK",
+        "warning": "Peringatan",
+        "problem": "Masalah"
+      },
+      "gate": {
+        "label": "Rahasia gerbang",
+        "match": "Rahasia gerbang server cocok dengan vault database.",
+        "mismatch": "Rahasia gerbang server tidak cocok dengan vault database (atau rahasia vault tidak ada) — pengiriman RSVP akan gagal.",
+        "missing_env": "Rahasia gerbang server belum diatur pada deployment ini — pengiriman RSVP akan gagal.",
+        "unknown": "Tidak dapat memverifikasi rahasia gerbang. Coba lagi."
+      },
+      "turnstile": {
+        "label": "Turnstile",
+        "on_keys_missing": "Turnstile aktif tetapi ada kunci yang belum diatur — pengiriman RSVP akan gagal.",
+        "off_keys_missing": "Turnstile nonaktif; kunci belum diatur.",
+        "secret_valid_on": "Turnstile aktif dan Cloudflare menerima kunci rahasia.",
+        "secret_valid_off": "Turnstile nonaktif; Cloudflare menerima kunci rahasia.",
+        "secret_invalid": "Cloudflare menolak kunci rahasia Turnstile — pemeriksaan Turnstile akan gagal.",
+        "secret_unknown": "Tidak dapat memeriksa kunci rahasia Turnstile ke Cloudflare. Coba lagi.",
+        "secret_always_pass": "Kunci rahasia Turnstile ini menerima token apa pun (kunci rahasia uji Cloudflare) — perlindungan bot praktis nonaktif.",
+        "pairing_note": "Pasangan kunci situs ↔ kunci rahasia hanya terbukti lewat pengiriman sungguhan."
+      }
+    },
     "parishes": {
       "title": "Paroki tertunda",
       "empty": "Tidak ada paroki tertunda.",

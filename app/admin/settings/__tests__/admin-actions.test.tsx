@@ -26,6 +26,9 @@ vi.mock('@/lib/actions/digest-triggers', () => ({
   runBirthdayDigestNow: (...args: unknown[]) => runBirthdayDigestNow(...args),
   runAttendanceSummaryNow: (...args: unknown[]) => runAttendanceSummaryNow(...args),
 }))
+vi.mock('@/lib/rsvp/health', () => ({
+  runRsvpHealthCheck: vi.fn(),
+}))
 
 vi.mock('@/lib/actions/settings', () => ({
   updateSettings: vi.fn(),

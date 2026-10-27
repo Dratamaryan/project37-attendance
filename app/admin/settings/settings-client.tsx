@@ -1,15 +1,17 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useMemo, useState, useTransition, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { updateSettings, getHorizonImpact } from '@/lib/actions/settings'
 import { approveParish } from '@/lib/actions/parishes-admin'
 import { runBirthdayDigestNow, runAttendanceSummaryNow } from '@/lib/actions/digest-triggers'
+import { runRsvpHealthCheck } from '@/lib/rsvp/health'
 import { resolveChatId } from '@/lib/telegram/chat-id'
 import type { AppSettingsRow, UpdateSettingsInput } from '@/lib/actions/settings.types'
 import type { ParishSearchResult } from '@/lib/actions/parishes.types'
 import type { BirthdayDigestResult, AttendanceSummaryResult } from '@/lib/actions/digest-triggers.types'
+import type { RsvpHealthResult } from '@/lib/rsvp/health.impl'
 
 type Props = {
   initialSettings: AppSettingsRow | null
@@ -47,6 +49,8 @@ export function SettingsClient({
       />
 
       <AdminActionsSection t={t} />
+
+      <RsvpHealthSection t={t} />
 
       <ParishesSection
         initialParishes={initialPendingParishes}
@@ -496,6 +500,142 @@ function AdminActionsSection({ t }: { t: TFunc }) {
           </p>
         )}
       </div>
+    </section>
+  )
+}
+
+// ── RSVP health (S9-R6 A2): on-demand, read-only, admin-only ─────────────────
+
+type HealthLevel = 'ok' | 'ok_neutral' | 'warning' | 'problem'
+type HealthRow = { level: HealthLevel; text: string }
+
+const HEALTH_LEVEL_CLASS: Record<HealthLevel, string> = {
+  ok: 'bg-green-100 text-green-800',
+  ok_neutral: 'bg-cream text-muted border border-line',
+  warning: 'bg-amber-100 text-amber-800',
+  problem: 'bg-red-100 text-red-700',
+}
+
+function healthLevelLabel(level: HealthLevel, t: TFunc): string {
+  if (level === 'problem') return t('rsvp_health.status.problem')
+  if (level === 'warning') return t('rsvp_health.status.warning')
+  return t('rsvp_health.status.ok')
+}
+
+function mapGateRow(gate: RsvpHealthResult['gate'], t: TFunc): HealthRow {
+  switch (gate) {
+    case 'match':
+      return { level: 'ok', text: t('rsvp_health.gate.match') }
+    case 'mismatch':
+      return { level: 'problem', text: t('rsvp_health.gate.mismatch') }
+    case 'missing-env':
+      return { level: 'problem', text: t('rsvp_health.gate.missing_env') }
+    case 'unknown':
+      return { level: 'warning', text: t('rsvp_health.gate.unknown') }
+  }
+}
+
+function mapTurnstileRow(ts: RsvpHealthResult['turnstile'], t: TFunc): HealthRow {
+  if (ts.keys === 'missing') {
+    return ts.enabled
+      ? { level: 'problem', text: t('rsvp_health.turnstile.on_keys_missing') }
+      : { level: 'ok_neutral', text: t('rsvp_health.turnstile.off_keys_missing') }
+  }
+  switch (ts.secret) {
+    case 'valid':
+      return {
+        level: 'ok',
+        text: ts.enabled ? t('rsvp_health.turnstile.secret_valid_on') : t('rsvp_health.turnstile.secret_valid_off'),
+      }
+    case 'invalid-secret':
+      return { level: 'problem', text: t('rsvp_health.turnstile.secret_invalid') }
+    case 'always-pass':
+      return { level: 'problem', text: t('rsvp_health.turnstile.secret_always_pass') }
+    case 'unknown':
+    case 'skipped':
+      return { level: 'warning', text: t('rsvp_health.turnstile.secret_unknown') }
+  }
+}
+
+function HealthCheckRow({ label, row, t, children }: { label: string; row: HealthRow; t: TFunc; children?: ReactNode }) {
+  return (
+    <li className="space-y-1">
+      <div className="flex items-center justify-between gap-3 text-sm">
+        <span className="text-charcoal font-medium">{label}</span>
+        <span className={`rounded-sm px-2 py-0.5 text-xs font-semibold ${HEALTH_LEVEL_CLASS[row.level]}`}>
+          {healthLevelLabel(row.level, t)}
+        </span>
+      </div>
+      <p className="text-sm text-ink-2">{row.text}</p>
+      {children}
+    </li>
+  )
+}
+
+function RsvpHealthSection({ t }: { t: TFunc }) {
+  const [result, setResult] = useState<RsvpHealthResult | null>(null)
+  const [failure, setFailure] = useState<string | null>(null)
+  const [isRunning, startRun] = useTransition()
+
+  function handleRun() {
+    setFailure(null)
+    startRun(async () => {
+      try {
+        const res = await runRsvpHealthCheck()
+        if (res.status === 'not_authorized') {
+          setResult(null)
+          setFailure(t('rsvp_health.not_authorized'))
+          return
+        }
+        setResult(res.result)
+      } catch {
+        setResult(null)
+        setFailure(t('rsvp_health.error'))
+      }
+    })
+  }
+
+  return (
+    <section className="bg-cream-2 border border-line rounded-lg p-5 space-y-4" aria-labelledby="rsvp-health-title">
+      <h2 id="rsvp-health-title" className="font-heading text-lg font-semibold text-charcoal">
+        {t('rsvp_health.title')}
+      </h2>
+      <p className="text-xs text-muted">{t('rsvp_health.help')}</p>
+
+      <button
+        type="button"
+        onClick={handleRun}
+        disabled={isRunning}
+        className="inline-flex items-center justify-center rounded-sm border border-line px-4 py-2 text-sm font-medium text-charcoal hover:bg-cream transition-colors disabled:opacity-50"
+      >
+        {isRunning ? t('rsvp_health.button_pending') : t('rsvp_health.button')}
+      </button>
+
+      {failure && (
+        <p role="alert" className="text-sm text-red-600">{failure}</p>
+      )}
+
+      {result && (
+        <div className="space-y-4" role="status">
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+            <dt className="text-muted">{t('rsvp_health.environment_label')}</dt>
+            <dd className="text-charcoal">{result.environment}</dd>
+            <dt className="text-muted">{t('rsvp_health.public_label')}</dt>
+            <dd className="text-charcoal">
+              {result.publicEnabled ? t('rsvp_health.public_on') : t('rsvp_health.public_off')}
+            </dd>
+          </dl>
+          <ul className="space-y-3">
+            <HealthCheckRow label={t('rsvp_health.gate.label')} row={mapGateRow(result.gate, t)} t={t} />
+            <HealthCheckRow label={t('rsvp_health.turnstile.label')} row={mapTurnstileRow(result.turnstile, t)} t={t}>
+              <p className="text-xs text-muted">{t('rsvp_health.turnstile.pairing_note')}</p>
+            </HealthCheckRow>
+          </ul>
+          <p className="text-xs text-muted">
+            {t('rsvp_health.checked_at', { time: new Date(result.checkedAt).toLocaleString() })}
+          </p>
+        </div>
+      )}
     </section>
   )
 }

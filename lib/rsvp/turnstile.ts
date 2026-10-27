@@ -63,3 +63,60 @@ export async function verifyTurnstile(
     return 'fail'
   }
 }
+
+// ── S9-R6 A2 secret health probe ─────────────────────────────────────────────
+
+/** Fixed, obviously-fake response token: siteverify can never accept it. */
+export const TURNSTILE_PROBE_RESPONSE = 'rsvp-health-probe'
+
+export type TurnstileSecretClass = 'valid' | 'invalid-secret' | 'always-pass' | 'unknown'
+
+/**
+ * Admin health check only (lib/rsvp/health.impl.ts). POSTs siteverify with the
+ * secret and a dummy response token and reads which input Cloudflare rejects:
+ * a good secret gets past the secret check and fails on the response
+ * ('invalid-input-response' -> 'valid'); a bad or blank secret fails on the
+ * secret ('invalid-input-secret' / 'missing-input-secret' -> 'invalid-secret').
+ * Precedence: the secret codes are checked first (they win when both codes
+ * appear); then success:true -> 'always-pass' — a dummy token only succeeds
+ * against Cloudflare's always-passes TEST secret, so bot protection is
+ * effectively off and this must not read as healthy; then
+ * 'invalid-input-response' -> 'valid'. Non-200, timeout, network error,
+ * malformed body or any other code -> 'unknown'. Same request shape as
+ * verifyTurnstile (no remoteip, timeout, no-store). Never logs the secret or
+ * the raw body.
+ */
+export async function classifyTurnstileSecret(
+  secret: string,
+  opts: VerifyOptions = {},
+): Promise<TurnstileSecretClass> {
+  const fetchImpl = opts.fetchImpl ?? fetch
+  try {
+    const res = await fetchImpl(TURNSTILE_SITEVERIFY_URL, {
+      method: 'POST',
+      body: new URLSearchParams({ secret, response: TURNSTILE_PROBE_RESPONSE }),
+      signal: AbortSignal.timeout(opts.timeoutMs ?? TURNSTILE_TIMEOUT_MS),
+      cache: 'no-store',
+    })
+    if (res.status !== 200) {
+      console.warn('[rsvp-health] turnstile siteverify HTTP', res.status)
+      return 'unknown'
+    }
+
+    const body: unknown = await res.json()
+    if (typeof body !== 'object' || body === null) return 'unknown'
+    const result = body as { success?: unknown; 'error-codes'?: unknown }
+    const codes = Array.isArray(result['error-codes'])
+      ? result['error-codes'].filter((c): c is string => typeof c === 'string')
+      : []
+
+    if (codes.includes('invalid-input-secret') || codes.includes('missing-input-secret')) return 'invalid-secret'
+    if (result.success === true) return 'always-pass'
+    if (codes.includes('invalid-input-response')) return 'valid'
+    console.warn('[rsvp-health] turnstile unexpected error-codes:', codes.join(',') || 'none')
+    return 'unknown'
+  } catch (err) {
+    console.warn('[rsvp-health] turnstile siteverify failed:', err instanceof Error ? err.name : 'unknown')
+    return 'unknown'
+  }
+}

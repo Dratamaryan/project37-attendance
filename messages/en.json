@@ -315,6 +315,42 @@
         "flipped": "{count} event(s) marked completed."
       }
     },
+    "rsvp_health": {
+      "title": "RSVP health",
+      "help": "Checks the public RSVP configuration of this deployment. Read-only — nothing is written. Runs only when you press the button.",
+      "button": "Run check",
+      "button_pending": "Checking…",
+      "not_authorized": "You are not authorized to run this check.",
+      "error": "The check could not be run. Try again.",
+      "checked_at": "Checked at {time}",
+      "environment_label": "Environment",
+      "public_label": "Public RSVP",
+      "public_on": "On",
+      "public_off": "Off",
+      "status": {
+        "ok": "OK",
+        "warning": "Warning",
+        "problem": "Problem"
+      },
+      "gate": {
+        "label": "Gate secret",
+        "match": "Server gate secret matches the database vault.",
+        "mismatch": "Server gate secret does not match the database vault (or the vault secret is missing) — RSVP submits will fail.",
+        "missing_env": "Server gate secret is not set on this deployment — RSVP submits will fail.",
+        "unknown": "Could not verify the gate secret. Try again."
+      },
+      "turnstile": {
+        "label": "Turnstile",
+        "on_keys_missing": "Turnstile is on but a key is not set — RSVP submits will fail.",
+        "off_keys_missing": "Turnstile off; keys not set.",
+        "secret_valid_on": "Turnstile is on and Cloudflare accepts the secret key.",
+        "secret_valid_off": "Turnstile is off; Cloudflare accepts the secret key.",
+        "secret_invalid": "Cloudflare rejected the Turnstile secret key — Turnstile checks will fail.",
+        "secret_unknown": "Could not check the Turnstile secret with Cloudflare. Try again.",
+        "secret_always_pass": "This Turnstile secret accepts any token (Cloudflare test secret) — bot protection is effectively off.",
+        "pairing_note": "Site key ↔ secret pairing is proven only by a real submit."
+      }
+    },
     "parishes": {
       "title": "Pending parishes",
       "empty": "No pending parishes.",

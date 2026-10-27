@@ -82,6 +82,9 @@ vi.mock('@/lib/actions/digest-triggers', () => ({
   runBirthdayDigestNow: vi.fn(),
   runAttendanceSummaryNow: vi.fn(),
 }))
+vi.mock('@/lib/rsvp/health', () => ({
+  runRsvpHealthCheck: vi.fn(),
+}))
 
 describe('SettingsPage — Telegram token never in rendered output', () => {
   beforeEach(() => {
