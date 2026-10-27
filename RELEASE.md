@@ -596,3 +596,25 @@ branch-expected ref for remote ops.
   verified:live-staging; cleanup zero residue). Findings: post-anonymize the panel/export show
   "Removed member" (code rule), not "Anonymized"; chart colours are hex literals equal to the
   globals.css tokens, not var() references. No real PII at any rung. Prod: no change (tests only).
+- S9.5-T2 STAGING VERIFIED (2026-10-27): Project Day moves from the 2nd Friday to the 2nd Saturday
+  from Nov 2026 via a NEW series (Option B) (7934dd0; migration
+  20261027180000_s9_5_t2_saturday_monthly_enum.sql). event_type_enum += saturday_monthly (drift
+  guard: labels must be the known 4, or 4 + saturday); preset → FREQ=MONTHLY;BYDAY=2SA; labels
+  en+id at all three sites. Invite guard: sendInvites/resendInvite return instance_not_open unless
+  instance 'scheduled' AND event active (localized UI). Owner SQL scripts/s9-5/
+  t2-retire-friday-series.{staging,prod}.sql + ROLLBACK variants from one template per direction
+  (generate-t2-sql.mjs --check): exact-snapshot preflight, idempotent, never DELETE, post-asserts,
+  audit log_audit(NULL, ...) + 'trigger' (R5 convention). Verification rungs (rule 17): Local ✓
+  verified:vitest (gate 1876/1876, lint 0 errors, typecheck, build; owner-SQL rehearsal 23/23 on
+  local Docker: tampered abort zero writes, apply, re-run no-op, mixed-state abort, rollback refused
+  while a Saturday series exists, rollback, rollback re-run no-op) / Staging ✓ (run by Claude Code
+  under delegation: dry-run = this migration only, db push, deploy FEKbeZ4ivVtbAN8wMTgVoRfwj9si
+  success; staging SQL: Friday 9ae8cfb8 inactive, 11/11 Nov+ cancelled, 12 NULL-actor audit rows,
+  re-run no-op; OWNER-APPROVED DEVIATION, no browser: Saturday event 8c3385f3 created via
+  impl_createEvent under the staging admin session (instances_created 12), all
+  verified:server-side — 12 Saturdays 11-14..2027-10-09 dow 6 15:00, materializer inserted 0 /
+  pruned 0, picker offers 11-14 and no Friday, RSVP link minted + get_rsvp_context open, page
+  formatter "Sabtu, 14 November 2026" (public page behind Vercel protection, not bypassed), invite
+  on cancelled Friday instance_not_open with 0 sends). UI not live-verified on staging — owner UI
+  checklist in the prod runbook. Staging snapshot has 11 Friday instances (stale horizon, no
+  staging cron). Prod: pending owner (db push, main fast-forward, prod SQL, UI create).
