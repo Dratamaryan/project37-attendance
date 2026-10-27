@@ -578,3 +578,21 @@ branch-expected ref for remote ops.
   environment preview, Public RSVP On, Gate secret OK (match), Turnstile OK (on, both keys, secret
   valid); staging gate value absent from card text) / Prod: pending owner push + owner checks.
   No real PII at any rung.
+- S9-R6 B STAGING VERIFIED (2026-10-27): automated RSVP BDD/UAT on staging (abd9c48; no migration;
+  AC 16, R5 vitest-only gaps, R7 chart gap). scripts/s9-r6-staging-uat.ts (tsc->node, pinStaging,
+  [SYNTH] + run-id +62999 phones, 0600 state, re-runs refused): setup / drive / anonymize / verify /
+  cleanup. Real submit_rsvp over raw HTTP with phones typed local / plain / spaced / dashed /
+  paren and normalised by the compiled normalizePhone: D1 member (sent name ignored), D2+D3 one N1
+  row updated in place (blank name keeps D2's), D4 maybe, 3 rows on an ended-today instance for the
+  chart; negatives wrong gate / unknown token / status 'yes' -> unavailable / closed / invalid with
+  0 rows written; member vs newcomer responses byte-identical. anonymize_person scenarios of
+  rsvp-retention.test.ts:557-627 mirrored (live member own row + frozen newcomer row; soft-deleted
+  person own row + unfrozen newcomer row; updated_at kept; crosstab unchanged; re-run no-op).
+  RsvpVsActualChart.render.test.tsx renders the REAL chart (no stub) at a fixed 600x280. Verification
+  rungs (rule 17): Local ✓ verified:vitest (gate 1865/1865, lint 0 errors, typecheck, build) /
+  Staging ✓ (run by Claude Code under delegation: deploy dpl_D8zjgN9Qgw7R5GDoybbK1Bhoye8X READY;
+  drive 11/11, verify 31/31 — verified:server-side; V1 panel pre/post, V2 export, V3 person RSVP
+  history, V4 chart (bar 117.2 px = 5 units = KPI), V5 one public-form submit with live Turnstile —
+  verified:live-staging; cleanup zero residue). Findings: post-anonymize the panel/export show
+  "Removed member" (code rule), not "Anonymized"; chart colours are hex literals equal to the
+  globals.css tokens, not var() references. No real PII at any rung. Prod: no change (tests only).
