@@ -618,3 +618,16 @@ branch-expected ref for remote ops.
   on cancelled Friday instance_not_open with 0 sends). UI not live-verified on staging — owner UI
   checklist in the prod runbook. Staging snapshot has 11 Friday instances (stale horizon, no
   staging cron). Prod: pending owner (db push, main fast-forward, prod SQL, UI create).
+- S9.5-T2 PROD VERIFIED (2026-10-27): Fri→Sat Project Day series live on prod (bftifxgdcmisasgvobuf),
+  run by the owner 17:45–19:09 WIB with main at 17fcd30. Migration 20261027180000
+  (saturday_monthly) pushed; production deploy READY. P7 t2-retire-friday-series.prod.sql: Success —
+  Friday Project Day 4f9eb395 inactive, 12 Nov+ instances cancelled with the S9.5 note, 13
+  system-actor audit rows (12 event_instance.cancel + 1 event.update). P8 Saturday "Project Day"
+  created in the prod UI: saturday_monthly, 2026-11-14 15:00 WIB, 180 min, Hotel Neo Puri Indah →
+  "Event created — 12 instances scheduled". P10: Friday 12 cancelled (2026-11-13..2027-10-08, dow 5);
+  Saturday 12 scheduled (2026-11-14..2027-10-09, dow 6, 15:00 WIB); Tribe Connect 12 scheduled,
+  unchanged. P11: 14 Nov RSVP link minted. The ROLLBACK script now refuses by design
+  (a saturday_monthly event exists). Verification rungs (rule 17): Local ✓ / Staging ✓
+  (verified:server-side, see the staging entry above) / Prod ✓ verified:live (owner: event form,
+  success banner, events list, P10 SELECT, RSVP mint); /checkin and the public RSVP page per owner
+  report. No real PII at any rung.
