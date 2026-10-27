@@ -537,3 +537,23 @@ branch-expected ref for remote ops.
   smoke recomputes pooling (app pooling verified:vitest + V1). Observed pre-existing (R6 item
   18): old KPI cards filter on checked_in_at and Top Attendees ignores dates. No real PII at any
   rung. Detail: docs/sprint-9-task-r7-verify.md (local).
+- S9-R6 A1 STAGING VERIFIED (2026-10-27; prod pending): anon-surface hardening (4475b10;
+  migration 20261027120000_s9_r6_anon_surface_hardening.sql, decisions D1/D2/D5/D6, AC 5/14/17).
+  D1: REVOKE ALL anon + PUBLIC on the five S3 views; authenticated keeps SELECT only. D2: PUBLIC
+  EXECUTE revoked on is_admin / is_organizer / is_active_app_user (anon kept on purpose — anon
+  still holds the default legacy-table grants, so TO-public policies call them as anon; revoke
+  deferred to S11-T12) and PUBLIC + anon on enforce_last_admin. D5: next.config headers on
+  '/:path*' — X-Frame-Options DENY, CSP frame-ancestors 'none', nosniff (nothing else). D6:
+  setLocale accepts only same-origin redirectTo ('/…', not '//' or '/\'). CLAUDE.md rules 18/19:
+  staging delegation + staging release report standard. Verification rungs (rule 17): Local
+  Docker ✓ verified:vitest (s9-r6-anon-surface 34/34 — whole-schema anon-EXECUTE allowlist
+  incl. a probe-function negative check, helper ACLs, view/RSVP-table privileges,
+  people_phone_e164_key indisunique + no predicate, anon RPC / admin + organizer / last-admin
+  regression; headers + setLocale unit tests; gate 1810/1810, lint/typecheck/build; T2-Seed-RLS-
+  02/09 unchanged) / Staging ✓ (run by Claude Code under delegation: baseline Q1/Q2 matched the
+  owner's prod audit; dry-run listed exactly this migration; push; Q1 diff = the 5 views, PUBLIC
+  off the 4 functions, anon off enforce_last_admin only, Q2 unchanged — verified:server-side;
+  git-staging deploy of 4475b10; s9-r3-staging-uat setup / rsvps 13/13 PASS / cleanup zero
+  residue and live headers on /rsvp/<token>, /dashboard, /privacy — verified:live-staging;
+  unauthenticated /login headers verified:local-build) / Prod: pending owner push + owner checks.
+  No real PII at any rung. Detail: docs/sprint-9-task-r6-a1-verify.md (local).
