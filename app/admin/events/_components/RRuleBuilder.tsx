@@ -12,6 +12,8 @@ export function buildRRule(
   switch (event_type) {
     case 'friday_monthly':
       return 'FREQ=MONTHLY;BYDAY=2FR'
+    case 'saturday_monthly':
+      return 'FREQ=MONTHLY;BYDAY=2SA'
     case 'sunday_monthly':
       return 'FREQ=MONTHLY;BYDAY=1SU'
     case 'adhoc':

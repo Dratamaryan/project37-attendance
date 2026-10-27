@@ -43,7 +43,7 @@ interface PersonDef {
 interface EventDef {
   name: string
   nameId: string
-  eventType: 'friday_monthly' | 'sunday_monthly' | 'adhoc'
+  eventType: 'friday_monthly' | 'saturday_monthly' | 'sunday_monthly' | 'adhoc'
   startDate: string
   startTime: string
 }

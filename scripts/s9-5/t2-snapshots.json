@@ -1,0 +1,56 @@
+{
+  "_comment": "S9.5-T2 header snapshots for t2-retire-friday-series.<env>.sql. IDs, dates and counts only — no PII. Regenerate the SQL with `node scripts/s9-5/generate-t2-sql.mjs`; verify with `--check`. prod: instance ids and zero child counts supplied by the owner (2026-10-27); per-id wib_date not supplied, so it is left null and only the date SET is pinned (expected_dates = 2FR 18:00 WIB, Nov 2026 – Oct 2027). staging: read-only from sijfyvaodqkawbeuyrpu on 2026-10-27; 11 instances (staging crons never ran, horizon ends 2027-09-10).",
+  "staging": {
+    "event": {
+      "id": "9ae8cfb8-ba56-48da-bec3-a4242b1260c9",
+      "name": "Project Day Staging",
+      "event_type": "friday_monthly",
+      "recurrence_rule": "FREQ=MONTHLY;BYDAY=2FR",
+      "active": true
+    },
+    "expected_dates": [
+      "2026-11-13", "2026-12-11", "2027-01-08", "2027-02-12", "2027-03-12", "2027-04-09",
+      "2027-05-14", "2027-06-11", "2027-07-09", "2027-08-13", "2027-09-10"
+    ],
+    "instances": [
+      { "id": "72052fc3-66aa-447b-ac65-d54beac33552", "wib_date": "2026-11-13", "links": 1, "rsvps": 0, "invitations": 0, "attendance": 1, "child_attendance": 0 },
+      { "id": "44cc7940-ced6-40cf-b051-3c5341cb7d8c", "wib_date": "2026-12-11", "links": 0, "rsvps": 0, "invitations": 0, "attendance": 0, "child_attendance": 0 },
+      { "id": "31ba9688-6cd4-4922-86a4-beb3bd5a1f47", "wib_date": "2027-01-08", "links": 0, "rsvps": 0, "invitations": 0, "attendance": 0, "child_attendance": 0 },
+      { "id": "c2fd7d7d-d002-4c2c-8290-0fe9756b3757", "wib_date": "2027-02-12", "links": 0, "rsvps": 0, "invitations": 0, "attendance": 0, "child_attendance": 0 },
+      { "id": "3d4778eb-5867-4381-b325-751f95a82d76", "wib_date": "2027-03-12", "links": 0, "rsvps": 0, "invitations": 0, "attendance": 0, "child_attendance": 0 },
+      { "id": "83e47daa-f5d9-4351-8876-a980ea13eb8a", "wib_date": "2027-04-09", "links": 0, "rsvps": 0, "invitations": 0, "attendance": 0, "child_attendance": 0 },
+      { "id": "72eb0a2c-b949-43a1-ad78-d03b86723965", "wib_date": "2027-05-14", "links": 0, "rsvps": 0, "invitations": 0, "attendance": 0, "child_attendance": 0 },
+      { "id": "22d7c402-c0d7-4330-9e25-c1025ff3d54c", "wib_date": "2027-06-11", "links": 0, "rsvps": 0, "invitations": 0, "attendance": 0, "child_attendance": 0 },
+      { "id": "ee046940-601d-4c5f-b1ef-4145aeff2c83", "wib_date": "2027-07-09", "links": 0, "rsvps": 0, "invitations": 0, "attendance": 0, "child_attendance": 0 },
+      { "id": "123745cd-d85f-435e-af05-542dc1cdbd58", "wib_date": "2027-08-13", "links": 0, "rsvps": 0, "invitations": 0, "attendance": 0, "child_attendance": 0 },
+      { "id": "5bfb280b-d1ac-48e5-910d-7d0c2cf0b173", "wib_date": "2027-09-10", "links": 0, "rsvps": 0, "invitations": 0, "attendance": 0, "child_attendance": 0 }
+    ]
+  },
+  "prod": {
+    "event": {
+      "id": "4f9eb395-b1a2-40c2-a84c-af3970d8d26f",
+      "name": "Project Day",
+      "event_type": "friday_monthly",
+      "recurrence_rule": "FREQ=MONTHLY;BYDAY=2FR",
+      "active": true
+    },
+    "expected_dates": [
+      "2026-11-13", "2026-12-11", "2027-01-08", "2027-02-12", "2027-03-12", "2027-04-09",
+      "2027-05-14", "2027-06-11", "2027-07-09", "2027-08-13", "2027-09-10", "2027-10-08"
+    ],
+    "instances": [
+      { "id": "3c456ee4-7385-4478-80cb-9d7718f9b499", "wib_date": null, "links": 0, "rsvps": 0, "invitations": 0, "attendance": 0, "child_attendance": 0 },
+      { "id": "f7aca1c9-5a15-4011-bee2-ef5f9fb568d2", "wib_date": null, "links": 0, "rsvps": 0, "invitations": 0, "attendance": 0, "child_attendance": 0 },
+      { "id": "a1e295da-73d3-41d8-b339-522c7124abcd", "wib_date": null, "links": 0, "rsvps": 0, "invitations": 0, "attendance": 0, "child_attendance": 0 },
+      { "id": "74f1cc19-3bbd-4909-8d90-5d9d3f84b547", "wib_date": null, "links": 0, "rsvps": 0, "invitations": 0, "attendance": 0, "child_attendance": 0 },
+      { "id": "ce4a2457-bac6-452f-bfd5-4bba4a34198e", "wib_date": null, "links": 0, "rsvps": 0, "invitations": 0, "attendance": 0, "child_attendance": 0 },
+      { "id": "7462bf1c-c98e-427b-bc34-ff764e3c4409", "wib_date": null, "links": 0, "rsvps": 0, "invitations": 0, "attendance": 0, "child_attendance": 0 },
+      { "id": "b1d32d69-659f-49b6-87aa-2a20fa8426d6", "wib_date": null, "links": 0, "rsvps": 0, "invitations": 0, "attendance": 0, "child_attendance": 0 },
+      { "id": "ee6a9d3c-2d5c-47a6-818b-68695c3a6e21", "wib_date": null, "links": 0, "rsvps": 0, "invitations": 0, "attendance": 0, "child_attendance": 0 },
+      { "id": "2fbce96c-fc83-404e-ab8e-1e4ec4e59167", "wib_date": null, "links": 0, "rsvps": 0, "invitations": 0, "attendance": 0, "child_attendance": 0 },
+      { "id": "69eaf035-d5ac-4855-a50d-4f7949b54557", "wib_date": null, "links": 0, "rsvps": 0, "invitations": 0, "attendance": 0, "child_attendance": 0 },
+      { "id": "64535c8c-1c27-4720-80dc-e17bf92039c9", "wib_date": null, "links": 0, "rsvps": 0, "invitations": 0, "attendance": 0, "child_attendance": 0 },
+      { "id": "e938399f-29d5-4cc4-8b36-7771d870aa01", "wib_date": null, "links": 0, "rsvps": 0, "invitations": 0, "attendance": 0, "child_attendance": 0 }
+    ]
+  }
+}

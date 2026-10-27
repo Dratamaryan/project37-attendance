@@ -1,9 +1,10 @@
 // Types for analytics server actions — imported by analytics.impl.ts and analytics.ts.
 
-export type EventType = 'friday_monthly' | 'sunday_monthly' | 'adhoc' | 'other_recurring'
+export type EventType = 'friday_monthly' | 'saturday_monthly' | 'sunday_monthly' | 'adhoc' | 'other_recurring'
 
 export const VALID_EVENT_TYPES = new Set<string>([
   'friday_monthly',
+  'saturday_monthly',
   'sunday_monthly',
   'adhoc',
   'other_recurring',

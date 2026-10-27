@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { expandRRule } from '@/lib/events/recurrence';
+import { formatJakarta } from '@/lib/events/timezone';
 
 // Fixed now for determinism across all recurrence tests
 const NOW = new Date('2026-07-01T00:00:00.000Z');
@@ -217,4 +218,36 @@ describe('expandRRule — edge cases', () => {
     if (result1.status !== 'ok' || result2.status !== 'ok') return;
     expect(result1.occurrences).toEqual(result2.occurrences);
   });
+});
+
+// S9.5-T2: Project Day moves to the 2nd Saturday from Nov 2026 (saturday_monthly
+// preset → FREQ=MONTHLY;BYDAY=2SA). BYDAY is evaluated on the UTC calendar date
+// of dtstart, so these start times (>= 07:00 WIB) keep the WIB weekday.
+describe('expandRRule — 2nd Saturday monthly (S9.5-T2)', () => {
+  const NOW_S95 = new Date('2026-11-02T00:00:00.000Z');
+  const EXPECTED_WIB_DATES = [
+    '2026-11-14', '2026-12-12', '2027-01-09', '2027-02-13', '2027-03-13', '2027-04-10',
+    '2027-05-08', '2027-06-12', '2027-07-10', '2027-08-14', '2027-09-11', '2027-10-09',
+  ];
+
+  for (const startTime of ['15:00', '18:00']) {
+    it(`REC-13 2SA @${startTime} WIB from 2026-11-14, now=2026-11-02, 12mo: exactly the 12 expected Saturdays`, () => {
+      const result = expandRRule({
+        recurrenceRule: 'FREQ=MONTHLY;BYDAY=2SA',
+        startDate: '2026-11-14',
+        startTime,
+        horizonMonths: 12,
+        now: NOW_S95,
+      });
+
+      expect(result.status).toBe('ok');
+      if (result.status !== 'ok') return;
+
+      expect(result.occurrences.map(o => formatJakarta(o, 'yyyy-MM-dd'))).toEqual(EXPECTED_WIB_DATES);
+      for (const occ of result.occurrences) {
+        expect(formatJakarta(occ, 'i')).toBe('6'); // ISO day of week: Saturday
+        expect(formatJakarta(occ, 'HH:mm')).toBe(startTime);
+      }
+    });
+  }
 });

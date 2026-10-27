@@ -10,6 +10,7 @@ export function resolveRruleDesc(
 ): string {
   switch (eventType) {
     case 'friday_monthly':
+    case 'saturday_monthly':
     case 'sunday_monthly':
     case 'adhoc':
       return t(eventType)
@@ -27,6 +28,7 @@ type Props = {
 function EventTypeBadge({ type, label }: { type: string; label: string }) {
   const colors: Record<string, string> = {
     friday_monthly:  'bg-blue-100 text-blue-700',
+    saturday_monthly: 'bg-indigo-100 text-indigo-700',
     sunday_monthly:  'bg-purple-100 text-purple-700',
     adhoc:           'bg-amber-100 text-amber-700',
     other_recurring: 'bg-teal-100 text-teal-700',

@@ -392,6 +392,7 @@
         "event_type": "Event type",
         "event_type_all": "All types",
         "event_type_friday_monthly": "Monthly (2nd Friday)",
+        "event_type_saturday_monthly": "Monthly (2nd Saturday)",
         "event_type_sunday_monthly": "Monthly Sunday",
         "event_type_adhoc": "One-time",
         "event_type_other_recurring": "Other recurring",
@@ -472,6 +473,7 @@
       },
       "type": {
         "friday_monthly": "Monthly (2nd Friday)",
+        "saturday_monthly": "Monthly (2nd Saturday)",
         "sunday_monthly": "Monthly Sunday",
         "adhoc": "One-time",
         "other_recurring": "Other recurring"
@@ -492,6 +494,7 @@
       },
       "rrule": {
         "friday_monthly": "2nd Friday of each month",
+        "saturday_monthly": "2nd Saturday of each month",
         "sunday_monthly": "1st Sunday of each month",
         "adhoc": "One-time event",
         "other_recurring": "Recurring (custom rule)"
@@ -683,7 +686,8 @@
           "result": "Sent {sent}, failed {failed}, skipped {skipped} already sent.",
           "remaining": "{remaining} recipients remain — click Send invites again to continue.",
           "forbidden": "You don't have permission to send invites.",
-          "error": "Couldn't send invites. Please try again."
+          "error": "Couldn't send invites. Please try again.",
+          "instance_not_open": "Invites can only be sent for a scheduled occurrence of an active event."
         },
         "recipients": {
           "title": "Recipients with email ({count})",
@@ -697,7 +701,8 @@
           "resend_ok": "Resent (v{sequence})",
           "resend_failed": "Resend failed: {message}",
           "resend_not_found": "Not invited yet — send invites first.",
-          "resend_daily_cap_exhausted": "Today's send limit has been reached — try again tomorrow."
+          "resend_daily_cap_exhausted": "Today's send limit has been reached — try again tomorrow.",
+          "resend_instance_not_open": "Can't resend — this occurrence is cancelled, completed, or its event is inactive."
         }
       },
       "form": {

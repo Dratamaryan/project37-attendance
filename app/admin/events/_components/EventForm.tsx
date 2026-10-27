@@ -15,6 +15,7 @@ type FieldErrors = Record<string, string>
 
 const EVENT_TYPES = [
   'friday_monthly',
+  'saturday_monthly',
   'sunday_monthly',
   'adhoc',
   'other_recurring',

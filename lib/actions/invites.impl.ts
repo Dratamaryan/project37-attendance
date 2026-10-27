@@ -197,6 +197,19 @@ interface InstanceEventDetails {
   eventNameId: string | null
   location: string | null
   imageUrl: string | null
+  /** S9.5-T2 invite guard inputs — see isInstanceOpenForInvites. */
+  instanceStatus: string
+  eventActive: boolean
+}
+
+/**
+ * S9.5-T2: invitations go out only for a 'scheduled' instance of an active
+ * event — never for a cancelled/completed instance or a retired series.
+ * Checked by both sendInvites and resendInvite before anything is claimed
+ * or sent.
+ */
+function isInstanceOpenForInvites(details: InstanceEventDetails): boolean {
+  return details.instanceStatus === 'scheduled' && details.eventActive
 }
 
 async function loadInstanceEventDetails(
@@ -205,14 +218,14 @@ async function loadInstanceEventDetails(
 ): Promise<InstanceEventDetails | null> {
   const { data: instance } = await supabase
     .from('event_instances')
-    .select('id, event_id, scheduled_at, event_name_snapshot, event_name_snapshot_id, image_url')
+    .select('id, event_id, scheduled_at, event_name_snapshot, event_name_snapshot_id, image_url, status')
     .eq('id', eventInstanceId)
     .single()
   if (!instance) return null
 
   const { data: event } = await supabase
     .from('events')
-    .select('location, duration_min')
+    .select('location, duration_min, active')
     .eq('id', instance.event_id)
     .single()
   if (!event) return null
@@ -225,6 +238,8 @@ async function loadInstanceEventDetails(
     eventNameId: instance.event_name_snapshot_id,
     location: event.location,
     imageUrl: instance.image_url,
+    instanceStatus: instance.status,
+    eventActive: event.active === true,
   }
 }
 
@@ -416,6 +431,7 @@ export async function impl_sendInvites(input: SendInvitesInput): Promise<SendInv
 
   const details = await loadInstanceEventDetails(supabase, eventInstanceId)
   if (!details) return { status: 'error', message: 'Event instance not found' }
+  if (!isInstanceOpenForInvites(details)) return { status: 'instance_not_open' }
 
   const runNow = now()
   const [{ hasEmail, noEmail }, dailyCap, sentToday] = await Promise.all([
@@ -603,6 +619,7 @@ export async function impl_resendInvite(input: ResendInviteInput): Promise<Resen
 
   const details = await loadInstanceEventDetails(supabase, eventInstanceId)
   if (!details) return { status: 'send_failed', message: 'Event instance not found', sequence: existing.sequence }
+  if (!isInstanceOpenForInvites(details)) return { status: 'instance_not_open' }
 
   const { data: person } = await supabase.from('people').select('full_name, email').eq('id', personId).single()
   if (!person?.email) {

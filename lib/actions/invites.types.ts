@@ -36,6 +36,8 @@ export type StoppedReason = 'completed' | 'run_budget_exhausted' | 'quota_exhaus
 export type SendInvitesResult =
   | { status: 'forbidden'; message: string }
   | { status: 'error'; message: string }
+  /** S9.5-T2: instance not 'scheduled' or its event inactive — nothing sent. */
+  | { status: 'instance_not_open' }
   | {
       status: 'ok'
       eventInstanceId: string
@@ -56,6 +58,8 @@ export type ResendInviteResult =
   | { status: 'forbidden'; message: string }
   | { status: 'error'; message: string }
   | { status: 'not_found' }
+  /** S9.5-T2: instance not 'scheduled' or its event inactive — nothing sent, sequence untouched. */
+  | { status: 'instance_not_open' }
   | { status: 'ok'; sequence: number }
   | { status: 'send_failed'; message: string; sequence: number }
   | { status: 'daily_cap_exhausted'; sequence: number }

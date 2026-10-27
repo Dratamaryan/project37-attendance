@@ -8,6 +8,10 @@ describe('buildRRule', () => {
     expect(buildRRule('friday_monthly')).toBe('FREQ=MONTHLY;BYDAY=2FR')
   })
 
+  it('saturday_monthly → FREQ=MONTHLY;BYDAY=2SA', () => {
+    expect(buildRRule('saturday_monthly')).toBe('FREQ=MONTHLY;BYDAY=2SA')
+  })
+
   it('sunday_monthly → FREQ=MONTHLY;BYDAY=1SU', () => {
     expect(buildRRule('sunday_monthly')).toBe('FREQ=MONTHLY;BYDAY=1SU')
   })

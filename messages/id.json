@@ -392,6 +392,7 @@
         "event_type": "Jenis acara",
         "event_type_all": "Semua jenis",
         "event_type_friday_monthly": "Bulanan (Jumat ke-2)",
+        "event_type_saturday_monthly": "Bulanan (Sabtu ke-2)",
         "event_type_sunday_monthly": "Minggu bulanan",
         "event_type_adhoc": "Satu kali",
         "event_type_other_recurring": "Berulang lainnya",
@@ -472,6 +473,7 @@
       },
       "type": {
         "friday_monthly": "Bulanan (Jumat ke-2)",
+        "saturday_monthly": "Bulanan (Sabtu ke-2)",
         "sunday_monthly": "Minggu bulanan",
         "adhoc": "Satu kali",
         "other_recurring": "Berulang lainnya"
@@ -492,6 +494,7 @@
       },
       "rrule": {
         "friday_monthly": "Setiap Jumat ke-2",
+        "saturday_monthly": "Setiap Sabtu ke-2",
         "sunday_monthly": "Setiap Minggu pertama",
         "adhoc": "Acara satu kali",
         "other_recurring": "Berulang (aturan kustom)"
@@ -683,7 +686,8 @@
           "result": "Terkirim {sent}, gagal {failed}, dilewati {skipped} karena sudah terkirim.",
           "remaining": "{remaining} penerima tersisa — klik Kirim undangan lagi untuk melanjutkan.",
           "forbidden": "Anda tidak memiliki izin untuk mengirim undangan.",
-          "error": "Gagal mengirim undangan. Silakan coba lagi."
+          "error": "Gagal mengirim undangan. Silakan coba lagi.",
+          "instance_not_open": "Undangan hanya bisa dikirim untuk jadwal yang masih terjadwal dari acara yang aktif."
         },
         "recipients": {
           "title": "Penerima dengan email ({count})",
@@ -697,7 +701,8 @@
           "resend_ok": "Terkirim ulang (v{sequence})",
           "resend_failed": "Gagal kirim ulang: {message}",
           "resend_not_found": "Belum diundang — kirim undangan terlebih dahulu.",
-          "resend_daily_cap_exhausted": "Batas pengiriman hari ini sudah tercapai — coba lagi besok."
+          "resend_daily_cap_exhausted": "Batas pengiriman hari ini sudah tercapai — coba lagi besok.",
+          "resend_instance_not_open": "Tidak bisa kirim ulang — jadwal ini dibatalkan, sudah selesai, atau acaranya tidak aktif."
         }
       },
       "form": {

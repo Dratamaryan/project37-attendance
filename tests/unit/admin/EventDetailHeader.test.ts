@@ -9,6 +9,10 @@ describe('resolveRruleDesc', () => {
     expect(resolveRruleDesc('friday_monthly', null, t)).toBe('[friday_monthly]')
   })
 
+  it('EH-08: saturday_monthly uses rrule.saturday_monthly i18n key', () => {
+    expect(resolveRruleDesc('saturday_monthly', null, t)).toBe('[saturday_monthly]')
+  })
+
   it('EH-02: sunday_monthly uses rrule.sunday_monthly i18n key', () => {
     expect(resolveRruleDesc('sunday_monthly', null, t)).toBe('[sunday_monthly]')
   })

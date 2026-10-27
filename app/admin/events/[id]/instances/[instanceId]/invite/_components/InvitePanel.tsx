@@ -49,6 +49,8 @@ export function InvitePanel({ eventInstanceId }: Props) {
         setPreview({ hasEmail: preview?.hasEmail ?? [], noEmail: result.noEmail })
       } else if (result.status === 'forbidden') {
         setSendError(t('send.forbidden'))
+      } else if (result.status === 'instance_not_open') {
+        setSendError(t('send.instance_not_open'))
       } else {
         setSendError(t('send.error'))
       }

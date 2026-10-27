@@ -73,6 +73,7 @@ export function AnalyticsFiltersControls({ currentFilters }: Props) {
         >
           <option value="">{t('filter.event_type_all')}</option>
           <option value="friday_monthly">{t('filter.event_type_friday_monthly')}</option>
+          <option value="saturday_monthly">{t('filter.event_type_saturday_monthly')}</option>
           <option value="sunday_monthly">{t('filter.event_type_sunday_monthly')}</option>
           <option value="adhoc">{t('filter.event_type_adhoc')}</option>
           <option value="other_recurring">{t('filter.event_type_other_recurring')}</option>
