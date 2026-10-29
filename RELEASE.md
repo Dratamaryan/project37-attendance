@@ -631,3 +631,21 @@ branch-expected ref for remote ops.
   (verified:server-side, see the staging entry above) / Prod ✓ verified:live (owner: event form,
   success banner, events list, P10 SELECT, RSVP mint); /checkin and the public RSVP page per owner
   report. No real PII at any rung.
+- S9.5-T5 STAGING VERIFIED (2026-10-29): public RSVP form is coming-only and the name is mandatory
+  (3747240; code-only, no migration — event_rsvps.status CHECK untouched). Owner decision
+  2026-10-27: submitting means coming; over-count from later drop-outs accepted. Form: no status
+  choice, confirmation copy en+id, name required (HTML required + marker). parseRsvpFormData: no
+  status → 'coming'; explicit 'coming' (pre-T5 page) accepted; any other status → rejected as
+  {kind:'error', reason:'form_outdated'} (localized "reload the page"), never converted; name
+  trimmed, 2..100 code points. Admin panel totals, export summary and R7 KPIs coming-only (Maybe /
+  Not coming lines, buckets and the R7 Maybe card removed); export Status column and per-row status
+  labels kept for legacy rows. Verification rungs (rule 17): Local ✓ verified:vitest (gate
+  1903/1903, lint 0 errors, typecheck, build) / Staging ✓ (run by Claude Code under delegation:
+  preflight + staging pin; db push --dry-run "Remote database is up to date" → no db push; push
+  3747240 → deploy dpl_CHqRYA8cM6H43zwtjXBzwe5HNLpT; scripts/s9-5/t5-staging-smoke.ts on a
+  throwaway [SYNTH] event, verified:server-side — no status → coming; maybe / not_coming →
+  form_outdated, 0 rows; blank / 1-char name → required / too_short, 0 rows; re-submit updates the
+  same row; legacy maybe + not_coming fixture → panel totals {responses 3, coming 1, headcount 3,
+  children 2}, export summary has no Maybe / Not coming line, Status column keeps legacy labels;
+  cleanup zero residue incl. 0 audit rows). Public page not fetched (Vercel protection, not
+  bypassed) — owner UI checklist. Prod: pending owner (main fast-forward only).
