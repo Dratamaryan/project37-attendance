@@ -34,7 +34,7 @@ function row(date: string, coming: number, adults: number, children: number): Rs
     ended_at: `${date}T13:00:00Z`,
     coming_people: coming,
     coming_headcount: coming,
-    maybe_people: 0,
+   
     coming_came: 0,
     coming_no_show: 0,
     walk_ins: 0,

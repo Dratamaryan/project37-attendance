@@ -18,7 +18,7 @@ const KPIS: RsvpKpis = {
   instances: 2,
   coming_headcount: 6,
   coming_people: 3,
-  maybe_people: 1,
+ 
   actual_adults: 6,
   actual_children: 3,
   show_up_rate: 2 / 3,
@@ -36,7 +36,7 @@ const DATA: RsvpAnalytics = {
     {
       event_instance_id: 'i1', event_id: 'e', event_type: 'adhoc',
       scheduled_at: '2026-10-02T12:00:00+00:00', ended_at: '2026-10-02T14:00:00+00:00', scheduled_date: '2026-10-02',
-      coming_people: 3, coming_headcount: 6, maybe_people: 1, coming_came: 2, coming_no_show: 1,
+      coming_people: 3, coming_headcount: 6, coming_came: 2, coming_no_show: 1,
       walk_ins: 2, actual_adults: 5, actual_children: 3, newcomer_rsvps: 2, became_members: 1,
       invited: 4, invited_responded: 2, invited_attended: 2,
     },
@@ -53,6 +53,13 @@ describe('RsvpKpiCards', () => {
     expect(screen.getByTestId('rsvp-kpi-walk-in-share')).toHaveTextContent('50%')
     expect(screen.getByTestId('rsvp-kpi-funnel-response-rate')).toHaveTextContent('—')
     expect(screen.getByTestId('rsvp-kpi-funnel-attendance-rate')).toHaveTextContent('50%')
+  })
+
+  it('S9.5-T5: no Maybe card — coming-derived figures only', () => {
+    render(<RsvpKpiCards data={KPIS} hasError={false} />)
+    expect(screen.queryByTestId('rsvp-kpi-maybe-people')).toBeNull()
+    expect(screen.queryByText('kpi.maybe_people')).toBeNull()
+    expect(screen.getByTestId('rsvp-kpi-coming-people')).toHaveTextContent('3')
   })
 
   it('show-up and no-show always sum to 100%: 2/3 vs 1/3 -> 67% / 33%; 0.125 vs 0.875 -> 13% / 87%', () => {

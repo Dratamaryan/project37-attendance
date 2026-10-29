@@ -38,6 +38,8 @@
 //   buckets: coming_came 2 (M1, N1), coming_no_show 2 (M2, M5), maybe_came 1
 //   (M3), maybe_no_show 1 (N2), not_coming_came 1 (M4), not_coming_no_show 1
 //   (X), walk_in 2 (W1, W2) -> 10 view rows. children: expected 3, checked in 2.
+//   S9.5-T5: M3 N2 X M4 are the legacy maybe / not_coming fixture — totals
+//   carry no maybe / not_coming figures and they add nothing to coming ones.
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
@@ -445,9 +447,6 @@ describe('impl_getInstanceRsvpPanel', () => {
       coming_people: 4,
       coming_headcount: 7,
       coming_children: 3,
-      maybe_people: 2,
-      maybe_headcount: 3,
-      not_coming_people: 2,
     })
     expect(panel.buckets).toEqual({
       coming_came: 2,

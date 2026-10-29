@@ -10,7 +10,6 @@ export type RsvpInstanceMetricsRow = {
   ended_at: string                 // ISO timestamptz
   coming_people: number
   coming_headcount: number         // Σ 1 + children_count over coming RSVPs
-  maybe_people: number
   coming_came: number
   coming_no_show: number
   walk_ins: number
@@ -34,7 +33,6 @@ export type RsvpKpis = {
   instances: number
   coming_headcount: number
   coming_people: number
-  maybe_people: number
   actual_adults: number
   actual_children: number
   show_up_rate: number | null        // Σcoming_came / Σcoming_people

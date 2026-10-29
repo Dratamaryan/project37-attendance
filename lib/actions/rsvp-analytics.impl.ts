@@ -22,7 +22,7 @@ const PAGE_SIZE = 500          // below PostgREST max_rows=1000, same as rsvp/ad
 
 const COLUMNS =
   'event_instance_id, event_id, event_type, scheduled_at, ended_at, ' +
-  'coming_people, coming_headcount, maybe_people, coming_came, coming_no_show, walk_ins, ' +
+  'coming_people, coming_headcount, coming_came, coming_no_show, walk_ins, ' +
   'actual_adults, actual_children, newcomer_rsvps, became_members, ' +
   'invited, invited_responded, invited_attended'
 
@@ -80,7 +80,6 @@ export function poolRsvpMetrics(rows: RsvpInstanceMetricsRow[]): RsvpKpis {
     instances: rows.length,
     coming_headcount: sum(r => r.coming_headcount),
     coming_people: comingPeople,
-    maybe_people: sum(r => r.maybe_people),
     actual_adults: actualAdults,
     actual_children: sum(r => r.actual_children),
     show_up_rate: rate(sum(r => r.coming_came), comingPeople),

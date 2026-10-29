@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 //
-// Client behaviour of the public RSVP form (S9-R1): status-dependent children
-// section, 1..20 count select, field errors / banners, success recap, and
-// "Change my answer" returning to a pre-filled form. S9-R4: honeypot markup and
+// Client behaviour of the public RSVP form (S9-R1): children section, 1..20
+// count select, field errors / banners, success recap, and "Change my
+// details" returning to a pre-filled form. S9.5-T5: no status choice (submit
+// means coming), name required. S9-R4: honeypot markup and
 // the Turnstile widget lifecycle against a fake window.turnstile.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, render, screen, waitFor } from '@testing-library/react'
@@ -31,8 +32,8 @@ function lastFormData(): Record<string, string> {
 }
 
 async function fillValid(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByLabelText('form.status_coming'))
   await user.type(screen.getByLabelText(/form\.phone_label/), '081234567890')
+  await user.type(screen.getByLabelText(/form\.name_label/), 'Budi')
 }
 
 beforeEach(() => {
@@ -40,18 +41,8 @@ beforeEach(() => {
 })
 
 describe('RsvpForm — children section', () => {
-  it('visible by default; hidden for Tidak hadir; back for Hadir / Mungkin', async () => {
-    const user = userEvent.setup()
+  it('always visible', () => {
     render(<RsvpForm action={action} />)
-    expect(screen.getByTestId('rsvp-children')).toBeInTheDocument()
-
-    await user.click(screen.getByLabelText('form.status_not_coming'))
-    expect(screen.queryByTestId('rsvp-children')).not.toBeInTheDocument()
-
-    await user.click(screen.getByLabelText('form.status_maybe'))
-    expect(screen.getByTestId('rsvp-children')).toBeInTheDocument()
-
-    await user.click(screen.getByLabelText('form.status_coming'))
     expect(screen.getByTestId('rsvp-children')).toBeInTheDocument()
   })
 
@@ -73,22 +64,36 @@ describe('RsvpForm — children section', () => {
   })
 })
 
+describe('RsvpForm — S9.5-T5 attendance confirmation', () => {
+  it('no status choice; title + intro; name is required with a visible marker', () => {
+    render(<RsvpForm action={action} />)
+    expect(screen.queryByRole('radio', { name: /status/ })).not.toBeInTheDocument()
+    expect(document.querySelector('input[name="status"]')).toBeNull()
+    expect(screen.getByRole('heading', { level: 2, name: 'form.title' })).toBeInTheDocument()
+    expect(screen.getByText('form.intro')).toBeInTheDocument()
+    const name = screen.getByLabelText(/form\.name_label/)
+    expect(name).toBeRequired()
+    expect(name).toHaveAttribute('aria-required', 'true')
+    expect(name.closest('div')?.querySelector('label')).toHaveTextContent('form.name_label*')
+    expect(screen.queryByText('form.name_optional')).not.toBeInTheDocument()
+  })
+})
+
 describe('RsvpForm — submission', () => {
   it('submits the field names the server parses', async () => {
     action.mockResolvedValue({ kind: 'success', status: 'coming', children: 3 })
     const user = userEvent.setup()
     render(<RsvpForm action={action} />)
     await fillValid(user)
-    await user.type(screen.getByLabelText(/form\.name_label/), 'Budi')
     await user.click(screen.getByLabelText('form.children_yes'))
     await user.selectOptions(screen.getByLabelText('form.children_count_label'), '3')
     await user.click(screen.getByLabelText('form.consent_label'))
     await user.click(screen.getByRole('button', { name: 'form.submit' }))
 
     await waitFor(() => expect(action).toHaveBeenCalledTimes(1))
+    // S9.5-T5: no status field — the server reads its absence as 'coming'.
     expect(lastFormData()).toEqual({
       website: '', // S9-R4 honeypot, empty for a person
-      status: 'coming',
       phone: '081234567890',
       name: 'Budi',
       bringing_children: 'yes',
@@ -97,20 +102,18 @@ describe('RsvpForm — submission', () => {
     })
   })
 
-  it('Tidak hadir sends no children fields', async () => {
-    action.mockResolvedValue({ kind: 'success', status: 'not_coming', children: 0 })
+  it('Tidak (no children) sends no count; consent unticked is not sent', async () => {
+    action.mockResolvedValue({ kind: 'success', status: 'coming', children: 0 })
     const user = userEvent.setup()
     render(<RsvpForm action={action} />)
-    await user.click(screen.getByLabelText('form.children_yes'))
-    await user.click(screen.getByLabelText('form.status_not_coming'))
-    await user.type(screen.getByLabelText(/form\.phone_label/), '081234567890')
+    await fillValid(user)
     await user.click(screen.getByRole('button', { name: 'form.submit' }))
 
     await waitFor(() => expect(action).toHaveBeenCalledTimes(1))
     const sent = lastFormData()
-    expect(sent.status).toBe('not_coming')
-    expect(sent).not.toHaveProperty('bringing_children')
+    expect(sent.bringing_children).toBe('no')
     expect(sent).not.toHaveProperty('children_count')
+    expect(sent).not.toHaveProperty('status')
     // Consent never ticked -> the checkbox is not submitted at all.
     expect(sent).not.toHaveProperty('followup_consent')
   })
@@ -143,14 +146,15 @@ describe('RsvpForm — submission', () => {
   })
 
   it('field errors render inline with role=alert, and the answers are kept', async () => {
-    action.mockResolvedValue({ kind: 'invalid', fieldErrors: { phone: 'too_short', status: 'required' } })
+    action.mockResolvedValue({ kind: 'invalid', fieldErrors: { phone: 'too_short', name: 'required' } })
     const user = userEvent.setup()
     render(<RsvpForm action={action} />)
     await user.type(screen.getByLabelText(/form\.phone_label/), '0812')
     await user.click(screen.getByRole('button', { name: 'form.submit' }))
 
     expect(await screen.findByText('errors.phone_too_short')).toHaveAttribute('role', 'alert')
-    expect(screen.getByText('errors.status_required')).toHaveAttribute('role', 'alert')
+    expect(screen.getByText('errors.name_required')).toHaveAttribute('role', 'alert')
+    expect(screen.getByLabelText(/form\.name_label/)).toHaveAttribute('aria-invalid', 'true')
     expect(screen.getByText('errors.invalid_summary')).toBeInTheDocument()
     expect(screen.getByLabelText(/form\.phone_label/)).toHaveValue('0812')
     expect(screen.getByLabelText(/form\.phone_label/)).toHaveAttribute('aria-invalid', 'true')
@@ -160,6 +164,7 @@ describe('RsvpForm — submission', () => {
     [{ kind: 'limit' } as const, 'errors.limit'],
     [{ kind: 'unavailable' } as const, 'errors.unavailable'],
     [{ kind: 'error' } as const, 'errors.generic'],
+    [{ kind: 'error', reason: 'form_outdated' } as const, 'errors.form_outdated'],
   ])('%j -> banner %s, form stays', async (result, text) => {
     action.mockResolvedValue(result)
     const user = userEvent.setup()
@@ -185,7 +190,7 @@ describe('RsvpForm — submission', () => {
 })
 
 describe('RsvpForm — success', () => {
-  it('recaps the visitor’s own status and children', async () => {
+  it('recaps the visitor’s own children; no status line', async () => {
     action.mockResolvedValue({ kind: 'success', status: 'coming', children: 2 })
     const user = userEvent.setup()
     render(<RsvpForm action={action} />)
@@ -194,34 +199,25 @@ describe('RsvpForm — success', () => {
 
     const success = await screen.findByTestId('rsvp-success')
     expect(success).toHaveTextContent('success.title')
-    expect(success).toHaveTextContent('success.recap_status form.status_coming')
+    expect(success).toHaveTextContent('success.body')
+    expect(success).not.toHaveTextContent('success.recap_status')
     expect(success).toHaveTextContent('success.recap_children 2')
     expect(screen.queryByTestId('rsvp-form')).not.toBeInTheDocument()
   })
 
-  it('no children -> "none" line; not attending -> no children line', async () => {
-    action.mockResolvedValueOnce({ kind: 'success', status: 'maybe', children: 0 })
+  it('no children -> "none" line', async () => {
+    action.mockResolvedValueOnce({ kind: 'success', status: 'coming', children: 0 })
     const user = userEvent.setup()
-    const { unmount } = render(<RsvpForm action={action} />)
-    await fillValid(user)
-    await user.click(screen.getByRole('button', { name: 'form.submit' }))
-    expect(await screen.findByTestId('rsvp-success')).toHaveTextContent('success.recap_no_children')
-    unmount()
-
-    action.mockResolvedValueOnce({ kind: 'success', status: 'not_coming', children: 0 })
     render(<RsvpForm action={action} />)
     await fillValid(user)
     await user.click(screen.getByRole('button', { name: 'form.submit' }))
-    const success = await screen.findByTestId('rsvp-success')
-    expect(success).toHaveTextContent('success.recap_status form.status_not_coming')
-    expect(success).not.toHaveTextContent('success.recap_children')
-    expect(success).not.toHaveTextContent('success.recap_no_children')
+    expect(await screen.findByTestId('rsvp-success')).toHaveTextContent('success.recap_no_children')
   })
 
-  it('"Ubah jawaban" returns to the pre-filled form; resubmitting shows success again', async () => {
+  it('"Ubah data saya" returns to the pre-filled form; resubmitting shows success again', async () => {
     action
       .mockResolvedValueOnce({ kind: 'success', status: 'coming', children: 0 })
-      .mockResolvedValueOnce({ kind: 'success', status: 'maybe', children: 0 })
+      .mockResolvedValueOnce({ kind: 'success', status: 'coming', children: 1 })
     const user = userEvent.setup()
     render(<RsvpForm action={action} />)
     await fillValid(user)
@@ -230,13 +226,13 @@ describe('RsvpForm — success', () => {
 
     expect(screen.getByTestId('rsvp-form')).toBeInTheDocument()
     expect(screen.getByLabelText(/form\.phone_label/)).toHaveValue('081234567890')
-    expect(screen.getByLabelText('form.status_coming')).toBeChecked()
+    expect(screen.getByLabelText(/form\.name_label/)).toHaveValue('Budi')
 
-    await user.click(screen.getByLabelText('form.status_maybe'))
+    await user.click(screen.getByLabelText('form.children_yes'))
     await user.click(screen.getByRole('button', { name: 'form.submit' }))
-    expect(await screen.findByTestId('rsvp-success')).toHaveTextContent('success.recap_status form.status_maybe')
+    expect(await screen.findByTestId('rsvp-success')).toHaveTextContent('success.recap_children 1')
     expect(action).toHaveBeenCalledTimes(2)
-    expect(lastFormData()).toMatchObject({ status: 'maybe', phone: '081234567890' })
+    expect(lastFormData()).toMatchObject({ phone: '081234567890', name: 'Budi', children_count: '1' })
   })
 })
 
@@ -247,7 +243,6 @@ describe('RsvpForm — privacy policy link (S9-R5)', () => {
     const user = userEvent.setup()
     render(<RsvpForm action={action} />)
     await fillValid(user)
-    await user.type(screen.getByLabelText(/form\.name_label/), 'Budi')
     await user.click(screen.getByLabelText('form.consent_label'))
 
     const link = screen.getByRole('link', { name: 'form.privacy_link' })

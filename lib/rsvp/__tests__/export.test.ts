@@ -1,6 +1,6 @@
 // Unit tests for the S9-R3b/R5 RSVP export row mapper (lib/rsvp/export.ts).
 import { describe, it, expect } from 'vitest'
-import { mapRsvpToExportRow } from '../export'
+import { buildSummaryRows, mapRsvpToExportRow, RESPONSE_HEADERS } from '../export'
 import type { RsvpExportRow } from '../admin.types'
 
 function row(over: Partial<RsvpExportRow>): RsvpExportRow {
@@ -31,5 +31,35 @@ describe('mapRsvpToExportRow — scrubbed rows (S9-R5)', () => {
   it('not scrubbed: name and phone pass through', () => {
     const out = mapRsvpToExportRow(row({}))
     expect(out).toMatchObject({ Name: '[SYNTH] Newcomer', Type: 'Newcomer', Phone: '+6299900000001' })
+  })
+})
+
+describe('S9.5-T5 — coming-only summary, Status column kept', () => {
+  it('summary rows: no Maybe / Not coming metrics or buckets', () => {
+    const rows = buildSummaryRows(
+      { responses: 4, coming_people: 2, coming_headcount: 4, coming_children: 2 },
+      { coming_came: 1, coming_no_show: 1, maybe_came: 1, maybe_no_show: 0, not_coming_came: 0, not_coming_no_show: 1, walk_in: 3 },
+      { expected: 2, checked_in: 1 },
+    )
+    expect(rows).toEqual([
+      { Metric: 'Total responses', Value: 4 },
+      { Metric: 'Coming (people)', Value: 2 },
+      { Metric: 'Expected headcount (food)', Value: 4 },
+      { Metric: 'Coming children', Value: 2 },
+      { Metric: 'Coming · came', Value: 1 },
+      { Metric: "Coming · didn't come", Value: 1 },
+      { Metric: 'Walk-in (no RSVP)', Value: 3 },
+      { Metric: 'Children expected', Value: 2 },
+      { Metric: 'Children checked in', Value: 1 },
+    ])
+  })
+
+  it('Responses header unchanged; legacy statuses still labelled', () => {
+    expect(RESPONSE_HEADERS).toEqual([
+      'Name', 'Type', 'Status', 'Children', 'Follow-up consent', 'Phone', 'Checked in', 'Submitted (WIB)', 'Updated (WIB)',
+    ])
+    expect(mapRsvpToExportRow(row({ status: 'maybe' })).Status).toBe('Maybe')
+    expect(mapRsvpToExportRow(row({ status: 'not_coming' })).Status).toBe('Not coming')
+    expect(mapRsvpToExportRow(row({})).Status).toBe('Coming')
   })
 })

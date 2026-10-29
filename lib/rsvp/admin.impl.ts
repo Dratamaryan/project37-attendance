@@ -341,21 +341,12 @@ async function loadInstanceRsvpData(
     coming_people: 0,
     coming_headcount: 0,
     coming_children: 0,
-    maybe_people: 0,
-    maybe_headcount: 0,
-    not_coming_people: 0,
   }
   for (const r of rsvps) {
-    if (r.status === 'coming') {
-      totals.coming_people += 1
-      totals.coming_headcount += 1 + r.children_count
-      totals.coming_children += r.children_count
-    } else if (r.status === 'maybe') {
-      totals.maybe_people += 1
-      totals.maybe_headcount += 1 + r.children_count
-    } else {
-      totals.not_coming_people += 1
-    }
+    if (r.status !== 'coming') continue
+    totals.coming_people += 1
+    totals.coming_headcount += 1 + r.children_count
+    totals.coming_children += r.children_count
   }
 
   function deriveRows<P>(phone: (phoneE164: string | null, followupConsent: boolean) => P): Array<DerivedRsvpRow<P>> {

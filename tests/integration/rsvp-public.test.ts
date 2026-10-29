@@ -181,6 +181,9 @@ function form(fields: Record<string, string>): FormData {
   return fd
 }
 
+// S9.5-T5: name is required on every submit.
+const NEWCOMER_NAME = '[SYNTH] T5 Newcomer'
+
 function submit(token: string, fields: Record<string, string>): Promise<RsvpFormState> {
   return impl_submitRsvp(token, form(fields), createAnonServerClient(), NO_ABUSE_DEPS)
 }
@@ -288,7 +291,6 @@ describe('impl_submitRsvp (live anon RPC)', () => {
     const memberId = await createPerson(memberPhone)
 
     const answers = {
-      status: 'coming',
       name: 'Typed Name',
       bringing_children: 'yes',
       children_count: '2',
@@ -326,37 +328,101 @@ describe('impl_submitRsvp (live anon RPC)', () => {
     const phone = nextPhone()
 
     await submit(token, {
-      status: 'coming',
       phone: localFormat(phone),
       name: 'First Name',
       bringing_children: 'yes',
       children_count: '3',
       followup_consent: 'on',
     })
-    const second = await submit(token, { status: 'not_coming', phone: phone.replace('+62', '+62 ') })
-    expect(second).toEqual({ kind: 'success', status: 'not_coming', children: 0 })
+    const second = await submit(token, { phone: phone.replace('+62', '+62 '), name: '  Second Name  ' })
+    expect(second).toEqual({ kind: 'success', status: 'coming', children: 0 })
     expectNoLeak(second, phone)
 
     const rows = await rsvpRows(instanceId)
     expect(rows).toHaveLength(1)
     expect(rows[0]).toMatchObject({
       phone_e164: phone,
-      name: 'First Name', // blank resubmit keeps the earlier newcomer name
-      status: 'not_coming',
+      name: 'Second Name',
+      status: 'coming',
       children_count: 0,
       followup_consent: false,
     })
   })
 
+  // ── S9.5-T5: submitting means coming; name mandatory ──────────────────────
+
+  it("no status field -> row written as 'coming'", async () => {
+    const { instanceId } = await createInstance()
+    const { token } = await createLink(instanceId)
+    const phone = nextPhone()
+    expect(await submit(token, { phone: localFormat(phone), name: NEWCOMER_NAME })).toEqual({
+      kind: 'success', status: 'coming', children: 0,
+    })
+    expect(await rsvpRows(instanceId)).toEqual([
+      expect.objectContaining({ phone_e164: phone, name: NEWCOMER_NAME, status: 'coming' }),
+    ])
+  })
+
+  it("explicit 'coming' (pre-T5 page) -> row written as 'coming'", async () => {
+    const { instanceId } = await createInstance()
+    const { token } = await createLink(instanceId)
+    expect((await submit(token, { status: 'coming', phone: localFormat(nextPhone()), name: NEWCOMER_NAME })).kind).toBe('success')
+    expect((await rsvpRows(instanceId)).map((r) => r.status)).toEqual(['coming'])
+  })
+
+  it.each(['maybe', 'not_coming'])("'%s' -> form_outdated, zero rows", async (status) => {
+    const { instanceId } = await createInstance()
+    const { token } = await createLink(instanceId)
+    expect(await submit(token, { status, phone: localFormat(nextPhone()), name: NEWCOMER_NAME })).toEqual({
+      kind: 'error', reason: 'form_outdated',
+    })
+    expect(await rsvpRows(instanceId)).toHaveLength(0)
+  })
+
+  it("'maybe' re-submit for an existing phone -> form_outdated, the stored row untouched", async () => {
+    const { instanceId } = await createInstance()
+    const { token } = await createLink(instanceId)
+    const phone = nextPhone()
+    await submit(token, { phone: localFormat(phone), name: NEWCOMER_NAME, bringing_children: 'yes', children_count: '2' })
+    expect(await submit(token, { status: 'maybe', phone: localFormat(phone), name: NEWCOMER_NAME })).toEqual({
+      kind: 'error', reason: 'form_outdated',
+    })
+    expect(await rsvpRows(instanceId)).toEqual([
+      expect.objectContaining({ phone_e164: phone, status: 'coming', children_count: 2 }),
+    ])
+  })
+
+  it.each([
+    ['empty', '', 'required'],
+    ['whitespace', '   ', 'required'],
+    ['1 char', 'B', 'too_short'],
+  ])('%s name -> invalid (%s), zero rows', async (_label, name, error) => {
+    const { instanceId } = await createInstance()
+    const { token } = await createLink(instanceId)
+    expect(await submit(token, { phone: localFormat(nextPhone()), name })).toEqual({
+      kind: 'invalid', fieldErrors: { name: error },
+    })
+    expect(await rsvpRows(instanceId)).toHaveLength(0)
+  })
+
+  it('blank-name re-submit is rejected and does not touch the stored row', async () => {
+    const { instanceId } = await createInstance()
+    const { token } = await createLink(instanceId)
+    const phone = nextPhone()
+    await submit(token, { phone: localFormat(phone), name: 'First Name' })
+    expect((await submit(token, { phone: localFormat(phone), name: ' ' })).kind).toBe('invalid')
+    expect(await rsvpRows(instanceId)).toEqual([expect.objectContaining({ name: 'First Name', status: 'coming' })])
+  })
+
   it('closed token (inactive link) -> closed, no row', async () => {
     const { instanceId } = await createInstance()
     const { token } = await createLink(instanceId, { isActive: false })
-    expect(await submit(token, { status: 'coming', phone: localFormat(nextPhone()) })).toEqual({ kind: 'closed' })
+    expect(await submit(token, { name: NEWCOMER_NAME, phone: localFormat(nextPhone()) })).toEqual({ kind: 'closed' })
     expect(await rsvpRows(instanceId)).toHaveLength(0)
   })
 
   it('unknown token -> closed', async () => {
-    expect(await submit('bogus-' + randomUUID(), { status: 'coming', phone: localFormat(nextPhone()) })).toEqual({
+    expect(await submit('bogus-' + randomUUID(), { name: NEWCOMER_NAME, phone: localFormat(nextPhone()) })).toEqual({
       kind: 'closed',
     })
   })
@@ -365,7 +431,7 @@ describe('impl_submitRsvp (live anon RPC)', () => {
     const { instanceId } = await createInstance()
     const { token } = await createLink(instanceId)
     setEnv('RSVP_PUBLIC_ENABLED', 'false')
-    expect(await submit(token, { status: 'coming', phone: localFormat(nextPhone()) })).toEqual({ kind: 'closed' })
+    expect(await submit(token, { name: NEWCOMER_NAME, phone: localFormat(nextPhone()) })).toEqual({ kind: 'closed' })
     expect(await rsvpRows(instanceId)).toHaveLength(0)
   })
 
@@ -374,7 +440,7 @@ describe('impl_submitRsvp (live anon RPC)', () => {
     const { token } = await createLink(instanceId)
     setEnv('RSVP_GATE_SECRET', undefined)
     vi.spyOn(console, 'error').mockImplementation(() => {})
-    expect(await submit(token, { status: 'coming', phone: localFormat(nextPhone()) })).toEqual({
+    expect(await submit(token, { name: NEWCOMER_NAME, phone: localFormat(nextPhone()) })).toEqual({
       kind: 'unavailable',
     })
     expect(await rsvpRows(instanceId)).toHaveLength(0)
@@ -385,7 +451,7 @@ describe('impl_submitRsvp (live anon RPC)', () => {
     const { token } = await createLink(instanceId)
     setEnv('RSVP_GATE_SECRET', 'wrong-gate-value')
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    expect(await submit(token, { status: 'coming', phone: localFormat(nextPhone()) })).toEqual({
+    expect(await submit(token, { name: NEWCOMER_NAME, phone: localFormat(nextPhone()) })).toEqual({
       kind: 'unavailable',
     })
     expect(await rsvpRows(instanceId)).toHaveLength(0)
@@ -395,7 +461,7 @@ describe('impl_submitRsvp (live anon RPC)', () => {
   it('invalid input -> field errors, no row', async () => {
     const { instanceId } = await createInstance()
     const { token } = await createLink(instanceId)
-    expect(await submit(token, { status: 'coming', phone: '0812' })).toEqual({
+    expect(await submit(token, { name: NEWCOMER_NAME, phone: '0812' })).toEqual({
       kind: 'invalid',
       fieldErrors: { phone: 'too_short' },
     })
@@ -415,21 +481,21 @@ describe('impl_submitRsvp (live anon RPC)', () => {
     if (error) throw new Error(`bulk insert: ${error.message}`)
 
     const newcomer = nextPhone()
-    const limited = await submit(token, { status: 'coming', phone: localFormat(newcomer) })
+    const limited = await submit(token, { name: NEWCOMER_NAME, phone: localFormat(newcomer) })
     expect(limited).toEqual({ kind: 'limit' })
     expectNoLeak(limited, newcomer)
     expect(await rsvpRows(instanceId)).toHaveLength(300)
 
-    expect(await submit(token, { status: 'maybe', phone: localFormat(fill[0].phone_e164) })).toEqual({
+    expect(await submit(token, { phone: localFormat(fill[0].phone_e164), name: NEWCOMER_NAME })).toEqual({
       kind: 'success',
-      status: 'maybe',
+      status: 'coming',
       children: 0,
     })
   })
 })
 
 describe('impl_submitRsvp — S9-R4 abuse controls (live anon RPC)', () => {
-  const answers = (phone: string) => ({ status: 'coming', phone: localFormat(phone) })
+  const answers = (phone: string) => ({ name: NEWCOMER_NAME, phone: localFormat(phone) })
 
   it('honeypot -> the normal success state, and zero rows written', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {})

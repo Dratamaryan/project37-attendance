@@ -38,7 +38,7 @@ describe('i18n request config', () => {
     mockCookie = 'en'
     const result = await call('id')
     expect(result.locale).toBe('id')
-    expect(result.messages).toHaveProperty('rsvp.form.status_coming', 'Hadir')
+    expect(result.messages).toHaveProperty('rsvp.form.children_yes', 'Ya')
     expect(mockDefault).not.toHaveBeenCalled()
   })
 

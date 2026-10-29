@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { formatJakarta } from '@/lib/events/timezone'
 import { getOrCreateRsvpLink, deactivateRsvpLink, deleteRsvp } from '@/lib/rsvp/admin'
-import { RSVP_BUCKETS, type RsvpPanel as RsvpPanelData, type RsvpPanelRow } from '@/lib/rsvp/admin.types'
+import { RSVP_DISPLAY_BUCKETS, type RsvpPanel as RsvpPanelData, type RsvpPanelRow } from '@/lib/rsvp/admin.types'
 
 type ShareLang = 'id' | 'en'
 
@@ -230,16 +230,9 @@ export function RsvpPanel({ instanceId, instanceStatus, panel, whatsAppUrls }: P
         <p data-testid="rsvp-coming-headcount" className="font-heading text-3xl font-semibold text-charcoal tabular-nums">
           {totals.coming_headcount}
         </p>
-        <p className="text-sm text-muted tabular-nums mt-1">
+        <p data-testid="rsvp-coming-detail" className="text-sm text-muted tabular-nums mt-1">
           {t('totals.coming_detail', { people: totals.coming_people, children: totals.coming_children })}
         </p>
-        <ul className="mt-3 text-sm text-charcoal tabular-nums space-y-0.5">
-          <li data-testid="rsvp-maybe">
-            {t('totals.maybe', { people: totals.maybe_people, headcount: totals.maybe_headcount })}
-          </li>
-          <li>{t('totals.not_coming', { count: String(totals.not_coming_people) })}</li>
-          <li>{t('totals.responses', { count: String(totals.responses) })}</li>
-        </ul>
       </div>
 
       {/* Cross-tab */}
@@ -254,7 +247,7 @@ export function RsvpPanel({ instanceId, instanceStatus, panel, whatsAppUrls }: P
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
-              {RSVP_BUCKETS.map(b => (
+              {RSVP_DISPLAY_BUCKETS.map(b => (
                 <tr key={b} data-testid={`rsvp-bucket-${b}`}>
                   <td className="px-3 py-1.5 text-sm text-charcoal">{t(`crosstab.buckets.${b}`)}</td>
                   <td className="px-3 py-1.5 text-sm text-charcoal text-right tabular-nums">{buckets[b]}</td>

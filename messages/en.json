@@ -435,7 +435,6 @@
           "coming_headcount": "Coming headcount",
           "coming_headcount_note": "RSVP'd coming, incl. children",
           "coming_people": "Coming (people)",
-          "maybe_people": "Maybe",
           "actual_adults": "Adults checked in",
           "actual_children": "Children checked in",
           "show_up_rate": "Show-up rate",
@@ -599,10 +598,7 @@
           "totals": {
             "title": "Totals",
             "coming_headcount": "Expected headcount (food count)",
-            "coming_detail": "{people, plural, one {# person} other {# people}} coming + {children, plural, one {# child} other {# children}}",
-            "maybe": "Maybe: {people, plural, one {# person} other {# people}} ({headcount} incl. children)",
-            "not_coming": "Not coming: {count}",
-            "responses": "Total responses: {count}"
+            "coming_detail": "{people, plural, one {# person} other {# people}} coming + {children, plural, one {# child} other {# children}}"
           },
           "crosstab": {
             "title": "RSVP vs check-in",
@@ -611,10 +607,6 @@
             "buckets": {
               "coming_came": "Coming · came",
               "coming_no_show": "Coming · didn't come",
-              "maybe_came": "Maybe · came",
-              "maybe_no_show": "Maybe · didn't come",
-              "not_coming_came": "Not coming · came anyway",
-              "not_coming_no_show": "Not coming · didn't come",
               "walk_in": "Walk-in (no RSVP)"
             },
             "children": "Children: {expected} expected · {checked_in} checked in"
@@ -1085,50 +1077,47 @@
       "body": "This RSVP link has closed or is no longer valid. Please contact the event organisers."
     },
     "form": {
-      "title": "Will you attend?",
-      "status_label": "Your answer",
-      "status_coming": "Attending",
-      "status_maybe": "Maybe",
-      "status_not_coming": "Not attending",
+      "title": "Confirm your attendance",
+      "intro": "Fill in this form if you will attend.",
       "phone_label": "Phone / WhatsApp number",
       "phone_placeholder": "0812…",
       "phone_help": "For a non-Indonesian number, start with + and the country code.",
       "name_label": "Name",
-      "name_optional": "(optional)",
-      "name_help": "Optional — you can leave this blank.",
+      "name_help": "Your full name.",
       "children_label": "Bringing children?",
       "children_no": "No",
       "children_yes": "Yes",
       "children_count_label": "Number of children",
       "consent_label": "I’m happy to be contacted by the organisers about upcoming events.",
       "privacy_link": "Privacy Policy",
-      "submit": "Send",
+      "submit": "Confirm attendance",
       "submit_pending": "Sending…",
       "submit_verifying": "Verifying…",
       "turnstile_unavailable": "The security check couldn’t load. Turn off your ad blocker or try another browser, then reload the page."
     },
     "errors": {
-      "status_required": "Please choose an answer.",
       "phone_empty": "Please enter your phone number.",
       "phone_too_short": "This number is too short.",
       "phone_too_long": "This number is too long.",
       "phone_invalid_for_country": "This number doesn’t look valid. For a non-Indonesian number, start with +.",
       "phone_unsupported_country": "This number doesn’t look valid. For a non-Indonesian number, start with +.",
+      "name_required": "Please enter your name.",
+      "name_too_short": "Please enter at least 2 characters.",
       "name_too_long": "Please use at most 100 characters.",
       "children_required": "Please choose the number of children.",
       "children_out_of_range": "Number of children must be between 1 and 20.",
       "invalid_summary": "Please check the highlighted fields.",
       "limit": "RSVPs for this event are full.",
       "unavailable": "RSVP can’t be processed right now. Please try again later.",
+      "form_outdated": "This page is out of date. Please reload the page and fill in the form again.",
       "generic": "Something went wrong. Please check your answers and try again."
     },
     "success": {
       "title": "Thank you!",
-      "body": "We’ve received your response.",
-      "recap_status": "Your answer: {status}",
+      "body": "Your attendance is confirmed.",
       "recap_children": "Children: {count}",
       "recap_no_children": "Children: none",
-      "edit": "Change my answer"
+      "edit": "Change my details"
     }
   }
 }

@@ -17,6 +17,10 @@
 //
 //   G1  newcomer -> later on roster -> resubmit links the person, name NULL
 //   G2  member -> later soft-deleted -> resubmit (PINNED current behaviour, D1)
+//
+// S9.5-T5: every submit uses the new form shape — no status field (submitting
+// means coming), name required. Re-submits vary children / consent instead of
+// the answer.
 //   G3  the public path never updates people (full-row snapshot)
 //   G4  resubmit keeps row identity; link rotation re-points link_id
 //   G5  phone input variants land on one row
@@ -293,17 +297,17 @@ describe('G1 newcomer later added to the roster', () => {
     const { token } = await createLink(instanceId)
     const phone = nextPhone()
 
-    await submit(token, { status: 'maybe', phone: localFormat(phone), name: '[SYNTH] Newcomer Nia' })
+    await submit(token, { phone: localFormat(phone), name: '[SYNTH] Newcomer Nia' })
     const before = await onlyRow(instanceId)
-    expect(before).toMatchObject({ person_id: null, name: '[SYNTH] Newcomer Nia', status: 'maybe' })
+    expect(before).toMatchObject({ person_id: null, name: '[SYNTH] Newcomer Nia', status: 'coming' })
     expect(await peopleWithPhone(phone)).toBe(0)
 
     const personId = await createPerson(phone, 'G1')
-    await submit(token, { status: 'coming', phone: localFormat(phone), name: '[SYNTH] Newcomer Nia' })
+    await submit(token, { phone: localFormat(phone), name: '[SYNTH] Newcomer Nia', bringing_children: 'yes', children_count: '1' })
 
     const after = await onlyRow(instanceId)
     expect(after.id).toBe(before.id)
-    expect(after).toMatchObject({ person_id: personId, name: null, status: 'coming' })
+    expect(after).toMatchObject({ person_id: personId, name: null, status: 'coming', children_count: 1 })
     expect(await peopleWithPhone(phone)).toBe(1)
   })
 })
@@ -319,34 +323,40 @@ describe('G2 member soft-deleted after RSVP, then resubmits', () => {
     const phone = nextPhone()
     const personId = await createPerson(phone, 'G2a')
 
-    await submit(token, { status: 'coming', phone: localFormat(phone), name: '[SYNTH] First Typed' })
+    await submit(token, { phone: localFormat(phone), name: '[SYNTH] First Typed' })
     const before = await onlyRow(instanceId)
     expect(before).toMatchObject({ person_id: personId, name: null })
 
     await softDeletePerson(personId)
-    await submit(token, { status: 'maybe', phone: localFormat(phone), name: '[SYNTH] Second Typed' })
+    await submit(token, { phone: localFormat(phone), name: '[SYNTH] Second Typed' })
 
     const after = await onlyRow(instanceId)
     expect(after.id).toBe(before.id)
-    expect(after).toMatchObject({ person_id: null, name: '[SYNTH] Second Typed', status: 'maybe' })
+    expect(after).toMatchObject({ person_id: null, name: '[SYNTH] Second Typed', status: 'coming' })
   })
 
-  it('pinned: blank name -> person_id NULL, name NULL (same row)', async () => {
+  // Was "blank name -> person_id NULL, name NULL"; since S9.5-T5 a blank name
+  // never reaches submit_rsvp, so the stored row is left exactly as it was.
+  it('blank name -> rejected before the RPC; row unchanged (same row)', async () => {
     const instanceId = await createInstance()
     const { token } = await createLink(instanceId)
     const phone = nextPhone()
     const personId = await createPerson(phone, 'G2b')
 
-    await submit(token, { status: 'coming', phone: localFormat(phone), name: '[SYNTH] First Typed' })
+    await submit(token, { phone: localFormat(phone), name: '[SYNTH] First Typed' })
     const before = await onlyRow(instanceId)
     expect(before).toMatchObject({ person_id: personId, name: null })
 
     await softDeletePerson(personId)
-    await submit(token, { status: 'not_coming', phone: localFormat(phone), name: '   ' })
+    const rejected = await impl_submitRsvp(
+      token,
+      form({ phone: localFormat(phone), name: '   ' }),
+      createAnonServerClient(),
+      NO_ABUSE_DEPS,
+    )
+    expect(rejected).toEqual({ kind: 'invalid', fieldErrors: { name: 'required' } })
 
-    const after = await onlyRow(instanceId)
-    expect(after.id).toBe(before.id)
-    expect(after).toMatchObject({ person_id: null, name: null, status: 'not_coming' })
+    expect(await onlyRow(instanceId)).toEqual(before)
   })
 })
 
@@ -363,7 +373,6 @@ describe('G3 the public path never updates people', () => {
     const snapshot = await personSnapshot(personId)
 
     await submit(token, {
-      status: 'coming',
       phone: localFormat(phone),
       name: '[SYNTH] Not The Roster Name',
       bringing_children: 'yes',
@@ -373,7 +382,7 @@ describe('G3 the public path never updates people', () => {
     expect(await personSnapshot(personId)).toEqual(snapshot)
 
     await tick()
-    await submit(token, { status: 'maybe', phone, name: '[SYNTH] Another Name', followup_consent: 'on' })
+    await submit(token, { phone, name: '[SYNTH] Another Name', followup_consent: 'on' })
     expect(await personSnapshot(personId)).toEqual(snapshot)
 
     expect(await onlyRow(instanceId)).toMatchObject({ person_id: personId, name: null, followup_consent: true })
@@ -392,7 +401,6 @@ describe('G4 resubmit row identity', () => {
     const phone = nextPhone()
 
     await submit(token, {
-      status: 'coming',
       phone: localFormat(phone),
       name: '[SYNTH] Repeat Rudi',
       bringing_children: 'yes',
@@ -403,15 +411,15 @@ describe('G4 resubmit row identity', () => {
     expect(first.created_at).toBe(first.updated_at)
 
     await tick()
-    await submit(token, { status: 'not_coming', phone: localFormat(phone) })
+    await submit(token, { phone: localFormat(phone), name: '[SYNTH] Repeat Rudi Renamed' })
     const second = await onlyRow(instanceId)
 
     expect(second.id).toBe(first.id)
     expect(second.created_at).toBe(first.created_at)
     expect(Date.parse(second.updated_at)).toBeGreaterThan(Date.parse(first.updated_at))
     expect(second).toMatchObject({
-      name: '[SYNTH] Repeat Rudi',
-      status: 'not_coming',
+      name: '[SYNTH] Repeat Rudi Renamed',
+      status: 'coming',
       children_count: 0,
       followup_consent: false,
     })
@@ -425,7 +433,7 @@ describe('G4 resubmit row identity', () => {
     const oldToken = new URL(created.url).pathname.split('/').pop()!
     const phone = nextPhone()
 
-    await submit(oldToken, { status: 'coming', phone: localFormat(phone), name: '[SYNTH] Rotator' })
+    await submit(oldToken, { phone: localFormat(phone), name: '[SYNTH] Rotator' })
     const first = await onlyRow(instanceId)
     expect(first.link_id).toBe(oldLinkId)
 
@@ -439,7 +447,7 @@ describe('G4 resubmit row identity', () => {
     // The old token is closed; nothing changes on the row.
     const closed = await impl_submitRsvp(
       oldToken,
-      form({ status: 'maybe', phone: localFormat(phone) }),
+      form({ phone: localFormat(phone), name: '[SYNTH] Rotator' }),
       createAnonServerClient(),
       NO_ABUSE_DEPS,
     )
@@ -447,11 +455,11 @@ describe('G4 resubmit row identity', () => {
     expect(await onlyRow(instanceId)).toEqual(first)
 
     await tick()
-    await submit(newToken, { status: 'maybe', phone: localFormat(phone) })
+    await submit(newToken, { phone: localFormat(phone), name: '[SYNTH] Rotator', bringing_children: 'yes', children_count: '2' })
     const second = await onlyRow(instanceId)
     expect(second.id).toBe(first.id)
     expect(second.created_at).toBe(first.created_at)
-    expect(second).toMatchObject({ link_id: rotated.linkId, status: 'maybe', name: '[SYNTH] Rotator' })
+    expect(second).toMatchObject({ link_id: rotated.linkId, status: 'coming', children_count: 2, name: '[SYNTH] Rotator' })
   })
 })
 
@@ -472,12 +480,11 @@ describe('G5 phone input variants', () => {
       national,
       `0${national.slice(0, 3)}-${national.slice(3, 7)}-${national.slice(7)}`,
     ]
-    const statuses = ['coming', 'maybe', 'not_coming', 'maybe', 'coming'] as const
-
     for (const [i, variant] of variants.entries()) {
-      await submit(token, { status: statuses[i]!, phone: variant, name: '[SYNTH] Variant Vera' })
+      // children 1..5 so each re-submit is visible on the one row
+      await submit(token, { phone: variant, name: '[SYNTH] Variant Vera', bringing_children: 'yes', children_count: String(i + 1) })
       const row = await onlyRow(instanceId)
-      expect(row).toMatchObject({ phone_e164: phone, status: statuses[i] })
+      expect(row).toMatchObject({ phone_e164: phone, status: 'coming', children_count: i + 1 })
     }
   })
 })
@@ -492,11 +499,11 @@ describe('G6 overseas number', () => {
     const { token } = await createLink(instanceId)
     const personId = await createPerson(AU_PHONE, 'G6')
 
-    await submit(token, { status: 'coming', phone: '+61 491 570 156', name: '[SYNTH] Aussie Typed' })
+    await submit(token, { phone: '+61 491 570 156', name: '[SYNTH] Aussie Typed' })
     expect(await onlyRow(instanceId)).toMatchObject({ phone_e164: AU_PHONE, person_id: personId, name: null })
 
-    await submit(token, { status: 'maybe', phone: AU_PHONE })
-    expect(await onlyRow(instanceId)).toMatchObject({ phone_e164: AU_PHONE, person_id: personId, status: 'maybe' })
+    await submit(token, { phone: AU_PHONE, name: '[SYNTH] Aussie Typed', bringing_children: 'yes', children_count: '1' })
+    expect(await onlyRow(instanceId)).toMatchObject({ phone_e164: AU_PHONE, person_id: personId, status: 'coming', children_count: 1 })
   })
 })
 
@@ -514,9 +521,9 @@ describe('G7 admin panel display name', () => {
     await createPerson(memberPhone, 'G7 Member')
     const removedId = await createPerson(removedPhone, 'G7 Removed')
 
-    await submit(token, { status: 'coming', phone: localFormat(memberPhone), name: '[SYNTH] Member Typed' })
-    await submit(token, { status: 'maybe', phone: localFormat(newcomerPhone), name: '[SYNTH] Newcomer Typed' })
-    await submit(token, { status: 'coming', phone: localFormat(removedPhone), name: '[SYNTH] Removed Typed' })
+    await submit(token, { phone: localFormat(memberPhone), name: '[SYNTH] Member Typed' })
+    await submit(token, { phone: localFormat(newcomerPhone), name: '[SYNTH] Newcomer Typed' })
+    await submit(token, { phone: localFormat(removedPhone), name: '[SYNTH] Removed Typed' })
     await softDeletePerson(removedId)
 
     const idByPhone = new Map((await rsvpRows(instanceId)).map((r) => [r.phone_e164, r.id]))

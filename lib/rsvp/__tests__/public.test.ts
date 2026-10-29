@@ -39,7 +39,8 @@ function form(fields: Record<string, string>): FormData {
   return fd
 }
 
-const VALID = { status: 'coming', phone: '081234567890' }
+// S9.5-T5 form shape: no status field, name required.
+const VALID = { phone: '081234567890', name: '[SYNTH] Budi' }
 
 /** Fake abuse-control deps: no IP (throttle skipped) and a verifier that fails unless told otherwise. */
 function makeDeps(overrides: Partial<{ ip: string | null; allowed: boolean; verdict: 'ok' | 'fail' }> = {}) {
@@ -70,22 +71,27 @@ afterEach(() => {
 
 // ── parseRsvpFormData ────────────────────────────────────────────────────────
 
-describe('parseRsvpFormData — status', () => {
-  it.each(['coming', 'maybe', 'not_coming'])('%s accepted', (status) => {
-    const r = parseRsvpFormData(form({ ...VALID, status }))
-    expect(r.ok && r.input.status).toBe(status)
+describe('parseRsvpFormData — status (S9.5-T5: submitting means coming)', () => {
+  it('no status field -> coming', () => {
+    const r = parseRsvpFormData(form(VALID))
+    expect(r.ok && r.input.status).toBe('coming')
   })
 
-  it.each([[''], ['COMING'], ['yes'], ['attending']])('%j -> required', (status) => {
-    const r = parseRsvpFormData(form({ ...VALID, status }))
-    expect(r).toEqual({ ok: false, fieldErrors: { status: 'required' } })
+  it("explicit 'coming' (pre-T5 page) -> coming", () => {
+    const r = parseRsvpFormData(form({ ...VALID, status: 'coming' }))
+    expect(r.ok && r.input.status).toBe('coming')
   })
 
-  it('missing -> required', () => {
-    expect(parseRsvpFormData(form({ phone: VALID.phone }))).toEqual({
-      ok: false,
-      fieldErrors: { status: 'required' },
-    })
+  it.each(['maybe', 'not_coming'])('%s -> formOutdated, never converted', (status) => {
+    expect(parseRsvpFormData(form({ ...VALID, status }))).toEqual({ ok: false, formOutdated: true })
+  })
+
+  it.each([[''], ['COMING'], ['yes']])('any other explicit status %j -> formOutdated', (status) => {
+    expect(parseRsvpFormData(form({ ...VALID, status }))).toEqual({ ok: false, formOutdated: true })
+  })
+
+  it("pre-T5 page, 'coming' but no name -> formOutdated (its own error text can't say 'required')", () => {
+    expect(parseRsvpFormData(form({ status: 'coming', phone: VALID.phone }))).toEqual({ ok: false, formOutdated: true })
   })
 })
 
@@ -138,14 +144,28 @@ describe('parseRsvpFormData — phone (region ID)', () => {
   })
 })
 
-describe('parseRsvpFormData — name', () => {
-  it('trimmed; blank -> null', () => {
+describe('parseRsvpFormData — name (S9.5-T5: required, 2–100 chars)', () => {
+  it('trimmed', () => {
     const named = parseRsvpFormData(form({ ...VALID, name: '  Budi  ' }))
     expect(named.ok && named.input.name).toBe('Budi')
-    const blank = parseRsvpFormData(form({ ...VALID, name: '   ' }))
-    expect(blank.ok && blank.input.name).toBeNull()
-    const absent = parseRsvpFormData(form(VALID))
-    expect(absent.ok && absent.input.name).toBeNull()
+  })
+
+  it.each([
+    ['absent', undefined, 'required'],
+    ['empty', '', 'required'],
+    ['whitespace', '   ', 'required'],
+    ['1 char', 'B', 'too_short'],
+    ['1 char padded', '  B  ', 'too_short'],
+    ['1 emoji (1 code point)', '😀', 'too_short'],
+  ])('%s -> %s', (_label, name, error) => {
+    const fields: Record<string, string> = { phone: VALID.phone }
+    if (name !== undefined) fields.name = name
+    expect(parseRsvpFormData(form(fields))).toEqual({ ok: false, fieldErrors: { name: error } })
+  })
+
+  it('2 chars ok', () => {
+    const r = parseRsvpFormData(form({ ...VALID, name: 'Bo' }))
+    expect(r.ok && r.input.name).toBe('Bo')
   })
 
   it('100 chars ok, 101 -> too_long', () => {
@@ -188,19 +208,6 @@ describe('parseRsvpFormData — children', () => {
     expect(absent.ok && absent.input.children).toBe(0)
   })
 
-  it('not_coming -> 0, and a bad count is ignored', () => {
-    const r = parseRsvpFormData(
-      form({ ...VALID, status: 'not_coming', bringing_children: 'yes', children_count: '99' }),
-    )
-    expect(r.ok && r.input.children).toBe(0)
-  })
-
-  it('maybe + yes counts', () => {
-    const r = parseRsvpFormData(
-      form({ ...VALID, status: 'maybe', bringing_children: 'yes', children_count: '3' }),
-    )
-    expect(r.ok && r.input.children).toBe(3)
-  })
 })
 
 describe('parseRsvpFormData — consent and combined errors', () => {
@@ -220,7 +227,7 @@ describe('parseRsvpFormData — consent and combined errors', () => {
       ),
     ).toEqual({
       ok: false,
-      fieldErrors: { status: 'required', phone: 'empty', name: 'too_long', children: 'required' },
+      fieldErrors: { phone: 'empty', name: 'too_long', children: 'required' },
     })
   })
 })
@@ -434,8 +441,35 @@ describe('impl_submitRsvp mapping', () => {
     const { client, rpc } = fakeClient({ data: { ok: true } })
     expect(await impl_submitRsvp(TOKEN, form({ phone: '' }), client, makeDeps().deps)).toEqual({
       kind: 'invalid',
-      fieldErrors: { status: 'required', phone: 'empty' },
+      fieldErrors: { phone: 'empty', name: 'required' },
     })
+    expect(rpc).not.toHaveBeenCalled()
+  })
+
+  // S9.5-T5
+  it("no status field -> RPC gets p_status 'coming'", async () => {
+    const { client, rpc } = fakeClient({ data: { ok: true } })
+    expect(await impl_submitRsvp(TOKEN, form(VALID), client, makeDeps().deps)).toEqual({
+      kind: 'success', status: 'coming', children: 0,
+    })
+    expect(rpc.mock.calls[0][1]).toMatchObject({ p_status: 'coming', p_name: '[SYNTH] Budi' })
+  })
+
+  it.each(['maybe', 'not_coming'])("'%s' (stale page) -> error form_outdated, before the gate / RPC", async (status) => {
+    setEnv('RSVP_GATE_SECRET', undefined)
+    const { client, rpc } = fakeClient({ data: { ok: true } })
+    const d = makeDeps({ ip: '203.0.113.9' })
+    expect(await impl_submitRsvp(TOKEN, form({ ...VALID, status }), client, d.deps)).toEqual({
+      kind: 'error', reason: 'form_outdated',
+    })
+    expect(d.throttle).not.toHaveBeenCalled()
+    expect(rpc).not.toHaveBeenCalled()
+  })
+
+  it.each([[''], ['   '], ['B']])('name %j -> invalid name, no RPC', async (name) => {
+    const { client, rpc } = fakeClient({ data: { ok: true } })
+    const state = await impl_submitRsvp(TOKEN, form({ ...VALID, name }), client, makeDeps().deps)
+    expect(state).toEqual({ kind: 'invalid', fieldErrors: { name: name.trim() === '' ? 'required' : 'too_short' } })
     expect(rpc).not.toHaveBeenCalled()
   })
 

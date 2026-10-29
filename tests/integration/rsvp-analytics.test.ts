@@ -395,7 +395,6 @@ describe('impl_getRsvpAnalytics', () => {
       instances: 2,
       coming_headcount: 6,
       coming_people: 3,
-      maybe_people: 1,
       actual_adults: 6,
       actual_children: 3,
       show_up_rate: 2 / 3,

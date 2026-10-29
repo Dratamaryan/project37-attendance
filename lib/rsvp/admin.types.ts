@@ -16,14 +16,20 @@ export const RSVP_BUCKETS = [
 ] as const
 export type RsvpBucket = typeof RSVP_BUCKETS[number]
 
+/**
+ * S9.5-T5: the buckets the panel and export show. Submitting the public form
+ * now means coming, so only coming and walk-in buckets are reported; legacy
+ * maybe / not_coming rows are still counted into RSVP_BUCKETS but never shown.
+ */
+export const RSVP_DISPLAY_BUCKETS = ['coming_came', 'coming_no_show', 'walk_in'] as const satisfies readonly RsvpBucket[]
+
+// 'coming' rows only (S9.5-T5); legacy maybe / not_coming rows count in
+// responses alone.
 export type RsvpPanelTotals = {
   responses: number
   coming_people: number
   coming_headcount: number   // Σ(1 + children_count) over 'coming' — the food count
   coming_children: number
-  maybe_people: number
-  maybe_headcount: number
-  not_coming_people: number
 }
 
 export type RsvpPanelRow = {

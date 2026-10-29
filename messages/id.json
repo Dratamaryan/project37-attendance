@@ -435,7 +435,6 @@
           "coming_headcount": "Jumlah orang hadir (RSVP)",
           "coming_headcount_note": "RSVP hadir, termasuk anak",
           "coming_people": "Hadir (orang)",
-          "maybe_people": "Mungkin",
           "actual_adults": "Dewasa check-in",
           "actual_children": "Anak check-in",
           "show_up_rate": "Tingkat kehadiran",
@@ -599,10 +598,7 @@
           "totals": {
             "title": "Ringkasan",
             "coming_headcount": "Perkiraan jumlah hadir (untuk konsumsi)",
-            "coming_detail": "{people} orang hadir + {children} anak",
-            "maybe": "Mungkin: {people} orang ({headcount} termasuk anak)",
-            "not_coming": "Tidak hadir: {count}",
-            "responses": "Total respons: {count}"
+            "coming_detail": "{people} orang hadir + {children} anak"
           },
           "crosstab": {
             "title": "RSVP vs kehadiran",
@@ -611,10 +607,6 @@
             "buckets": {
               "coming_came": "Hadir · datang",
               "coming_no_show": "Hadir · tidak datang",
-              "maybe_came": "Mungkin · datang",
-              "maybe_no_show": "Mungkin · tidak datang",
-              "not_coming_came": "Tidak hadir · tetap datang",
-              "not_coming_no_show": "Tidak hadir · tidak datang",
               "walk_in": "Datang tanpa RSVP"
             },
             "children": "Anak: {expected} diharapkan · {checked_in} check-in"
@@ -1085,50 +1077,47 @@
       "body": "Tautan RSVP ini sudah ditutup atau tidak berlaku lagi. Silakan hubungi panitia acara."
     },
     "form": {
-      "title": "Apakah Anda akan hadir?",
-      "status_label": "Jawaban Anda",
-      "status_coming": "Hadir",
-      "status_maybe": "Mungkin",
-      "status_not_coming": "Tidak hadir",
+      "title": "Konfirmasi kehadiran",
+      "intro": "Isi formulir ini jika Anda akan hadir.",
       "phone_label": "Nomor HP / WhatsApp",
       "phone_placeholder": "0812…",
       "phone_help": "Untuk nomor luar Indonesia, awali dengan + dan kode negara.",
       "name_label": "Nama",
-      "name_optional": "(opsional)",
-      "name_help": "Opsional — boleh dikosongkan.",
+      "name_help": "Nama lengkap Anda.",
       "children_label": "Membawa anak?",
       "children_no": "Tidak",
       "children_yes": "Ya",
       "children_count_label": "Jumlah anak",
       "consent_label": "Saya bersedia dihubungi panitia untuk informasi kegiatan berikutnya.",
       "privacy_link": "Kebijakan Privasi",
-      "submit": "Kirim",
+      "submit": "Konfirmasi kehadiran",
       "submit_pending": "Mengirim…",
       "submit_verifying": "Memverifikasi…",
       "turnstile_unavailable": "Verifikasi keamanan tidak dapat dimuat. Matikan pemblokir iklan atau gunakan browser lain, lalu muat ulang halaman."
     },
     "errors": {
-      "status_required": "Silakan pilih salah satu jawaban.",
       "phone_empty": "Nomor HP wajib diisi.",
       "phone_too_short": "Nomor terlalu pendek.",
       "phone_too_long": "Nomor terlalu panjang.",
       "phone_invalid_for_country": "Nomor tidak valid. Untuk nomor luar Indonesia, awali dengan +.",
       "phone_unsupported_country": "Nomor tidak valid. Untuk nomor luar Indonesia, awali dengan +.",
+      "name_required": "Nama wajib diisi.",
+      "name_too_short": "Nama minimal 2 karakter.",
       "name_too_long": "Maksimal 100 karakter.",
       "children_required": "Silakan pilih jumlah anak.",
       "children_out_of_range": "Jumlah anak harus antara 1 dan 20.",
       "invalid_summary": "Silakan periksa kembali isian yang ditandai.",
       "limit": "Kuota RSVP untuk acara ini sudah penuh.",
       "unavailable": "RSVP sedang tidak dapat diproses. Silakan coba lagi nanti.",
+      "form_outdated": "Halaman ini sudah tidak berlaku. Silakan muat ulang halaman lalu isi kembali formulirnya.",
       "generic": "Terjadi kesalahan. Periksa kembali isian Anda lalu coba lagi."
     },
     "success": {
       "title": "Terima kasih!",
-      "body": "Jawaban Anda sudah kami terima.",
-      "recap_status": "Jawaban Anda: {status}",
+      "body": "Kehadiran Anda sudah kami catat.",
       "recap_children": "Membawa anak: {count}",
       "recap_no_children": "Membawa anak: tidak",
-      "edit": "Ubah jawaban"
+      "edit": "Ubah data saya"
     }
   }
 }

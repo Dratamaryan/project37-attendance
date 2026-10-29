@@ -35,7 +35,6 @@ export function RsvpKpiCards({ data, hasError }: Props) {
   const metrics: Metric[] = [
     { key: 'coming_headcount', label: t('kpi.coming_headcount'), subtitle: t('kpi.coming_headcount_note'), testId: 'rsvp-kpi-coming-headcount', value: data?.coming_headcount, kind: 'count' },
     { key: 'coming_people', label: t('kpi.coming_people'), testId: 'rsvp-kpi-coming-people', value: data?.coming_people, kind: 'count' },
-    { key: 'maybe_people', label: t('kpi.maybe_people'), testId: 'rsvp-kpi-maybe-people', value: data?.maybe_people, kind: 'count' },
     { key: 'actual_adults', label: t('kpi.actual_adults'), testId: 'rsvp-kpi-actual-adults', value: data?.actual_adults, kind: 'count' },
     { key: 'actual_children', label: t('kpi.actual_children'), testId: 'rsvp-kpi-actual-children', value: data?.actual_children, kind: 'count' },
     { key: 'show_up_rate', label: t('kpi.show_up_rate'), subtitle: t('kpi.show_up_rate_note'), testId: 'rsvp-kpi-show-up-rate', value: data?.show_up_rate, kind: 'percent' },

@@ -29,7 +29,7 @@ import {
   RSVP_CHILDREN_MAX,
   RSVP_CHILDREN_MIN,
   RSVP_NAME_MAX,
-  RSVP_PUBLIC_STATUSES,
+  RSVP_NAME_MIN,
   type RsvpEventView,
   type RsvpFieldErrors,
   type RsvpFormState,
@@ -179,7 +179,7 @@ export const getRsvpPageData = cache(
 export type ParsedRsvpInput = {
   status: RsvpPublicStatus
   phoneE164: string
-  name: string | null
+  name: string
   children: number
   followupConsent: boolean
 }
@@ -193,17 +193,23 @@ function field(formData: FormData, name: string): string {
  * FormData -> validated submit_rsvp input, or per-field error codes. Mirrors
  * the RPC's own checks (which stay authoritative) so the visitor gets a
  * specific inline message instead of a generic 'invalid'.
+ *
+ * S9.5-T5: submitting means coming. The form sends no `status`; only a page
+ * loaded before T5 does. From such a page 'coming' is accepted, but any other
+ * answer is rejected as formOutdated — never converted to 'coming' — and so
+ * is a missing/short name, because that page's own error text can't describe
+ * the new rule. Either way the visitor is asked to reload.
  */
 export function parseRsvpFormData(
   formData: FormData,
-): { ok: true; input: ParsedRsvpInput } | { ok: false; fieldErrors: RsvpFieldErrors } {
+):
+  | { ok: true; input: ParsedRsvpInput }
+  | { ok: false; formOutdated: true }
+  | { ok: false; fieldErrors: RsvpFieldErrors } {
   const errors: RsvpFieldErrors = {}
 
-  const rawStatus = field(formData, 'status')
-  const status = (RSVP_PUBLIC_STATUSES as readonly string[]).includes(rawStatus)
-    ? (rawStatus as RsvpPublicStatus)
-    : null
-  if (!status) errors.status = 'required'
+  const fromStalePage = formData.has('status')
+  if (fromStalePage && field(formData, 'status') !== 'coming') return { ok: false, formOutdated: true }
 
   const rawPhone = field(formData, 'phone')
   let phoneE164: string | null = null
@@ -217,13 +223,17 @@ export function parseRsvpFormData(
     else errors.phone = normalized.reason
   }
 
-  const trimmedName = field(formData, 'name').trim()
+  const name = field(formData, 'name').trim()
   // Code points, matching Postgres char_length() in the RPC's 100-char check.
-  if ([...trimmedName].length > RSVP_NAME_MAX) errors.name = 'too_long'
-  const name = trimmedName === '' ? null : trimmedName
+  const nameLength = [...name].length
+  if (nameLength === 0) errors.name = 'required'
+  else if (nameLength < RSVP_NAME_MIN) errors.name = 'too_short'
+  else if (nameLength > RSVP_NAME_MAX) errors.name = 'too_long'
+
+  if (fromStalePage && errors.name) return { ok: false, formOutdated: true }
 
   let children = 0
-  if (status !== 'not_coming' && field(formData, 'bringing_children') === 'yes') {
+  if (field(formData, 'bringing_children') === 'yes') {
     const rawCount = field(formData, 'children_count').trim()
     if (rawCount === '') {
       errors.children = 'required'
@@ -238,10 +248,10 @@ export function parseRsvpFormData(
 
   const followupConsent = field(formData, 'followup_consent') === 'on'
 
-  if (Object.keys(errors).length > 0 || !status || !phoneE164) {
+  if (Object.keys(errors).length > 0 || !phoneE164) {
     return { ok: false, fieldErrors: errors }
   }
-  return { ok: true, input: { status, phoneE164, name, children, followupConsent } }
+  return { ok: true, input: { status: 'coming', phoneE164, name, children, followupConsent } }
 }
 
 // ── submit ───────────────────────────────────────────────────────────────────
@@ -285,7 +295,11 @@ export async function impl_submitRsvp(
   if (!isWellFormedRsvpToken(token)) return { kind: 'closed' }
 
   const parsed = parseRsvpFormData(formData)
-  if (!parsed.ok) return { kind: 'invalid', fieldErrors: parsed.fieldErrors }
+  if (!parsed.ok) {
+    return 'formOutdated' in parsed
+      ? { kind: 'error', reason: 'form_outdated' }
+      : { kind: 'invalid', fieldErrors: parsed.fieldErrors }
+  }
   const { input } = parsed
 
   // Honeypot: indistinguishable from a real success, but nothing is written

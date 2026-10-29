@@ -5,7 +5,7 @@
 // times are WIB via formatJakarta.
 
 import { formatJakarta } from '@/lib/events/timezone'
-import { RSVP_BUCKETS, type RsvpBucket, type RsvpExportRow, type RsvpPanelTotals, type RsvpStatus } from './admin.types'
+import { RSVP_DISPLAY_BUCKETS, type RsvpBucket, type RsvpExportRow, type RsvpPanelTotals, type RsvpStatus } from './admin.types'
 
 const WIB = 'yyyy-MM-dd HH:mm'
 
@@ -45,13 +45,9 @@ const STATUS_LABEL: Record<RsvpStatus, string> = {
   not_coming: 'Not coming',
 }
 
-const BUCKET_LABEL: Record<RsvpBucket, string> = {
+const BUCKET_LABEL: Record<typeof RSVP_DISPLAY_BUCKETS[number], string> = {
   coming_came: 'Coming · came',
   coming_no_show: "Coming · didn't come",
-  maybe_came: 'Maybe · came',
-  maybe_no_show: "Maybe · didn't come",
-  not_coming_came: 'Not coming · came anyway',
-  not_coming_no_show: "Not coming · didn't come",
   walk_in: 'Walk-in (no RSVP)',
 }
 
@@ -87,10 +83,7 @@ export function buildSummaryRows(
     { Metric: 'Coming (people)', Value: totals.coming_people },
     { Metric: 'Expected headcount (food)', Value: totals.coming_headcount },
     { Metric: 'Coming children', Value: totals.coming_children },
-    { Metric: 'Maybe (people)', Value: totals.maybe_people },
-    { Metric: 'Maybe headcount', Value: totals.maybe_headcount },
-    { Metric: 'Not coming', Value: totals.not_coming_people },
-    ...RSVP_BUCKETS.map(b => ({ Metric: BUCKET_LABEL[b], Value: buckets[b] })),
+    ...RSVP_DISPLAY_BUCKETS.map(b => ({ Metric: BUCKET_LABEL[b], Value: buckets[b] })),
     { Metric: 'Children expected', Value: children.expected },
     { Metric: 'Children checked in', Value: children.checked_in },
   ]

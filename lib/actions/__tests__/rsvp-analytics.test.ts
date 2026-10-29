@@ -8,7 +8,7 @@ function row(over: Partial<RsvpInstanceMetricsRow>): RsvpInstanceMetricsRow {
   return {
     event_instance_id: 'i', event_id: 'e', event_type: 'adhoc',
     scheduled_at: '2026-10-02T12:00:00+00:00', ended_at: '2026-10-02T14:00:00+00:00',
-    coming_people: 0, coming_headcount: 0, maybe_people: 0, coming_came: 0, coming_no_show: 0,
+    coming_people: 0, coming_headcount: 0, coming_came: 0, coming_no_show: 0,
     walk_ins: 0, actual_adults: 0, actual_children: 0, newcomer_rsvps: 0, became_members: 0,
     invited: 0, invited_responded: 0, invited_attended: 0,
     ...over,
@@ -33,7 +33,7 @@ describe('poolRsvpMetrics', () => {
   it('recon I1 + I2 rows pool to the hand numbers', () => {
     const kpis = poolRsvpMetrics([
       row({
-        coming_people: 3, coming_headcount: 6, maybe_people: 1, coming_came: 2, coming_no_show: 1,
+        coming_people: 3, coming_headcount: 6, coming_came: 2, coming_no_show: 1,
         walk_ins: 2, actual_adults: 5, actual_children: 3, newcomer_rsvps: 2, became_members: 1,
         invited: 4, invited_responded: 2, invited_attended: 2,
       }),
@@ -43,7 +43,7 @@ describe('poolRsvpMetrics', () => {
       instances: 2,
       coming_headcount: 6,
       coming_people: 3,
-      maybe_people: 1,
+     
       actual_adults: 6,
       actual_children: 3,
       show_up_rate: 2 / 3,

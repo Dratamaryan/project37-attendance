@@ -7,10 +7,8 @@ import {
   RSVP_CHILDREN_MAX,
   RSVP_CHILDREN_MIN,
   RSVP_INITIAL_STATE,
-  RSVP_PUBLIC_STATUSES,
   type RsvpFieldErrors,
   type RsvpFormState,
-  type RsvpPublicStatus,
 } from '@/lib/rsvp/public.types'
 import { RsvpNotAvailable } from './rsvp-not-available'
 import { TurnstileWidget } from './turnstile-widget'
@@ -20,12 +18,6 @@ type Props = {
   action: (prevState: RsvpFormState, formData: FormData) => Promise<RsvpFormState>
   /** S9-R4: the Turnstile site key when RSVP_TURNSTILE_ENABLED is on, else null (no widget). */
   turnstileSiteKey?: string | null
-}
-
-const STATUS_LABEL_KEY: Record<RsvpPublicStatus, string> = {
-  coming: 'form.status_coming',
-  maybe: 'form.status_maybe',
-  not_coming: 'form.status_not_coming',
 }
 
 const CHILDREN_OPTIONS = Array.from(
@@ -57,7 +49,6 @@ export function RsvpForm({ action, turnstileSiteKey = null }: Props) {
 
   // Controlled fields: React's post-action form reset only clears uncontrolled
   // inputs, so the visitor's answers survive an error and "Change my answer".
-  const [status, setStatus] = useState<RsvpPublicStatus | null>(null)
   const [phone, setPhone] = useState('')
   const [name, setName] = useState('')
   const [bringing, setBringing] = useState<'no' | 'yes'>('no')
@@ -82,14 +73,11 @@ export function RsvpForm({ action, turnstileSiteKey = null }: Props) {
         <h2 className="font-heading text-2xl font-semibold text-charcoal mb-2">{t('success.title')}</h2>
         <p className="text-sm text-ink-2 mb-4">{t('success.body')}</p>
         <ul className="text-sm text-charcoal space-y-1 mb-6">
-          <li>{t('success.recap_status', { status: t(STATUS_LABEL_KEY[state.status]) })}</li>
-          {state.status !== 'not_coming' && (
-            <li>
-              {state.children > 0
-                ? t('success.recap_children', { count: state.children })
-                : t('success.recap_no_children')}
-            </li>
-          )}
+          <li>
+            {state.children > 0
+              ? t('success.recap_children', { count: state.children })
+              : t('success.recap_no_children')}
+          </li>
         </ul>
         <button
           type="button"
@@ -111,7 +99,10 @@ export function RsvpForm({ action, turnstileSiteKey = null }: Props) {
 
   return (
     <form action={formAction} noValidate className="space-y-6" data-testid="rsvp-form">
-      <h2 className="font-heading text-2xl font-semibold text-charcoal">{t('form.title')}</h2>
+      <div>
+        <h2 className="font-heading text-2xl font-semibold text-charcoal">{t('form.title')}</h2>
+        <p className="text-sm text-ink-2 mt-1">{t('form.intro')}</p>
+      </div>
 
       {state.kind === 'invalid' && (
         <div role="alert" className={BANNER_CLASSES}>{t('errors.invalid_summary')}</div>
@@ -120,40 +111,17 @@ export function RsvpForm({ action, turnstileSiteKey = null }: Props) {
       {state.kind === 'unavailable' && (
         <div role="alert" className={BANNER_CLASSES}>{t('errors.unavailable')}</div>
       )}
-      {state.kind === 'error' && <div role="alert" className={BANNER_CLASSES}>{t('errors.generic')}</div>}
+      {state.kind === 'error' && (
+        <div role="alert" className={BANNER_CLASSES}>
+          {state.reason === 'form_outdated' ? t('errors.form_outdated') : t('errors.generic')}
+        </div>
+      )}
 
       {/* Honeypot (S9-R4): off-screen rather than display:none or sr-only, so
           naive bots still fill it while people and screen readers never meet it. */}
       <div aria-hidden="true" className="absolute -left-[10000px] top-auto w-px h-px overflow-hidden">
         <input type="text" name="website" tabIndex={-1} autoComplete="off" />
       </div>
-
-      {/* Status */}
-      <fieldset aria-describedby={errors.status ? 'rsvp-status-error' : undefined}>
-        <legend className="block text-xs font-medium text-charcoal mb-2">
-          {t('form.status_label')}
-          <span className="text-[#A85959] ml-0.5">*</span>
-        </legend>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          {RSVP_PUBLIC_STATUSES.map((value) => (
-            <label
-              key={value}
-              className={`${CHOICE_CLASSES} ${errors.status ? 'border-[#A85959]' : 'border-line'}`}
-            >
-              <input
-                type="radio"
-                name="status"
-                value={value}
-                checked={status === value}
-                onChange={() => setStatus(value)}
-                className="accent-charcoal"
-              />
-              {t(STATUS_LABEL_KEY[value])}
-            </label>
-          ))}
-        </div>
-        <FieldError id="rsvp-status-error" message={errors.status ? t('errors.status_required') : null} />
-      </fieldset>
 
       {/* Phone */}
       <div>
@@ -182,69 +150,72 @@ export function RsvpForm({ action, turnstileSiteKey = null }: Props) {
       {/* Name — same field and wording for everyone (no roster echo). */}
       <div>
         <label htmlFor="rsvp-name" className="block text-xs font-medium text-charcoal mb-1">
-          {t('form.name_label')} <span className="text-muted font-normal">{t('form.name_optional')}</span>
+          {t('form.name_label')}
+          <span className="text-[#A85959] ml-0.5">*</span>
         </label>
+        {/* required for the browser's own semantics; the form is noValidate,
+            so the localized server message is what the visitor sees. */}
         <input
           id="rsvp-name"
           name="name"
           type="text"
           autoComplete="name"
           maxLength={200}
+          required
           value={name}
           onChange={(e) => setName(e.target.value)}
+          aria-required="true"
           aria-invalid={!!errors.name}
           aria-describedby={errors.name ? 'rsvp-name-help rsvp-name-error' : 'rsvp-name-help'}
           className={fieldClass(!!errors.name)}
         />
         <p id="rsvp-name-help" className="text-xs text-muted mt-1">{t('form.name_help')}</p>
-        <FieldError id="rsvp-name-error" message={errors.name ? t('errors.name_too_long') : null} />
+        <FieldError id="rsvp-name-error" message={errors.name ? t(`errors.name_${errors.name}`) : null} />
       </div>
 
-      {/* Children — irrelevant (and not submitted) when not attending. */}
-      {status !== 'not_coming' && (
-        <fieldset data-testid="rsvp-children">
-          <legend className="block text-xs font-medium text-charcoal mb-2">{t('form.children_label')}</legend>
-          <div className="grid grid-cols-2 gap-2">
-            {(['no', 'yes'] as const).map((value) => (
-              <label key={value} className={`${CHOICE_CLASSES} border-line`}>
-                <input
-                  type="radio"
-                  name="bringing_children"
-                  value={value}
-                  checked={bringing === value}
-                  onChange={() => setBringing(value)}
-                  className="accent-charcoal"
-                />
-                {value === 'yes' ? t('form.children_yes') : t('form.children_no')}
-              </label>
-            ))}
+      {/* Children */}
+      <fieldset data-testid="rsvp-children">
+        <legend className="block text-xs font-medium text-charcoal mb-2">{t('form.children_label')}</legend>
+        <div className="grid grid-cols-2 gap-2">
+          {(['no', 'yes'] as const).map((value) => (
+            <label key={value} className={`${CHOICE_CLASSES} border-line`}>
+              <input
+                type="radio"
+                name="bringing_children"
+                value={value}
+                checked={bringing === value}
+                onChange={() => setBringing(value)}
+                className="accent-charcoal"
+              />
+              {value === 'yes' ? t('form.children_yes') : t('form.children_no')}
+            </label>
+          ))}
+        </div>
+        {bringing === 'yes' && (
+          <div className="mt-3">
+            <label htmlFor="rsvp-children-count" className="block text-xs font-medium text-charcoal mb-1">
+              {t('form.children_count_label')}
+            </label>
+            <select
+              id="rsvp-children-count"
+              name="children_count"
+              value={childrenCount}
+              onChange={(e) => setChildrenCount(e.target.value)}
+              aria-invalid={!!errors.children}
+              aria-describedby={errors.children ? 'rsvp-children-error' : undefined}
+              className={`${fieldClass(!!errors.children)} sm:w-32`}
+            >
+              {CHILDREN_OPTIONS.map((n) => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
           </div>
-          {bringing === 'yes' && (
-            <div className="mt-3">
-              <label htmlFor="rsvp-children-count" className="block text-xs font-medium text-charcoal mb-1">
-                {t('form.children_count_label')}
-              </label>
-              <select
-                id="rsvp-children-count"
-                name="children_count"
-                value={childrenCount}
-                onChange={(e) => setChildrenCount(e.target.value)}
-                aria-invalid={!!errors.children}
-                aria-describedby={errors.children ? 'rsvp-children-error' : undefined}
-                className={`${fieldClass(!!errors.children)} sm:w-32`}
-              >
-                {CHILDREN_OPTIONS.map((n) => (
-                  <option key={n} value={n}>{n}</option>
-                ))}
-              </select>
-            </div>
-          )}
-          <FieldError
-            id="rsvp-children-error"
-            message={errors.children ? t(`errors.children_${errors.children}`) : null}
-          />
-        </fieldset>
-      )}
+        )}
+        <FieldError
+          id="rsvp-children-error"
+          message={errors.children ? t(`errors.children_${errors.children}`) : null}
+        />
+      </fieldset>
 
       {/* Follow-up consent — per-submission only. The policy link opens in a
           new tab: the form is controlled state, so navigating away would lose it. */}

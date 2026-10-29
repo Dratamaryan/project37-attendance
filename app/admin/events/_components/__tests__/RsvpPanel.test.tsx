@@ -32,7 +32,6 @@ function panel(link: RsvpPanelData['link'], publicEnabled = true): RsvpPanelData
     publicEnabled,
     totals: {
       responses: 0, coming_people: 0, coming_headcount: 0, coming_children: 0,
-      maybe_people: 0, maybe_headcount: 0, not_coming_people: 0,
     },
     buckets: {
       coming_came: 0, coming_no_show: 0, maybe_came: 0, maybe_no_show: 0,
@@ -146,5 +145,49 @@ describe('RsvpPanel — anonymized rows (S9-R5)', () => {
       whatsAppUrls={null} />)
     expect(screen.getByTestId('rsvp-row-name')).toHaveTextContent('[SYNTH] Newcomer')
     expect(screen.getByText(/list\.followup_yes/)).toBeInTheDocument()
+  })
+})
+
+describe('RsvpPanel — S9.5-T5 coming-only totals', () => {
+  // Legacy fixture: 2 coming (1 + 2 children), 1 maybe (1 child), 1 not_coming.
+  // Totals/buckets arrive as impl_getInstanceRsvpPanel builds them (maybe /
+  // not_coming excluded from every coming figure; their buckets still counted).
+  const legacy: RsvpPanelData = {
+    ...panel(INACTIVE),
+    totals: { responses: 4, coming_people: 2, coming_headcount: 4, coming_children: 2 },
+    buckets: {
+      coming_came: 1, coming_no_show: 1, maybe_came: 1, maybe_no_show: 0,
+      not_coming_came: 0, not_coming_no_show: 1, walk_in: 3,
+    },
+    children: { expected: 2, checked_in: 1 },
+    rows: [
+      { rsvp_id: 'c1', display_kind: 'newcomer', display_name: '[SYNTH] C1', status: 'coming', children_count: 0, followup_consent: false, phone_masked: '•••• 0001', created_at: '2026-10-01T01:00:00Z', updated_at: '2026-10-01T01:00:00Z', attended: true, anonymized: false },
+      { rsvp_id: 'c2', display_kind: 'newcomer', display_name: '[SYNTH] C2', status: 'coming', children_count: 2, followup_consent: false, phone_masked: '•••• 0002', created_at: '2026-10-01T01:00:00Z', updated_at: '2026-10-01T01:00:00Z', attended: false, anonymized: false },
+      { rsvp_id: 'm1', display_kind: 'newcomer', display_name: '[SYNTH] M1', status: 'maybe', children_count: 1, followup_consent: false, phone_masked: '•••• 0003', created_at: '2026-10-01T01:00:00Z', updated_at: '2026-10-01T01:00:00Z', attended: true, anonymized: false },
+      { rsvp_id: 'n1', display_kind: 'newcomer', display_name: '[SYNTH] N1', status: 'not_coming', children_count: 0, followup_consent: false, phone_masked: '•••• 0004', created_at: '2026-10-01T01:00:00Z', updated_at: '2026-10-01T01:00:00Z', attended: false, anonymized: false },
+    ],
+  }
+
+  it('legacy maybe / not_coming rows render; totals show coming figures only', () => {
+    render(<RsvpPanel instanceId={INSTANCE_ID} instanceStatus="completed" panel={legacy} whatsAppUrls={null} />)
+    expect(screen.getByTestId('rsvp-coming-headcount')).toHaveTextContent('4')
+    expect(screen.getByTestId('rsvp-coming-detail')).toHaveTextContent('totals.coming_detail')
+    const totals = screen.getByTestId('rsvp-totals')
+    expect(totals).not.toHaveTextContent('totals.maybe')
+    expect(totals).not.toHaveTextContent('totals.not_coming')
+    expect(totals).not.toHaveTextContent('totals.responses')
+    expect(screen.queryByTestId('rsvp-maybe')).toBeNull()
+    // every row still listed, with its stored status label
+    expect(screen.getAllByTestId('rsvp-row')).toHaveLength(4)
+    expect(screen.getByText(/list\.status\.maybe/)).toBeInTheDocument()
+    expect(screen.getByText(/list\.status\.not_coming/)).toBeInTheDocument()
+  })
+
+  it('cross-tab shows only coming + walk-in buckets', () => {
+    render(<RsvpPanel instanceId={INSTANCE_ID} instanceStatus="completed" panel={legacy} whatsAppUrls={null} />)
+    const shown = screen.getAllByTestId(/^rsvp-bucket-/).map(el => el.getAttribute('data-testid'))
+    expect(shown).toEqual(['rsvp-bucket-coming_came', 'rsvp-bucket-coming_no_show', 'rsvp-bucket-walk_in'])
+    expect(screen.getByTestId('rsvp-bucket-walk_in')).toHaveTextContent('3')
+    expect(screen.getByTestId('rsvp-crosstab')).not.toHaveTextContent(/maybe|not_coming/)
   })
 })

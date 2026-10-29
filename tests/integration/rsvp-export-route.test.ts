@@ -363,15 +363,9 @@ describe('GET /api/admin/export/instance/[instanceId]/rsvp — admin 200', () =>
       ['Coming (people)', 3],
       ['Expected headcount (food)', 6],
       ['Coming children', 3],
-      ['Maybe (people)', 2],
-      ['Maybe headcount', 3],
-      ['Not coming', 1],
+      // S9.5-T5: legacy maybe (C2, R) / not_coming (N2) rows add no summary line.
       ['Coming · came', 1],
       ["Coming · didn't come", 2],
-      ['Maybe · came', 0],
-      ["Maybe · didn't come", 2],
-      ['Not coming · came anyway', 0],
-      ["Not coming · didn't come", 1],
       ['Walk-in (no RSVP)', 1],
       ['Children expected', 3],
       ['Children checked in', 1],
@@ -383,7 +377,7 @@ describe('GET /api/admin/export/instance/[instanceId]/rsvp — admin 200', () =>
     expect(sheetMatrix(wb, 'Responses')).toEqual([RESPONSE_HEADERS])
     const summary = sheetMatrix(wb, 'Summary')
     expect(summary[0]).toEqual(['Metric', 'Value'])
-    expect(summary).toHaveLength(17)
+    expect(summary).toHaveLength(10)
     expect(summary.slice(1).every(row => row[1] === 0)).toBe(true)
   })
 
