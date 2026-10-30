@@ -74,3 +74,5 @@ docs/data-samples/
 
 /docs/
 /memory/
+# Supabase Studio saved queries (local scratch; owner decides what to keep)
+supabase/snippets/
