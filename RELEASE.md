@@ -649,3 +649,33 @@ branch-expected ref for remote ops.
   children 2}, export summary has no Maybe / Not coming line, Status column keeps legacy labels;
   cleanup zero residue incl. 0 audit rows). Public page not fetched (Vercel protection, not
   bypassed) — owner UI checklist. Prod: pending owner (main fast-forward only).
+- S9.5-T4 STAGING VERIFIED (2026-10-30; prod pending): reschedule a single occurrence (design R2)
+  (95e16fe; migration 20261030120000_s9_5_t4_reschedule_instance.sql; housekeeping 420edbe
+  ignores supabase/snippets/, file kept). reschedule_instance(uuid, timestamptz, text) RETURNS
+  uuid: one transaction — lock original FOR UPDATE, cancel it (notes 'Rescheduled to <yyyy-MM-dd
+  HH:mm> WIB: <reason>'), insert a one-off on the SAME event (snapshot names from events, as the
+  materializer writes; notes 'Rescheduled from …'), one audit row event_instance.reschedule
+  {from/to instance id, from/to at, reason} via log_audit (real admin actor). SECURITY INVOKER
+  (admin RLS is the enforcement layer), search_path pinned, EXECUTE authenticated only (anon,
+  PUBLIC, service_role revoked). Refusals 'reschedule:<code>' P0001, nothing written: not_admin,
+  invalid_input, not_found, not_scheduled, original_in_past, event_inactive, not_recurring,
+  new_in_past, beyond_horizon (now + materialization_horizon_mo), same_time, slot_taken (incl. a
+  lost unique-index race), reason_required, reason_too_long (> 500). Never DELETEs. Action
+  impl_rescheduleInstance: WIB date + time → toJakartaInstant with round-trip check (no rrule),
+  typed codes with en + id copy. UI: admin instance page "Reschedule / Jadwalkan ulang" (future
+  scheduled occurrence of an active recurring event) → form → confirm step → redirect to the new
+  occurrence with a success banner. Verification rungs (rule 17): Local ✓ verified:vitest (gate
+  1984/1984 twice, no failure on any run; lint 0 errors, typecheck, build; reschedule-instance
+  29/29 — happy path, 15 guard cases write nothing, organizer/anon refused, atomicity via forced
+  insert failure + forced 23505, grants/INVOKER/search_path, materializer inserted 0 twice with the
+  one-off kept, picker / RSVP mint / invites / completion flip on the one-off) / Staging ✓ (run by
+  Claude Code under delegation: preflight + staging pin; dry-run = this migration only; db push;
+  push 420edbe → deploy dpl_D2CJToz1QQ6a2uoJ9NgeB4fh3mJc success; scripts/s9-5/t4-staging-smoke.ts,
+  verified:server-side — [SYNTH] Saturday 088a5bd6 2026-12-12 → one-off 2647dae9 2026-12-19 15:00
+  WIB via impl_rescheduleInstance under the staging admin; both rows + audit row 160 verified;
+  materializer inserted 0 / pruned 0; organizer → not_admin, 0 writes; RSVP link minted on the
+  one-off, get_rsvp_context open at 12-19 15:00 WIB, original → closed). Staging mirror kept (no
+  cleanup): Saturday series now 13 rows = 12 rule slots (12-12 cancelled) + 1 one-off; the T2 smoke
+  `verify` phase (expects 12 rows, all scheduled) would now FAIL by design — reported, not fixed.
+  UI not live-verified on staging — owner UI checklist. Prod: pending owner (db push, main
+  fast-forward, read-only UI check). No real PII at any rung.
