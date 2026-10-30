@@ -49,7 +49,7 @@
 
 ## Commit Style
 
-16. Use conventional commits: `feat:`, `fix:`, `chore:`, `docs:`, `test:`. Keep the subject line under 72 characters.
+16. Use conventional commits: `feat:`, `fix:`, `chore:`, `docs:`, `test:`. Keep the subject line under 72 characters. Run `git branch --show-current` before every commit and every push, and confirm it is the intended branch.
 
 ## Verification Ladder
 

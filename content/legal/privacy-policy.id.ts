@@ -6,7 +6,7 @@
 // Source of truth: docs/privacy-policy.{id,en}.md (verbatim copy — do not reword).
 export const privacyPolicyId = `# Kebijakan Privasi
 
-*Berlaku sejak: 26 Oktober 2026 · Versi: v2*
+*Berlaku sejak: 30 Oktober 2026 · Versi: v2*
 
 Kebijakan Privasi ini menjelaskan data pribadi apa yang kami kumpulkan, mengapa kami mengumpulkannya, bagaimana kami menjaganya, dan apa saja hak Anda atas data tersebut. Kami menghormati kepercayaan yang Anda berikan dan berkomitmen untuk hanya menggunakan data Anda demi kepentingan komunitas.
 
@@ -32,7 +32,7 @@ Kami hanya mengumpulkan data yang diperlukan untuk melayani komunitas, antara la
 - **Foto:** foto profil Anda, hanya bila Anda memberikannya.
 - **Catatan kehadiran:** waktu dan acara saat Anda hadir.
 - **Data keluarga (bila relevan):** informasi pasangan atau anak, hanya bila Anda memberikannya.
-- **Konfirmasi kehadiran (RSVP):** nomor HP/WhatsApp, nama (opsional), jawaban kehadiran (hadir, mungkin, atau tidak hadir), jumlah anak yang ikut, serta pilihan Anda untuk dihubungi kembali.
+- **Konfirmasi kehadiran (RSVP):** nomor HP/WhatsApp, nama, konfirmasi kehadiran Anda, jumlah anak yang ikut, serta pilihan Anda untuk dihubungi kembali.
 
 Bila nomor HP yang Anda isi pada formulir RSVP sudah tercatat sebagai anggota, konfirmasi Anda otomatis dikaitkan dengan data anggota tersebut. Dalam hal itu, nama yang Anda ketik tidak disimpan, dan data anggota Anda tidak diubah oleh formulir RSVP.
 

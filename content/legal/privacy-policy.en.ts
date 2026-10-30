@@ -6,7 +6,7 @@
 // Source of truth: docs/privacy-policy.{id,en}.md (verbatim copy — do not reword).
 export const privacyPolicyEn = `# Privacy Policy
 
-*Effective: 26th October 2026 · Version: v2*
+*Effective: 30th October 2026 · Version: v2*
 
 This Privacy Policy explains what personal data we collect, why we collect it, how we protect it, and what rights you have over it. We value the trust you place in us and are committed to using your data only for the benefit of the community.
 
@@ -32,7 +32,7 @@ We only collect the data needed to serve the community, including:
 - **Photo:** your profile photo, only if you provide one.
 - **Attendance records:** the time and event when you were present.
 - **Family details (where relevant):** spouse or children information, only if you provide it.
-- **Attendance confirmations (RSVP):** phone/WhatsApp number, name (optional), your answer (attending, maybe, or not attending), the number of children coming with you, and whether you agree to be contacted again.
+- **Attendance confirmations (RSVP):** phone/WhatsApp number, name, your confirmation that you will attend, the number of children coming with you, and whether you agree to be contacted again.
 
 If the phone number you enter on the RSVP form already belongs to a community member, your confirmation is automatically linked to that member record. In that case the name you type is not stored, and the RSVP form never changes your member record.
 
