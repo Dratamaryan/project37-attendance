@@ -104,3 +104,31 @@ export type NearestInstanceRow = {
 export type ListNearestResult =
   | { status: 'ok'; instances: NearestInstanceRow[] }
   | { status: 'error'; message: string }
+
+// ── rescheduleInstance (S9.5-T4) ───────────────────────────────────────────────
+
+// SQL refusal codes raised by public.reschedule_instance() as 'reschedule:<code>',
+// plus the action's own pre-RPC validation codes. Each has an en + id message
+// under admin.events.instance.reschedule.errors.
+export type RescheduleErrorCode =
+  | 'not_admin'
+  | 'not_found'
+  | 'not_scheduled'
+  | 'original_in_past'
+  | 'event_inactive'
+  | 'not_recurring'
+  | 'new_in_past'
+  | 'beyond_horizon'
+  | 'same_time'
+  | 'slot_taken'
+  | 'reason_required'
+  | 'reason_too_long'
+  | 'invalid_instance'
+  | 'invalid_date'
+  | 'invalid_time'
+  | 'unauthenticated'
+  | 'unknown'
+
+export type RescheduleInstanceResult =
+  | { status: 'ok'; instance_id: string; event_id: string }
+  | { status: 'error'; code: RescheduleErrorCode }

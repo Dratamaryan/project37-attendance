@@ -5,6 +5,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { subDays, addDays } from 'date-fns'
 import { expandRRule } from '@/lib/events/recurrence'
 import { materializeEvents } from '@/lib/events/materialize.impl'
+import { formatJakarta, toJakartaInstant } from '@/lib/events/timezone'
 import { logAudit, AUDIT_ACTIONS } from '../audit'
 import type {
   EventInput,
@@ -21,6 +22,8 @@ import type {
   ListInstancesResult,
   NearestInstanceRow,
   ListNearestResult,
+  RescheduleErrorCode,
+  RescheduleInstanceResult,
 } from './events.types'
 
 const VALID_EVENT_TYPES = ['friday_monthly', 'saturday_monthly', 'sunday_monthly', 'adhoc', 'other_recurring']
@@ -331,6 +334,102 @@ export async function impl_cancelInstance({
 
   // Found scheduled but UPDATE returned 0 rows → RLS blocked organizer
   return { status: 'forbidden', message: 'Permission denied' }
+}
+
+// ── rescheduleInstance (S9.5-T4) ─────────────────────────────────────────────
+// Validates, converts the WIB date + time with toJakartaInstant (never through
+// rrule), then calls public.reschedule_instance(), which does the cancel +
+// one-off insert + audit row in one transaction and enforces admin-only, the
+// recurring/future/horizon/slot guards. Refusals arrive as 'reschedule:<code>'.
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const HHMM_RE = /^\d{2}:\d{2}$/
+const MAX_RESCHEDULE_REASON = 500  // same cap as the SQL guard (char_length = code points)
+
+const RESCHEDULE_SQL_CODES: Partial<Record<string, RescheduleErrorCode>> = {
+  not_admin:        'not_admin',
+  invalid_input:    'invalid_instance',
+  not_found:        'not_found',
+  not_scheduled:    'not_scheduled',
+  original_in_past: 'original_in_past',
+  event_inactive:   'event_inactive',
+  not_recurring:    'not_recurring',
+  new_in_past:      'new_in_past',
+  beyond_horizon:   'beyond_horizon',
+  same_time:        'same_time',
+  slot_taken:       'slot_taken',
+  reason_required:  'reason_required',
+  reason_too_long:  'reason_too_long',
+}
+
+export function mapRescheduleError(error: { code?: string; message?: string }): RescheduleErrorCode {
+  const match = /^reschedule:([a-z_]+)$/.exec(error.message ?? '')
+  if (match) return RESCHEDULE_SQL_CODES[match[1]] ?? 'unknown'
+  if (error.code === '42501') return 'not_admin'
+  return 'unknown'
+}
+
+export async function impl_rescheduleInstance({
+  supabase,
+  instanceId,
+  wibDate,
+  wibTime,
+  reason,
+}: {
+  supabase: SupabaseClient
+  instanceId: string
+  wibDate: string
+  wibTime: string
+  reason: string
+}): Promise<RescheduleInstanceResult> {
+  if (!UUID_RE.test(instanceId)) return { status: 'error', code: 'invalid_instance' }
+  if (!DATE_RE.test(wibDate)) return { status: 'error', code: 'invalid_date' }
+  if (!HHMM_RE.test(wibTime)) return { status: 'error', code: 'invalid_time' }
+  const trimmed = reason.trim()
+  if (trimmed === '') return { status: 'error', code: 'reason_required' }
+  if ([...trimmed].length > MAX_RESCHEDULE_REASON) return { status: 'error', code: 'reason_too_long' }
+
+  let newAt: Date
+  try {
+    newAt = toJakartaInstant(wibDate, wibTime)
+  } catch {
+    return { status: 'error', code: 'invalid_date' }
+  }
+  // Round-trip: rejects calendar overflow (2026-02-30) and 24:00-style times
+  // that date parsing would silently roll forward.
+  if (formatJakarta(newAt, 'yyyy-MM-dd') !== wibDate) return { status: 'error', code: 'invalid_date' }
+  if (formatJakarta(newAt, 'HH:mm') !== wibTime) return { status: 'error', code: 'invalid_time' }
+
+  const { data: claims } = await supabase.auth.getClaims()
+  if (!claims) return { status: 'error', code: 'unauthenticated' }
+
+  const { data: newId, error } = await supabase.rpc('reschedule_instance', {
+    p_instance_id: instanceId,
+    p_new_at:      newAt.toISOString(),
+    p_reason:      trimmed,
+  })
+
+  if (error) {
+    const code = mapRescheduleError(error)
+    if (code === 'unknown') console.error('[rescheduleInstance] rpc', error)
+    return { status: 'error', code }
+  }
+  if (typeof newId !== 'string') {
+    console.error('[rescheduleInstance] rpc returned no id', newId)
+    return { status: 'error', code: 'unknown' }
+  }
+
+  const { data: row, error: readError } = await supabase
+    .from('event_instances')
+    .select('event_id')
+    .eq('id', newId)
+    .single()
+  if (readError || !row) {
+    console.error('[rescheduleInstance] read new instance', readError)
+    return { status: 'error', code: 'unknown' }
+  }
+
+  return { status: 'ok', instance_id: newId, event_id: (row as { event_id: string }).event_id }
 }
 
 // ── updateInstance ───────────────────────────────────────────────────────────

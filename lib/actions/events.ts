@@ -7,6 +7,7 @@ import {
   impl_createEvent,
   impl_updateEvent,
   impl_cancelInstance,
+  impl_rescheduleInstance,
   impl_updateInstance,
   impl_listEvents,
   impl_listInstancesForEvent,
@@ -19,6 +20,7 @@ import type {
   CreateEventResult,
   UpdateEventResult,
   CancelInstanceResult,
+  RescheduleInstanceResult,
   UpdateInstanceResult,
   ListEventsFilters,
   ListEventsResult,
@@ -52,6 +54,18 @@ export async function cancelInstance(
   const supabase = await createClient()
   const adminSupabase = createAdminClient()
   const result = await impl_cancelInstance({ supabase, adminSupabase, instanceId, reason })
+  if (result.status === 'ok') revalidatePath('/admin/events')
+  return result
+}
+
+export async function rescheduleInstance(
+  instanceId: string,
+  wibDate: string,
+  wibTime: string,
+  reason: string,
+): Promise<RescheduleInstanceResult> {
+  const supabase = await createClient()
+  const result = await impl_rescheduleInstance({ supabase, instanceId, wibDate, wibTime, reason })
   if (result.status === 'ok') revalidatePath('/admin/events')
   return result
 }

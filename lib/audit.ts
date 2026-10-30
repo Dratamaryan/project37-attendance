@@ -46,6 +46,8 @@ export const AUDIT_ACTIONS = {
   RSVP_DELETE:             'rsvp.delete',
   // Written only by run_rsvp_retention_pass() (SQL), never by logAudit().
   RSVP_ANONYMIZE:          'rsvp.anonymize',
+  // Written only by reschedule_instance() (SQL), never by logAudit().
+  EVENT_INSTANCE_RESCHEDULE: 'event_instance.reschedule',
 } as const
 
 export type AuditAction = typeof AUDIT_ACTIONS[keyof typeof AUDIT_ACTIONS]

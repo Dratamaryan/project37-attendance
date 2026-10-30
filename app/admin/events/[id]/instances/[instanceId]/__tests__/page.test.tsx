@@ -11,6 +11,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import AdminInstanceDetailPage from '../page'
+import { formatJakarta, toJakartaInstant } from '@/lib/events/timezone'
 
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string) => key,
@@ -32,6 +33,13 @@ vi.mock('next/navigation', () => ({
 }))
 vi.mock('@/app/admin/events/_components/CancelInstanceDialog', () => ({
   CancelInstanceDialog: () => <button data-testid="cancel-dialog">cancel</button>,
+}))
+vi.mock('@/app/admin/events/_components/RescheduleInstanceDialog', () => ({
+  RescheduleInstanceDialog: ({ instanceId, fromLabel, defaultDate, defaultTime }: {
+    instanceId: string; fromLabel: string; defaultDate: string; defaultTime: string
+  }) => (
+    <button data-testid="reschedule-dialog">{`${instanceId}|${fromLabel}|${defaultDate}|${defaultTime}`}</button>
+  ),
 }))
 vi.mock('@/components/attendees/AttendeesList', () => ({
   AttendeesList: ({ adults, childAttendees }: { adults: unknown[]; childAttendees: unknown[] }) => (
@@ -247,5 +255,60 @@ describe('AdminInstanceDetailPage', () => {
     expect(screen.queryByTestId('rsvp-panel')).not.toBeInTheDocument()
     expect(screen.getByTestId('rsvp-panel-error')).toHaveTextContent('admin.events.instance.rsvp.error_load')
     expect(screen.getByTestId('attendees-list')).toBeInTheDocument()
+  })
+
+  // ── S9.5-T4 reschedule ──────────────────────────────────────────────────────
+
+  describe('reschedule (S9.5-T4)', () => {
+    // 15:00 WIB, 30 days from the real clock (the page compares against new Date())
+    const futureAt = toJakartaInstant(formatJakarta(new Date(Date.now() + 30 * 86_400_000), 'yyyy-MM-dd'), '15:00')
+    const FUTURE = { ...INSTANCE, scheduled_at: futureAt.toISOString() }
+    const futureDate = formatJakarta(futureAt, 'yyyy-MM-dd')
+    const RECURRING = {
+      id: EVENT_ID, name: 'Project Day', name_id: 'Project Day',
+      event_type: 'saturday_monthly', recurrence_rule: 'FREQ=MONTHLY;BYDAY=2SA', active: true,
+    }
+
+    beforeEach(() => {
+      mockListEvents.mockResolvedValue({ status: 'ok', events: [RECURRING] })
+      mockListInstancesForEvent.mockResolvedValue({ status: 'ok', instances: [FUTURE] })
+    })
+
+    it('future scheduled occurrence of an active recurring event -> Reschedule control with WIB defaults', async () => {
+      render(await AdminInstanceDetailPage({ params }))
+      expect(screen.getByTestId('reschedule-dialog'))
+        .toHaveTextContent(`${INSTANCE_ID}|${futureDate} 15:00|${futureDate}|15:00`)
+    })
+
+    it.each([
+      ['adhoc event', { event: { ...RECURRING, event_type: 'adhoc', recurrence_rule: null } }],
+      ['recurring type without a rule', { event: { ...RECURRING, recurrence_rule: null } }],
+      ['inactive event', { event: { ...RECURRING, active: false } }],
+      ['past occurrence', { instance: { ...FUTURE, scheduled_at: '2026-01-10T08:00:00Z' } }],
+      ['cancelled occurrence', { instance: { ...FUTURE, status: 'cancelled' } }],
+      ['completed occurrence', { instance: { ...FUTURE, status: 'completed' } }],
+    ] as const)('no Reschedule control for %s', async (_label, over) => {
+      if ('event' in over) mockListEvents.mockResolvedValue({ status: 'ok', events: [over.event] })
+      if ('instance' in over) mockListInstancesForEvent.mockResolvedValue({ status: 'ok', instances: [over.instance] })
+      render(await AdminInstanceDetailPage({ params }))
+      expect(screen.queryByTestId('reschedule-dialog')).not.toBeInTheDocument()
+    })
+
+    it('?rescheduled=1 -> success banner; absent otherwise', async () => {
+      const { unmount } = render(await AdminInstanceDetailPage({ params, searchParams: Promise.resolve({ rescheduled: '1' }) }))
+      expect(screen.getByTestId('reschedule-success-banner'))
+        .toHaveTextContent('admin.events.instance.reschedule.banner_success')
+      unmount()
+      render(await AdminInstanceDetailPage({ params, searchParams: Promise.resolve({}) }))
+      expect(screen.queryByTestId('reschedule-success-banner')).not.toBeInTheDocument()
+    })
+
+    it('cancelled original shows its reschedule note', async () => {
+      const note = 'Rescheduled to 2027-01-16 15:00 WIB: Venue unavailable'
+      mockListInstancesForEvent.mockResolvedValue({ status: 'ok', instances: [{ ...FUTURE, status: 'cancelled', notes: note }] })
+      render(await AdminInstanceDetailPage({ params }))
+      expect(screen.getByText(note)).toBeInTheDocument()
+      expect(screen.getByText('Cancelled')).toBeInTheDocument()
+    })
   })
 })

@@ -10,6 +10,7 @@ import { formatJakarta } from '@/lib/events/timezone'
 import { displayInstanceName } from '@/lib/events/display'
 import Link from 'next/link'
 import { CancelInstanceDialog } from '../../../_components/CancelInstanceDialog'
+import { RescheduleInstanceDialog } from '../../../_components/RescheduleInstanceDialog'
 import { AttendeesList } from '@/components/attendees/AttendeesList'
 import { impl_getInstanceRsvpPanel } from '@/lib/rsvp/admin.impl'
 import { buildWhatsAppShareUrl, formatShareDateLabel, type ShareLocale } from '@/lib/rsvp/share'
@@ -17,6 +18,7 @@ import { RsvpPanel } from '../../../_components/RsvpPanel'
 
 type Props = {
   params: Promise<{ id: string; instanceId: string }>
+  searchParams?: Promise<Record<string, string | undefined>>
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -38,8 +40,9 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
-export default async function AdminInstanceDetailPage({ params }: Props) {
+export default async function AdminInstanceDetailPage({ params, searchParams }: Props) {
   const { id: eventId, instanceId } = await params
+  const sp = (await searchParams) ?? {}
 
   // Admin-only check (D14)
   const supabase = await createClient()
@@ -76,6 +79,14 @@ export default async function AdminInstanceDetailPage({ params }: Props) {
   const rsvp = await impl_getInstanceRsvpPanel(instanceId, supabase)
 
   const dateStr    = formatJakarta(new Date(instance.scheduled_at), 'PPP p')
+  // S9.5-T4: reschedule is offered only where reschedule_instance() would
+  // accept it — a future scheduled occurrence of a recurring, active event.
+  const canReschedule =
+    instance.status === 'scheduled' &&
+    new Date(instance.scheduled_at).getTime() > now.getTime() &&
+    event.active &&
+    event.event_type !== 'adhoc' &&
+    !!event.recurrence_rule
   const shortDate  = formatJakarta(new Date(instance.scheduled_at), 'PP')
   const displayName = displayInstanceName({
     scheduledAt: new Date(instance.scheduled_at),
@@ -109,6 +120,17 @@ export default async function AdminInstanceDetailPage({ params }: Props) {
   return (
     <main className="px-4 md:px-6 py-8">
       <div className="max-w-5xl mx-auto">
+        {/* Reschedule success banner — shown on the NEW occurrence (S9.5-T4) */}
+        {sp.rescheduled === '1' && (
+          <div
+            role="status"
+            data-testid="reschedule-success-banner"
+            className="mb-6 px-4 py-3 rounded-lg bg-green-50 border border-green-200 text-sm text-green-700"
+          >
+            {t('reschedule.banner_success')}
+          </div>
+        )}
+
         {/* Breadcrumb */}
         <nav className="text-sm text-muted mb-6">
           <Link href="/admin/events" className="hover:text-gold transition-colors">
@@ -157,6 +179,14 @@ export default async function AdminInstanceDetailPage({ params }: Props) {
             >
               {t('edit_button')}
             </Link>
+            {canReschedule && (
+              <RescheduleInstanceDialog
+                instanceId={instanceId}
+                fromLabel={formatJakarta(new Date(instance.scheduled_at), 'yyyy-MM-dd HH:mm')}
+                defaultDate={formatJakarta(new Date(instance.scheduled_at), 'yyyy-MM-dd')}
+                defaultTime={formatJakarta(new Date(instance.scheduled_at), 'HH:mm')}
+              />
+            )}
             {/* Cancel affordance — only for scheduled instances */}
             {instance.status === 'scheduled' && (
               <CancelInstanceDialog instanceId={instanceId} eventId={eventId} />
