@@ -1,6 +1,6 @@
 import { getTranslations } from 'next-intl/server'
 import { redirect } from 'next/navigation'
-import { listEvents } from '@/lib/actions/events'
+import { hasFutureOccurrences, listEvents } from '@/lib/actions/events'
 import { EventForm } from '../../_components/EventForm'
 import type { EventRow } from '@/lib/actions/events.types'
 
@@ -25,6 +25,10 @@ export default async function AdminEventEditPage({ params }: Props) {
     redirect('/admin/events?event_not_found=1')
   }
 
+  // S9.5-T5.5: schedule fields are locked while upcoming occurrences exist
+  // (enforced by trg_events_schedule_lock; this only drives the form state).
+  const scheduleLocked = await hasFutureOccurrences(event.id)
+
   return (
     <main className="px-4 md:px-6 py-8">
       <div className="max-w-2xl mx-auto">
@@ -32,7 +36,7 @@ export default async function AdminEventEditPage({ params }: Props) {
           {t('form.submit_update')}
         </h1>
         <p className="text-muted text-sm mb-8">{event.name}</p>
-        <EventForm mode="edit" initialData={event} />
+        <EventForm mode="edit" initialData={event} scheduleLocked={scheduleLocked} />
       </div>
     </main>
   )

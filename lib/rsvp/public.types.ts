@@ -21,6 +21,8 @@ export type RsvpEventView = {
   name: string
   dateLabel: string
   timeLabel: string
+  /** S9.5-T5.5 public schedule note, resolved per locale (ID: id ?? en, EN: en ?? id). */
+  scheduleNote: string | null
   location: string | null
   imageUrl: string | null
 }

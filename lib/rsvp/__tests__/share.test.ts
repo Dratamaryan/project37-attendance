@@ -65,3 +65,33 @@ describe('buildWhatsAppShareUrl', () => {
     expect(decodedText(out)).toContain('Natal — Café (25 Des)')
   })
 })
+
+describe('buildWhatsAppShareUrl — schedule note (S9.5-T5.5)', () => {
+  const NOTE_ID = '15.00 snack & kopi · 16.00 Project Day dimulai'
+  const NOTE_EN = '15:00 snacks & coffee · 16:00 Project Day starts'
+
+  it('ID: note on its own line after the date/time line, URL on the last line', () => {
+    const dateLabel = formatShareDateLabel(SCHEDULED_AT, 'id')
+    const out = buildWhatsAppShareUrl({ eventName: 'Project Day', dateLabel, url: URL_, locale: 'id', scheduleNote: NOTE_ID })
+    expect(decodedText(out)).toBe(
+      `Mohon konfirmasi kehadiran untuk Project Day (Sabtu, 24 Oktober 2026 18.00)\n${NOTE_ID}\n${URL_}`,
+    )
+  })
+
+  it('EN: same shape with the EN note', () => {
+    const dateLabel = formatShareDateLabel(SCHEDULED_AT, 'en')
+    const out = buildWhatsAppShareUrl({ eventName: 'Project Day', dateLabel, url: URL_, locale: 'en', scheduleNote: NOTE_EN })
+    expect(decodedText(out)).toBe(
+      `Please confirm your attendance for Project Day (Saturday, October 24, 2026 6:00 PM)\n${NOTE_EN}\n${URL_}`,
+    )
+  })
+
+  it('null / blank note → the original single-line message', () => {
+    const dateLabel = formatShareDateLabel(SCHEDULED_AT, 'id')
+    for (const scheduleNote of [null, undefined, '   ']) {
+      const out = buildWhatsAppShareUrl({ eventName: 'Project Day', dateLabel, url: URL_, locale: 'id', scheduleNote })
+      expect(decodedText(out)).toBe(`Mohon konfirmasi kehadiran untuk Project Day (Sabtu, 24 Oktober 2026 18.00): ${URL_}`)
+    }
+  })
+})
+

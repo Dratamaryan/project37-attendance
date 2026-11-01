@@ -11,6 +11,8 @@ export type EventInput = {
   description?: string | null
   recurrence_rule?: string | null  // null for adhoc
   active?: boolean            // default true
+  schedule_note?: string | null     // S9.5-T5.5 public note (EN), <= 160 code points
+  schedule_note_id?: string | null  // S9.5-T5.5 public note (ID), <= 160 code points
 }
 
 export type UpdateEventInput = Partial<EventInput>
@@ -27,6 +29,8 @@ export type EventRow = {
   description: string | null
   recurrence_rule: string | null
   active: boolean
+  schedule_note: string | null
+  schedule_note_id: string | null
   created_by: string
   created_at: string
   updated_at: string
@@ -65,6 +69,9 @@ export type CreateEventResult =
 export type UpdateEventResult =
   | { status: 'ok'; event_id: string }
   | { status: 'invalid_input'; field: string; message: string }
+  // S9.5-T5.5: trg_events_schedule_lock refused a start_date / start_time /
+  // recurrence_rule / event_type change — the event has upcoming occurrences.
+  | { status: 'schedule_locked' }
   | { status: 'not_found' }
   | { status: 'forbidden'; message: string }
   | { status: 'error'; message: string }

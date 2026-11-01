@@ -31,7 +31,33 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 const TIME_RE = /^\d{2}:\d{2}(:\d{2})?$/
 
 const EVENT_FIELDS =
-  'id, name, name_id, event_type, start_date, start_time, duration_min, location, description, recurrence_rule, active, created_by, created_at, updated_at'
+  'id, name, name_id, event_type, start_date, start_time, duration_min, location, description, recurrence_rule, active, schedule_note, schedule_note_id, created_by, created_at, updated_at'
+
+// S9.5-T5.5 public schedule note — same cap as the SQL CHECK
+// (char_length = code points, hence [...s].length, not s.length).
+export const SCHEDULE_NOTE_MAX = 160
+const SCHEDULE_NOTE_FIELDS = ['schedule_note', 'schedule_note_id'] as const
+
+/** Trimmed note, '' → null. undefined stays undefined (field not sent). */
+function normalizeNote(v: string | null | undefined): string | null | undefined {
+  if (v === undefined) return undefined
+  if (v === null) return null
+  const trimmed = v.trim()
+  return trimmed === '' ? null : trimmed
+}
+
+function validateNotes(input: Partial<EventInput>): { field: string; message: string } | null {
+  for (const field of SCHEDULE_NOTE_FIELDS) {
+    const v = normalizeNote(input[field])
+    if (typeof v === 'string' && [...v].length > SCHEDULE_NOTE_MAX) {
+      return { field, message: `Max ${SCHEDULE_NOTE_MAX} characters` }
+    }
+  }
+  return null
+}
+
+/** Raised by trg_events_schedule_lock (migration 20261102120000). */
+export const SCHEDULE_LOCKED_SQL_MESSAGE = 'event:schedule_locked'
 
 const INSTANCE_FIELDS =
   'id, event_id, scheduled_at, event_name_snapshot, event_name_snapshot_id, status, notes, image_url, created_at'
@@ -63,7 +89,7 @@ function validateCreateInput(input: EventInput): { field: string; message: strin
       return { field: 'recurrence_rule', message: expandResult.message }
     }
   }
-  return null
+  return validateNotes(input)
 }
 
 function validateUpdateInput(input: UpdateEventInput): { field: string; message: string } | null {
@@ -97,7 +123,7 @@ function validateUpdateInput(input: UpdateEventInput): { field: string; message:
       return { field: 'recurrence_rule', message: rruleCheck.message }
     }
   }
-  return null
+  return validateNotes(input)
 }
 
 // No field is updatable here today — image_url is owned by
@@ -146,6 +172,8 @@ export async function impl_createEvent({
       description:     input.description ?? null,
       recurrence_rule: input.recurrence_rule ?? null,
       active:          input.active ?? true,
+      schedule_note:    normalizeNote(input.schedule_note) ?? null,
+      schedule_note_id: normalizeNote(input.schedule_note_id) ?? null,
       created_by:      actorId,
       updated_at:      new Date().toISOString(),
     })
@@ -219,10 +247,12 @@ export async function impl_updateEvent({
   if (!claims) return { status: 'error', message: 'Not authenticated' }
   const actorId = claims.claims.sub
 
-  // Trim name in payload if provided
+  // Trim name in payload if provided; notes trimmed, '' → null
   const updatePayload = {
     ...input,
     ...(input.name !== undefined && { name: input.name.trim() }),
+    ...(input.schedule_note !== undefined && { schedule_note: normalizeNote(input.schedule_note) }),
+    ...(input.schedule_note_id !== undefined && { schedule_note_id: normalizeNote(input.schedule_note_id) }),
     updated_at: new Date().toISOString(),
   }
 
@@ -233,6 +263,11 @@ export async function impl_updateEvent({
     .select('id')
 
   if (updateError) {
+    // S9.5-T5.5: the DB trigger refuses schedule changes while upcoming
+    // occurrences exist — a typed, expected refusal, not an error.
+    if (updateError.message === SCHEDULE_LOCKED_SQL_MESSAGE) {
+      return { status: 'schedule_locked' }
+    }
     console.error('[updateEvent] update', updateError)
     return { status: 'error', message: 'Failed to update event' }
   }
@@ -263,6 +298,33 @@ export async function impl_updateEvent({
   }, supabase)
 
   return { status: 'ok', event_id: eventId }
+}
+
+// ── hasFutureOccurrences (S9.5-T5.5) ─────────────────────────────────────────
+// Same predicate as trg_events_schedule_lock: any occurrence after now that is
+// 'scheduled' or 'cancelled'. Drives the locked state of the edit form; the
+// trigger stays the enforcement layer. RLS: admins and active organizers can
+// SELECT event_instances. A failed read reports locked (fail closed in the UI).
+
+export async function impl_hasFutureOccurrences({
+  supabase,
+  eventId,
+}: {
+  supabase: SupabaseClient
+  eventId: string
+}): Promise<boolean> {
+  const { count, error } = await supabase
+    .from('event_instances')
+    .select('id', { count: 'exact', head: true })
+    .eq('event_id', eventId)
+    .gt('scheduled_at', new Date().toISOString())
+    .in('status', ['scheduled', 'cancelled'])
+
+  if (error) {
+    console.error('[hasFutureOccurrences]', error)
+    return true
+  }
+  return (count ?? 0) > 0
 }
 
 // ── cancelInstance ────────────────────────────────────────────────────────────

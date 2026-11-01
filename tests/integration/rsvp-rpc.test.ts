@@ -645,8 +645,11 @@ describe('closed states', () => {
     expect(error).toBeNull()
     const ctx = data as Record<string, unknown>
     expect(Object.keys(ctx).sort()).toEqual(
-      ['duration_min', 'event_name', 'event_name_id', 'image_url', 'location', 'open', 'scheduled_at'].sort(),
+      ['duration_min', 'event_name', 'event_name_id', 'image_url', 'location', 'open', 'scheduled_at',
+        'schedule_note', 'schedule_note_id'].sort(), // + S9.5-T5.5 schedule note
     )
+    expect(ctx.schedule_note).toBeNull()
+    expect(ctx.schedule_note_id).toBeNull()
     expect(ctx.open).toBe(true)
     expect(ctx.duration_min).toBe(120)
     expect(ctx.location).toBe('RSVP Test Hall')

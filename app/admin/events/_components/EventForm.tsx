@@ -5,11 +5,20 @@ import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { createEvent, updateEvent } from '@/lib/actions/events'
 import { buildRRule, RRuleInput } from './RRuleBuilder'
-import type { EventRow } from '@/lib/actions/events.types'
+import type { EventRow, UpdateEventInput } from '@/lib/actions/events.types'
 
 type Props =
-  | { mode: 'create'; initialData?: undefined }
-  | { mode: 'edit'; initialData: EventRow }
+  | { mode: 'create'; initialData?: undefined; scheduleLocked?: undefined }
+  | {
+      mode: 'edit'
+      initialData: EventRow
+      /** S9.5-T5.5: upcoming occurrences exist — start date/time/type/RRULE are read-only. */
+      scheduleLocked?: boolean
+    }
+
+// Same cap as events_schedule_note(_id)_len (char_length = code points).
+const SCHEDULE_NOTE_MAX = 160
+const codePoints = (v: string) => [...v.trim()].length
 
 type FieldErrors = Record<string, string>
 
@@ -23,7 +32,7 @@ const EVENT_TYPES = [
 
 type EventTypeKey = typeof EVENT_TYPES[number]
 
-export function EventForm({ mode, initialData }: Props) {
+export function EventForm({ mode, initialData, scheduleLocked = false }: Props) {
   const t = useTranslations('admin.events.form')
   const tType = useTranslations('admin.events.type')
   const router = useRouter()
@@ -52,6 +61,14 @@ export function EventForm({ mode, initialData }: Props) {
     mode === 'edit' ? (initialData.description ?? '') : '',
   )
   const [active, setActive] = useState(mode === 'edit' ? initialData.active : true)
+  const [scheduleNote, setScheduleNote] = useState(
+    mode === 'edit' ? (initialData.schedule_note ?? '') : '',
+  )
+  const [scheduleNoteId, setScheduleNoteId] = useState(
+    mode === 'edit' ? (initialData.schedule_note_id ?? '') : '',
+  )
+  // Locked only applies to edits; create never has occurrences yet.
+  const locked = mode === 'edit' && scheduleLocked
   const [rawRRule, setRawRRule] = useState(initialRawRRule)
 
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
@@ -65,6 +82,10 @@ export function EventForm({ mode, initialData }: Props) {
       errors.start_date = t('field_error_date')
     if (!startTime || !/^\d{2}:\d{2}$/.test(startTime))
       errors.start_time = t('field_error_time')
+    if (codePoints(scheduleNote) > SCHEDULE_NOTE_MAX)
+      errors.schedule_note = t('field_error_note_too_long', { max: SCHEDULE_NOTE_MAX })
+    if (codePoints(scheduleNoteId) > SCHEDULE_NOTE_MAX)
+      errors.schedule_note_id = t('field_error_note_too_long', { max: SCHEDULE_NOTE_MAX })
     return errors
   }
 
@@ -91,6 +112,8 @@ export function EventForm({ mode, initialData }: Props) {
       description: description.trim() || null,
       recurrence_rule,
       active,
+      schedule_note: scheduleNote.trim() || null,
+      schedule_note_id: scheduleNoteId.trim() || null,
     }
 
     startTransition(async () => {
@@ -110,7 +133,18 @@ export function EventForm({ mode, initialData }: Props) {
           result.status === 'forbidden' ? t('forbidden_banner') : t('error_banner'),
         )
       } else {
-        const result = await updateEvent(initialData.id, input)
+        // Locked: never send the four schedule fields, so a save can't trip
+        // trg_events_schedule_lock even if a stored value isn't in the
+        // canonical form the inputs would re-send (belt and braces — an
+        // unchanged save re-sends identical values anyway).
+        const updateInput: UpdateEventInput = { ...input }
+        if (locked) {
+          delete updateInput.event_type
+          delete updateInput.start_date
+          delete updateInput.start_time
+          delete updateInput.recurrence_rule
+        }
+        const result = await updateEvent(initialData.id, updateInput)
         if (result.status === 'ok') {
           router.push(`/admin/events?updated=${result.event_id}`)
           return
@@ -120,7 +154,11 @@ export function EventForm({ mode, initialData }: Props) {
           return
         }
         setFormError(
-          result.status === 'forbidden' ? t('forbidden_banner') : t('error_banner'),
+          result.status === 'schedule_locked'
+            ? t('schedule_locked_banner')
+            : result.status === 'forbidden'
+              ? t('forbidden_banner')
+              : t('error_banner'),
         )
       }
     })
@@ -177,9 +215,19 @@ export function EventForm({ mode, initialData }: Props) {
           />
         </div>
 
+        {/* S9.5-T5.5: schedule lock hint */}
+        {locked && (
+          <p
+            className="px-4 py-3 rounded-lg bg-cream-2 border border-line text-sm text-ink-2"
+            data-testid="schedule-locked-hint"
+          >
+            {t('schedule_locked_hint')}
+          </p>
+        )}
+
         {/* Event type */}
         <div>
-          <fieldset>
+          <fieldset disabled={locked}>
             <legend className="block text-sm font-medium text-charcoal mb-2">
               {t('event_type_label')} <span className="text-red-500">*</span>
             </legend>
@@ -187,7 +235,7 @@ export function EventForm({ mode, initialData }: Props) {
               {EVENT_TYPES.map(type => (
                 <label
                   key={type}
-                  className={`flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer text-sm transition-colors ${
+                  className={`flex items-center gap-2 px-3 py-2 border rounded-lg text-sm transition-colors ${locked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${
                     eventType === type
                       ? 'border-gold bg-gold/5 text-charcoal'
                       : 'border-line bg-cream text-charcoal hover:border-gold/50'
@@ -229,6 +277,7 @@ export function EventForm({ mode, initialData }: Props) {
             value={rawRRule}
             onChange={setRawRRule}
             error={fieldErrors.recurrence_rule}
+            disabled={locked}
           />
         )}
 
@@ -243,6 +292,7 @@ export function EventForm({ mode, initialData }: Props) {
               type="date"
               value={startDate}
               onChange={e => setStartDate(e.target.value)}
+              disabled={locked}
               className={`w-full px-3 py-2 border rounded-lg text-sm text-charcoal bg-cream focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold transition-colors ${fieldErrors.start_date ? 'border-red-400' : 'border-line'}`}
               required
             />
@@ -261,6 +311,7 @@ export function EventForm({ mode, initialData }: Props) {
               type="time"
               value={startTime}
               onChange={e => setStartTime(e.target.value)}
+              disabled={locked}
               className={`w-full px-3 py-2 border rounded-lg text-sm text-charcoal bg-cream focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold transition-colors ${fieldErrors.start_time ? 'border-red-400' : 'border-line'}`}
               required
             />
@@ -271,6 +322,43 @@ export function EventForm({ mode, initialData }: Props) {
             )}
           </div>
         </div>
+
+        {/* Schedule notes (S9.5-T5.5) — public, always editable */}
+        {([
+          ['schedule_note', t('schedule_note_label'), scheduleNote, setScheduleNote],
+          ['schedule_note_id', t('schedule_note_id_label'), scheduleNoteId, setScheduleNoteId],
+        ] as const).map(([field, label, value, setValue]) => (
+          <div key={field}>
+            <div className="flex items-baseline justify-between mb-1">
+              <label htmlFor={field} className="block text-sm font-medium text-charcoal">
+                {label}
+              </label>
+              <span
+                className={`text-xs ${codePoints(value) > SCHEDULE_NOTE_MAX ? 'text-red-600' : 'text-muted'}`}
+                data-testid={`${field}-counter`}
+                aria-live="polite"
+              >
+                {t('schedule_note_counter', { count: codePoints(value), max: SCHEDULE_NOTE_MAX })}
+              </span>
+            </div>
+            <textarea
+              id={field}
+              rows={2}
+              value={value}
+              onChange={e => setValue(e.target.value)}
+              aria-describedby={`${field}-help`}
+              className={`w-full px-3 py-2 border rounded-lg text-sm text-charcoal bg-cream focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold transition-colors resize-none ${fieldErrors[field] ? 'border-red-400' : 'border-line'}`}
+            />
+            <p id={`${field}-help`} className="mt-1 text-xs text-muted">
+              {t('schedule_note_help')}
+            </p>
+            {fieldErrors[field] && (
+              <p className="mt-1 text-xs text-red-600" role="alert">
+                {fieldErrors[field]}
+              </p>
+            )}
+          </div>
+        ))}
 
         {/* Duration */}
         <div>

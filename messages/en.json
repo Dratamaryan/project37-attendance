@@ -636,6 +636,7 @@
           "error_load": "Couldn't load RSVPs.",
           "export_button": "Export to Excel",
           "whatsapp_message": "Please confirm your attendance for {event} ({date}): {url}",
+          "whatsapp_message_with_note": "Please confirm your attendance for {event} ({date})\n{note}\n{url}",
           "totals": {
             "title": "Totals",
             "coming_headcount": "Expected headcount (food count)",
@@ -766,7 +767,14 @@
         "field_error_name": "Name is required",
         "field_error_date": "Invalid date",
         "field_error_time": "Invalid time",
-        "field_error_type": "Please select an event type"
+        "field_error_type": "Please select an event type",
+        "schedule_locked_hint": "Schedule locked because upcoming sessions already exist. For a single session use 'Reschedule'; to change the whole series, create a new series; for a one-time event, cancel the session and create a new event.",
+        "schedule_locked_banner": "The schedule can't be changed because upcoming sessions already exist. Nothing was saved.",
+        "schedule_note_label": "Schedule note (EN)",
+        "schedule_note_id_label": "Schedule note (ID)",
+        "schedule_note_help": "Optional. Shown under the time on the RSVP page, in the link preview and in the WhatsApp share text.",
+        "schedule_note_counter": "{count}/{max}",
+        "field_error_note_too_long": "Max {max} characters"
       }
     },
     "people": {

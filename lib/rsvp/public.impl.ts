@@ -16,6 +16,7 @@ import { formatInTimeZone } from 'date-fns-tz'
 import { enUS, id as idLocale } from 'date-fns/locale'
 import { createAnonServerClient } from '@/lib/supabase/anon'
 import { JAKARTA_TZ } from '@/lib/events/timezone'
+import { resolveScheduleNote } from '@/lib/events/schedule-note'
 import { normalizePhone } from '@/lib/utils/phone'
 import {
   getRsvpGateSecret,
@@ -67,6 +68,9 @@ type RsvpContextOpen = {
   duration_min: number | null
   location: string | null
   image_url: string | null
+  // Optional: absent from a pre-T5.5 get_rsvp_context payload.
+  schedule_note?: string | null
+  schedule_note_id?: string | null
 }
 
 const DATE_FORMAT: Record<RsvpLocale, string> = {
@@ -114,6 +118,9 @@ function parseOpenContext(data: unknown): RsvpContextOpen | null {
     duration_min: typeof d.duration_min === 'number' ? d.duration_min : null,
     location: nonEmpty(d.location),
     image_url: nonEmpty(d.image_url),
+    // Absent on a pre-T5.5 database → null (page renders without a note).
+    schedule_note: nonEmpty(d.schedule_note),
+    schedule_note_id: nonEmpty(d.schedule_note_id),
   }
 }
 
@@ -138,6 +145,7 @@ export function formatRsvpEventView(ctx: RsvpContextOpen, locale: RsvpLocale): R
     name: locale === 'id' ? (ctx.event_name_id ?? ctx.event_name) : ctx.event_name,
     dateLabel: fmt(start, DATE_FORMAT[locale]),
     timeLabel,
+    scheduleNote: resolveScheduleNote(ctx.schedule_note, ctx.schedule_note_id, locale),
     location: ctx.location,
     imageUrl: safeImageUrl(ctx.image_url),
   }

@@ -30,6 +30,8 @@ const event: EventRow = {
   description: null,
   recurrence_rule: null,
   active: true,
+  schedule_note: null,
+  schedule_note_id: null,
   created_by: 'admin-1',
   created_at: '2026-01-01T00:00:00.000Z',
   updated_at: '2026-01-01T00:00:00.000Z',

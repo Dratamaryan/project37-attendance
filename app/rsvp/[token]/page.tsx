@@ -44,7 +44,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const { event } = data
   const title = t('title', { event: event.name })
-  const description = [event.dateLabel, event.timeLabel, event.location]
+  const description = [event.dateLabel, event.timeLabel, event.scheduleNote, event.location]
     .filter((part): part is string => !!part)
     .join(' · ')
 
@@ -107,6 +107,11 @@ export default async function RsvpPage({ params }: Props) {
           </h1>
           <p className="text-sm text-ink-2">{event.dateLabel}</p>
           <p className="text-sm text-ink-2">{event.timeLabel}</p>
+          {event.scheduleNote && (
+            <p className="text-sm text-ink-2" data-testid="rsvp-schedule-note">
+              {event.scheduleNote}
+            </p>
+          )}
           {event.location && <p className="text-sm text-muted mt-1">{event.location}</p>}
         </header>
 

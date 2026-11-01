@@ -30,6 +30,8 @@ const EVENT: EventRow = {
   description: null,
   recurrence_rule: 'FREQ=MONTHLY;BYDAY=2FR',
   active: true,
+  schedule_note: null,
+  schedule_note_id: null,
   created_by: 'user-001',
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',

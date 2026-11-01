@@ -14,6 +14,7 @@ import { RescheduleInstanceDialog } from '../../../_components/RescheduleInstanc
 import { AttendeesList } from '@/components/attendees/AttendeesList'
 import { impl_getInstanceRsvpPanel } from '@/lib/rsvp/admin.impl'
 import { buildWhatsAppShareUrl, formatShareDateLabel, type ShareLocale } from '@/lib/rsvp/share'
+import { resolveScheduleNote } from '@/lib/events/schedule-note'
 import { RsvpPanel } from '../../../_components/RsvpPanel'
 
 type Props = {
@@ -114,6 +115,7 @@ export default async function AdminInstanceDetailPage({ params, searchParams }: 
     dateLabel: formatShareDateLabel(new Date(instance.scheduled_at), shareLocale),
     url,
     locale: shareLocale,
+    scheduleNote: resolveScheduleNote(event.schedule_note, event.schedule_note_id, shareLocale),
   })
   const whatsAppUrls = rsvpUrl ? { id: shareUrl('id', rsvpUrl), en: shareUrl('en', rsvpUrl) } : null
 

@@ -12,6 +12,7 @@ import {
   impl_listEvents,
   impl_listInstancesForEvent,
   impl_listNearestInstances,
+  impl_hasFutureOccurrences,
 } from './events.impl'
 import type {
   EventInput,
@@ -100,4 +101,10 @@ export async function listInstancesForEvent(
 ): Promise<ListInstancesResult> {
   const supabase = await createClient()
   return impl_listInstancesForEvent({ supabase, eventId, range })
+}
+
+/** S9.5-T5.5: true when the event's schedule fields are locked (upcoming occurrences exist). */
+export async function hasFutureOccurrences(eventId: string): Promise<boolean> {
+  const supabase = await createClient()
+  return impl_hasFutureOccurrences({ supabase, eventId })
 }

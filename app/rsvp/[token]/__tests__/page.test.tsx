@@ -106,6 +106,7 @@ const OPEN: RsvpPageData = {
     name: 'Ibadah Jumat',
     dateLabel: 'Sabtu, 24 Oktober 2026',
     timeLabel: '18.00–20.00 WIB',
+    scheduleNote: null,
     location: 'Main Hall',
     imageUrl: 'https://example.invalid/poster.png',
   },
@@ -263,3 +264,50 @@ describe('generateMetadata', () => {
     expect(mockDefaultLanguage).not.toHaveBeenCalled()
   })
 })
+
+// ── S9.5-T5.5 schedule note ──────────────────────────────────────────────────
+
+const NOTE_ID = '15.00 snack & kopi · 16.00 Project Day dimulai'
+const OPEN_EVENT = (OPEN as Extract<RsvpPageData, { kind: 'open' }>).event
+
+describe('schedule note', () => {
+  it('page: note rendered as its own line right under the time line', async () => {
+    mockPageData.mockResolvedValue({ kind: 'open', event: { ...OPEN_EVENT, scheduleNote: NOTE_ID } })
+    render(await RsvpPage({ params }))
+    const note = screen.getByTestId('rsvp-schedule-note')
+    expect(note).toHaveTextContent(NOTE_ID)
+    expect(note.previousElementSibling).toHaveTextContent('18.00–20.00 WIB')
+    expect(note.nextElementSibling).toHaveTextContent('Main Hall')
+  })
+
+  it('page: no note → no note line', async () => {
+    render(await RsvpPage({ params }))
+    expect(screen.queryByTestId('rsvp-schedule-note')).not.toBeInTheDocument()
+  })
+
+  it('metadata: description = date · time · note · location; og:description identical; title unchanged', async () => {
+    mockPageData.mockResolvedValue({ kind: 'open', event: { ...OPEN_EVENT, scheduleNote: NOTE_ID } })
+    const meta = await generateMetadata({ params })
+    const description = `Sabtu, 24 Oktober 2026 · 18.00–20.00 WIB · ${NOTE_ID} · Main Hall`
+    expect(meta.description).toBe(description)
+    expect(meta.title).toBe('id:rsvp.meta.title Ibadah Jumat')
+    expect(meta.openGraph).toEqual({
+      title: 'id:rsvp.meta.title Ibadah Jumat',
+      description,
+      type: 'website',
+      images: ['https://example.invalid/poster.png'],
+    })
+  })
+
+  it('metadata: note without location → note is the last part', async () => {
+    mockPageData.mockResolvedValue({ kind: 'open', event: { ...OPEN_EVENT, scheduleNote: NOTE_ID, location: null } })
+    const meta = await generateMetadata({ params })
+    expect(meta.description).toBe(`Sabtu, 24 Oktober 2026 · 18.00–20.00 WIB · ${NOTE_ID}`)
+  })
+
+  it('metadata: no note → description unchanged from pre-T5.5', async () => {
+    const meta = await generateMetadata({ params })
+    expect(meta.description).toBe('Sabtu, 24 Oktober 2026 · 18.00–20.00 WIB · Main Hall')
+  })
+})
+

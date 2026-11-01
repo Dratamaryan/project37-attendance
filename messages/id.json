@@ -636,6 +636,7 @@
           "error_load": "Gagal memuat RSVP.",
           "export_button": "Ekspor ke Excel",
           "whatsapp_message": "Mohon konfirmasi kehadiran untuk {event} ({date}): {url}",
+          "whatsapp_message_with_note": "Mohon konfirmasi kehadiran untuk {event} ({date})\n{note}\n{url}",
           "totals": {
             "title": "Ringkasan",
             "coming_headcount": "Perkiraan jumlah hadir (untuk konsumsi)",
@@ -766,7 +767,14 @@
         "field_error_name": "Nama wajib diisi",
         "field_error_date": "Tanggal tidak valid",
         "field_error_time": "Waktu tidak valid",
-        "field_error_type": "Pilih jenis acara"
+        "field_error_type": "Pilih jenis acara",
+        "schedule_locked_hint": "Jadwal terkunci karena sudah ada sesi mendatang. Untuk satu sesi gunakan 'Jadwalkan ulang'; untuk mengubah seluruh seri buat seri baru; untuk acara satu kali, batalkan sesi lalu buat acara baru.",
+        "schedule_locked_banner": "Jadwal tidak dapat diubah karena sudah ada sesi mendatang. Tidak ada yang disimpan.",
+        "schedule_note_label": "Catatan jadwal (EN)",
+        "schedule_note_id_label": "Catatan jadwal (ID)",
+        "schedule_note_help": "Opsional. Ditampilkan di bawah jam pada halaman RSVP, di pratinjau tautan, dan di teks bagikan WhatsApp.",
+        "schedule_note_counter": "{count}/{max}",
+        "field_error_note_too_long": "Maksimal {max} karakter"
       }
     },
     "people": {

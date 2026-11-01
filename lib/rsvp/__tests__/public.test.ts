@@ -241,6 +241,8 @@ const CTX = {
   duration_min: 120,
   location: 'Main Hall',
   image_url: 'https://example.invalid/poster.png',
+  schedule_note: null,
+  schedule_note_id: null,
 }
 
 describe('formatRsvpEventView', () => {
@@ -249,6 +251,7 @@ describe('formatRsvpEventView', () => {
       name: 'Ibadah Jumat',
       dateLabel: 'Sabtu, 24 Oktober 2026',
       timeLabel: '18.00–20.00 WIB',
+      scheduleNote: null,
       location: 'Main Hall',
       imageUrl: 'https://example.invalid/poster.png',
     })
@@ -259,6 +262,7 @@ describe('formatRsvpEventView', () => {
       name: 'Friday Worship',
       dateLabel: 'Saturday, October 24, 2026',
       timeLabel: '6:00 PM–8:00 PM WIB',
+      scheduleNote: null,
       location: 'Main Hall',
       imageUrl: 'https://example.invalid/poster.png',
     })
@@ -658,3 +662,30 @@ describe('impl_submitRsvp — S9-R4 order and fail-closed', () => {
     expect(err).not.toHaveBeenCalled()
   })
 })
+
+// ── schedule note (S9.5-T5.5) ────────────────────────────────────────────────
+
+describe('formatRsvpEventView — schedule note', () => {
+  const NOTE_ID = '15.00 snack & kopi · 16.00 Project Day dimulai'
+  const NOTE_EN = '15:00 snacks & coffee · 16:00 Project Day starts'
+
+  it('both notes: each locale gets its own', () => {
+    const ctx = { ...CTX, schedule_note: NOTE_EN, schedule_note_id: NOTE_ID }
+    expect(formatRsvpEventView(ctx, 'id').scheduleNote).toBe(NOTE_ID)
+    expect(formatRsvpEventView(ctx, 'en').scheduleNote).toBe(NOTE_EN)
+  })
+
+  it('ID only → EN falls back to ID; EN only → ID falls back to EN', () => {
+    expect(formatRsvpEventView({ ...CTX, schedule_note_id: NOTE_ID }, 'en').scheduleNote).toBe(NOTE_ID)
+    expect(formatRsvpEventView({ ...CTX, schedule_note: NOTE_EN }, 'id').scheduleNote).toBe(NOTE_EN)
+  })
+
+  it('blank / missing notes → null (pre-T5.5 payload has no note keys)', () => {
+    expect(formatRsvpEventView({ ...CTX, schedule_note: '  ', schedule_note_id: '' }, 'id').scheduleNote).toBeNull()
+    const { schedule_note: _a, schedule_note_id: _b, ...legacy } = CTX
+    void _a
+    void _b
+    expect(formatRsvpEventView(legacy, 'en').scheduleNote).toBeNull()
+  })
+})
+

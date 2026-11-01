@@ -29,16 +29,22 @@ export function formatShareDateLabel(scheduledAt: Date, locale: ShareLocale): st
  * wa.me share URL whose prefilled text invites the reader to RSVP. The text
  * comes from admin.events.instance.rsvp.whatsapp_message in the given locale;
  * everything after `?text=` is a single encodeURIComponent'd string.
+ * S9.5-T5.5: with a schedule note (already resolved for `locale`), the text is
+ * whatsapp_message_with_note instead — the note on its own line after the
+ * line carrying the date/time, then the URL on its own line.
  */
 export function buildWhatsAppShareUrl(
-  { eventName, dateLabel, url, locale }:
-  { eventName: string; dateLabel: string; url: string; locale: ShareLocale },
+  { eventName, dateLabel, url, locale, scheduleNote = null }:
+  { eventName: string; dateLabel: string; url: string; locale: ShareLocale; scheduleNote?: string | null },
 ): string {
   const t = createTranslator({
     locale,
     messages: MESSAGES[locale],
     namespace: 'admin.events.instance.rsvp',
   })
-  const message = t('whatsapp_message', { event: eventName, date: dateLabel, url })
+  const note = scheduleNote?.trim()
+  const message = note
+    ? t('whatsapp_message_with_note', { event: eventName, date: dateLabel, note, url })
+    : t('whatsapp_message', { event: eventName, date: dateLabel, url })
   return `https://wa.me/?text=${encodeURIComponent(message)}`
 }
