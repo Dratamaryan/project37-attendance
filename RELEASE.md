@@ -734,3 +734,28 @@ branch-expected ref for remote ops.
   instance rows; audit rows for note/duration/cleanup kept, append-only). UI not live-verified on
   staging — owner UI checklist. Prod: pending owner — revert prod start_time to 15:00 BEFORE the
   db push (the trigger would refuse the revert afterwards). No real PII at any rung.
+- S9.5-T5.5 PHASE 1 PROD VERIFIED (2026-11-02): schedule lock + public schedule note live on prod
+  (main 10e3aa7..1d70488; feat 21de671; migration 20261102120000_s9_5_t5_5_schedule_lock_public_note.sql).
+  CC-run under a one-time owner exception to "prod is owner-run" (standing rule unchanged), phased
+  with an explicit owner "GO <phase>" between phases. Phase A (read-only, 01:28 WIB): main
+  fast-forwarded locally 10e3aa7..1d70488; CLI linked bftifxgdcmisasgvobuf; preflight OK
+  branch=main; dry-run = only 20261102120000; P3: Saturday Project Day 7237c6d6 start 15:00:00,
+  duration 210, only scheduled@Sat 15:00 ×12 (owner's 16:00 → 15:00 revert at 00:36 WIB landed
+  before the 06:30 WIB materializer cron); P4 same-WIB-date duplicates 0 rows; P1 term scan: 0
+  'ibadah' hits ('doa' only: Sunday series name_id + 14 snapshots). Phase B (01:28:48–01:28:51
+  WIB): npm run db:push → "Applying migration 20261102120000… Finished" (the only prod write);
+  read-only check anon EXECUTE get_rsvp_context t | anon EXECUTE events_schedule_lock f |
+  trg_events_schedule_lock 1, note columns 2, get_rsvp_context ACL unchanged
+  {postgres,anon=X}, latest migration 20261102120000; CLI relinked to staging. Phase C (01:36–01:38
+  WIB): git push origin main 10e3aa7..1d70488 → Vercel production dpl_AgyoYyJWweujzuUX4V66LRQgoPKw
+  READY (aliases project37-attendance.vercel.app …); GET (no cookie) 14 Nov RSVP link → 200,
+  og:description "Sabtu, 14 November 2026 · 15.00–18.30 WIB · Hotel Neo Puri Indah" (no note).
+  Owner then edited the Saturday Project Day in prod UI (schedule fields locked, notes set, saved).
+  Phase D (01:41 WIB): same GET → 200; description = og:description = twitter:description =
+  "Sabtu, 14 November 2026 · 15.00–18.30 WIB · 15.00 Snack &amp; Kopi · 16.00 Project Day dimulai ·
+  Hotel Neo Puri Indah" (capitalised "Snack"/"Kopi" as entered by the owner — confirmed
+  intended); title unchanged "RSVP · Project Day"; body note line directly after the time line.
+  Verification rungs (rule 17): Local ✓ (2035/2035 ×2) / Staging ✓ (verified:server-side +
+  local-build head render, see the staging entry above) / Prod ✓ — schema verified:server-side
+  (read-only), og/twitter/body verified:live via GET; UI lock + notes per owner. WhatsApp/bit.ly
+  may serve a cached preview for a while. No real PII at any rung.
