@@ -679,3 +679,29 @@ branch-expected ref for remote ops.
   `verify` phase (expects 12 rows, all scheduled) would now FAIL by design — reported, not fixed.
   UI not live-verified on staging — owner UI checklist. Prod: pending owner (db push, main
   fast-forward, read-only UI check). No real PII at any rung.
+- S9.5-T5 PROD VERIFIED (2026-10-30): coming-only public RSVP form with a mandatory name live on prod
+  (bftifxgdcmisasgvobuf), run by the owner ~11:50 WIB. main fast-forwarded 17fcd30..83602be and
+  pushed (carried 473c46a, 3747240, 2063d31, 83602be); code only, no migration. Prod /privacy: new
+  RSVP data line ("nama, konfirmasi kehadiran Anda" / "name, your confirmation that you will
+  attend") and "Berlaku sejak / Effective: 30 Oktober / 30th October 2026 · v2" in ID + EN. Prod
+  RSVP form (Career Club #1 link, no submission): "Konfirmasi kehadiran" / "Confirm your
+  attendance", intro line, no Hadir/Mungkin/Tidak hadir choice, "Nama *" / "Name *", button
+  "Konfirmasi kehadiran" / "Confirm attendance". Verification rungs (rule 17): Local ✓ (1903/1903;
+  one unidentified one-off failure on a first run, two clean re-runs) / Staging ✓ (verified:
+  server-side S1–S7 + owner UI checks, see the staging entry above) / Prod ✓ verified:live
+  (/privacy and the form, screenshots); blank-name rejection and admin panel/analytics on prod per
+  owner report. No real PII at any rung.
+- S9.5-T4 PROD VERIFIED (2026-10-30): reschedule a single occurrence live on prod
+  (bftifxgdcmisasgvobuf), run by the owner ~12:40 WIB. CLI linked to prod; preflight OK
+  branch=main ref=bftifxgdcmisasgvobuf; dry-run listed only
+  20261030120000_s9_5_t4_reschedule_instance.sql; db push applied; main 83602be..10e3aa7 pushed;
+  deploy live; CLI relinked to staging (sijfyvaodqkawbeuyrpu). Owner UI checks 1–8 PASS on staging
+  and on prod (prod: dialog opened on Project Day 2026-12-12 15:00, not submitted). Prod read-only
+  check afterwards: 0 instances with notes 'Rescheduled%', 0 audit rows with action
+  'event_instance.reschedule' → nothing written. Known and accepted (owner, 2026-10-30, not filed):
+  the confirm step can show From = To (DB refuses same_time, nothing written); ID dialog copy uses
+  "acara" where it means "sesi"; calendar invites for a cancelled original are not cancelled;
+  pre-existing ±365-day instance page window and English-only status badge. Verification rungs
+  (rule 17): Local ✓ (1984/1984 ×2) / Staging ✓ (verified:server-side 6/6 + owner UI 1–8, see the
+  staging entry above) / Prod ✓ verified:live (UI 1–8 + read-only 0|0 check). No real PII at any
+  rung.
