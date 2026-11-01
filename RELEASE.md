@@ -705,3 +705,32 @@ branch-expected ref for remote ops.
   (rule 17): Local ✓ (1984/1984 ×2) / Staging ✓ (verified:server-side 6/6 + owner UI 1–8, see the
   staging entry above) / Prod ✓ verified:live (UI 1–8 + read-only 0|0 check). No real PII at any
   rung.
+- S9.5-T5.5 PHASE 1 STAGING VERIFIED (2026-11-02; prod pending): schedule lock + public schedule
+  note (21de671; migration 20261102120000_s9_5_t5_5_schedule_lock_public_note.sql). Why: an edit of
+  events.start_time never moved existing occurrences and the next materializer run (cron 06:30
+  WIB, or any createEvent — it materializes every active event) would insert a second set at the
+  new time. Migration: events.schedule_note / schedule_note_id text NULL, CHECK char_length <= 160;
+  get_rsvp_context open branch + schedule_note / schedule_note_id (live from events), otherwise
+  byte-identical, ACL unchanged (EXECUTE anon only — asserted in a post-condition block);
+  trg_events_schedule_lock BEFORE UPDATE on events, every role: start_date / start_time /
+  recurrence_rule / event_type IS DISTINCT FROM OLD while a future 'scheduled' or 'cancelled'
+  occurrence exists → 'event:schedule_locked' P0001 (SECURITY DEFINER, pinned search_path, EXECUTE
+  revoked from PUBLIC/anon/authenticated/service_role). Action: impl_updateEvent → { status:
+  'schedule_locked' }; notes trimmed, '' → null, <= 160 code points; impl_hasFutureOccurrences drives
+  the edit page. EventForm: when locked, type / RRULE / start date / start time disabled with an
+  en + id hint and omitted from the payload; note fields (EN/ID) with 0/160 counters, always
+  editable. Public: note under the time line; metadata + og/twitter description = date · time ·
+  note · location (title unchanged); WhatsApp share text puts the note on its own line. Not in
+  email/ICS (deferred). Verification rungs (rule 17): Local ✓ verified:vitest (gate 2035/2035 ×2;
+  first full run clean; one test-authoring failure before the gate — SL-R03 "char" || text cast —
+  fixed; lint 0 errors, typecheck, build) / Staging ✓ (run by Claude Code under delegation:
+  preflight + staging pin; dry-run = this migration only; db push; push 21de671 → deploy
+  24VtNP3PpSCeZRsBkdb85UVEPPBK success; scripts/s9-5/t5-5-staging-smoke.ts, verified:server-side —
+  [SYNTH] Saturday 8c3385f3: notes set via impl_updateEvent (audit 162, staging admin);
+  get_rsvp_context on the existing 11-14 link returns both notes; local production build pointed
+  at staging rendered description / og:description / twitter:description with the note (id + en;
+  no-cookie crawler gets id); start_time 16:00 → schedule_locked, row byte-identical, no audit row;
+  duration 180 → 210 ok; cleanup restored notes null + duration 180, zero residue on event +
+  instance rows; audit rows for note/duration/cleanup kept, append-only). UI not live-verified on
+  staging — owner UI checklist. Prod: pending owner — revert prod start_time to 15:00 BEFORE the
+  db push (the trigger would refuse the revert afterwards). No real PII at any rung.
