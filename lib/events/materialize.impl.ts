@@ -17,12 +17,24 @@ export type EventError = {
   message: string;
 };
 
+/**
+ * S9.5-T5.5 P2: the event's schedule changed between this run's read and its
+ * insert (apply_event_schedule_change committed in between). Nothing was
+ * inserted for it; the next run materializes the new schedule.
+ */
+export type EventSkipped = {
+  event_id: string;
+  event_name: string;
+  reason: 'schedule_changed';
+};
+
 export type MaterializeResult = {
   horizon_months: number;
   events_processed: number;
   instances_inserted: number;
   instances_pruned: number;
   events_with_errors: EventError[];
+  events_skipped: EventSkipped[];
 };
 
 type AppSettingsRow = { materialization_horizon_mo: number | null };
@@ -30,6 +42,7 @@ type ActiveEventRow = {
   id: string;
   name: string;
   name_id: string | null;
+  event_type: string;
   start_date: string;
   start_time: string;
   recurrence_rule: string | null;
@@ -63,7 +76,7 @@ export async function materializeEvents(input: MaterializeInput): Promise<Materi
   // 2. Fetch active events
   const { data: rawEvents, error: eventsError } = await supabase
     .from('events')
-    .select('id, name, name_id, start_date, start_time, recurrence_rule')
+    .select('id, name, name_id, event_type, start_date, start_time, recurrence_rule')
     .eq('active', true);
 
   if (eventsError) {
@@ -73,6 +86,7 @@ export async function materializeEvents(input: MaterializeInput): Promise<Materi
   const activeEvents = (rawEvents as ActiveEventRow[]) ?? [];
   let instances_inserted = 0;
   const events_with_errors: EventError[] = [];
+  const events_skipped: EventSkipped[] = [];
 
   // 3. For each active event, expand RRULE and upsert instances
   for (const row of activeEvents) {
@@ -99,19 +113,22 @@ export async function materializeEvents(input: MaterializeInput): Promise<Materi
         continue;
       }
 
-      const insertRows = expandResult.occurrences.map((occ) => ({
-        event_id: row.id,
-        scheduled_at: occ.toISOString(),
-        event_name_snapshot: row.name,
-        event_name_snapshot_id: row.name_id ?? null,
-        status: 'scheduled' as const,
-      }));
-
-      // ON CONFLICT (event_id, scheduled_at) DO NOTHING — idempotent re-runs
-      const { data: inserted, error: insertError } = await supabase
-        .from('event_instances')
-        .upsert(insertRows, { onConflict: 'event_id,scheduled_at', ignoreDuplicates: true })
-        .select('id');
+      // S9.5-T5.5 P2: compare-and-insert under the event row lock
+      // (public.materialize_event_slots). The function re-reads the event
+      // FOR SHARE — serialized with apply_event_schedule_change's FOR UPDATE —
+      // and inserts ON CONFLICT (event_id, scheduled_at) DO NOTHING only if
+      // the schedule still equals what was expanded here; otherwise -1.
+      const { data: inserted, error: insertError } = await supabase.rpc('materialize_event_slots', {
+        p_event_id: row.id,
+        p_schedule: {
+          start_date: row.start_date,
+          start_time: row.start_time,
+          recurrence_rule: row.recurrence_rule,
+          event_type: row.event_type,
+          active: true,
+        },
+        p_slots: expandResult.occurrences.map((occ) => occ.toISOString()),
+      });
 
       if (insertError) {
         events_with_errors.push({
@@ -123,7 +140,24 @@ export async function materializeEvents(input: MaterializeInput): Promise<Materi
         continue;
       }
 
-      instances_inserted += (inserted ?? []).length;
+      if (typeof inserted !== 'number') {
+        events_with_errors.push({
+          event_id: row.id,
+          event_name: row.name,
+          reason: 'upsert_failed',
+          message: `materialize_event_slots returned ${JSON.stringify(inserted)}`,
+        });
+        continue;
+      }
+      if (inserted === -1) {
+        console.warn(
+          `[materialize-events] schedule of ${row.id} changed during the run — nothing inserted; the next run materializes the new schedule`,
+        );
+        events_skipped.push({ event_id: row.id, event_name: row.name, reason: 'schedule_changed' });
+        continue;
+      }
+
+      instances_inserted += inserted;
     } catch (e) {
       events_with_errors.push({
         event_id: row.id,
@@ -153,6 +187,7 @@ export async function materializeEvents(input: MaterializeInput): Promise<Materi
     instances_inserted,
     instances_pruned: pruneCount ?? 0,
     events_with_errors,
+    events_skipped,
   };
 
   // 5. Write observability row — non-fatal: materialization succeeded even if this fails.

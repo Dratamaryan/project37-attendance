@@ -1,6 +1,8 @@
 import { getTranslations } from 'next-intl/server'
 import { redirect } from 'next/navigation'
 import { hasFutureOccurrences, listEvents } from '@/lib/actions/events'
+import { createClient } from '@/lib/supabase/server'
+import { requireActiveAdmin } from '@/lib/auth/require-admin'
 import { EventForm } from '../../_components/EventForm'
 import type { EventRow } from '@/lib/actions/events.types'
 
@@ -28,6 +30,9 @@ export default async function AdminEventEditPage({ params }: Props) {
   // S9.5-T5.5: schedule fields are locked while upcoming occurrences exist
   // (enforced by trg_events_schedule_lock; this only drives the form state).
   const scheduleLocked = await hasFutureOccurrences(event.id)
+  // S9.5-T5.5 P2: admins may move a locked schedule (R/A); this only drives
+  // the form — apply_event_schedule_change() enforces admin-only.
+  const isAdmin = (await requireActiveAdmin(await createClient())).status === 'ok'
 
   return (
     <main className="px-4 md:px-6 py-8">
@@ -36,7 +41,7 @@ export default async function AdminEventEditPage({ params }: Props) {
           {t('form.submit_update')}
         </h1>
         <p className="text-muted text-sm mb-8">{event.name}</p>
-        <EventForm mode="edit" initialData={event} scheduleLocked={scheduleLocked} />
+        <EventForm mode="edit" initialData={event} scheduleLocked={scheduleLocked} isAdmin={isAdmin} />
       </div>
     </main>
   )

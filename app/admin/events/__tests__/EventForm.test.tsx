@@ -7,6 +7,7 @@ import { EventForm } from '../_components/EventForm'
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
 vi.mock('next-intl', () => ({
+  useLocale: () => 'en',
   useTranslations:
     () =>
     (key: string, params?: Record<string, string | number>) => {
@@ -21,10 +22,12 @@ vi.mock('next/navigation', () => ({
 
 const mockCreateEvent = vi.fn()
 const mockUpdateEvent = vi.fn()
+const mockPreview = vi.fn()
 
 vi.mock('@/lib/actions/events', () => ({
   createEvent: (...args: unknown[]) => mockCreateEvent(...args),
   updateEvent: (...args: unknown[]) => mockUpdateEvent(...args),
+  previewScheduleChange: (...args: unknown[]) => mockPreview(...args),
 }))
 
 // RRuleInput is a client component that also uses next-intl; mock it to avoid
@@ -275,3 +278,186 @@ describe('EventForm — edit mode, schedule lock (S9.5-T5.5)', () => {
   })
 })
 
+
+// ── S9.5-T5.5 Phase 2: admin schedule move on a locked event ─────────────────
+
+const ADHOC_EVENT: EventRow = {
+  ...SAT_EVENT,
+  id: 'ev-adhoc',
+  event_type: 'adhoc',
+  recurrence_rule: null,
+  start_date: '2026-11-20',
+}
+
+async function setTime(user: ReturnType<typeof userEvent.setup>, value: string) {
+  const el = screen.getByLabelText(/start_time_label/i)
+  await user.clear(el)
+  await user.type(el, value)
+}
+
+async function submit(user: ReturnType<typeof userEvent.setup>) {
+  await act(async () => {
+    await user.click(screen.getByRole('button', { name: /submit_update/i }))
+  })
+}
+
+describe('EventForm — editable-field matrix (S9.5-T5.5 P2)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  const TYPES = ['friday_monthly', 'saturday_monthly', 'sunday_monthly', 'adhoc', 'other_recurring']
+
+  it('SCF-01 admin + locked recurring: start time editable; date + type locked; admin hint', () => {
+    render(<EventForm mode="edit" initialData={SAT_EVENT} scheduleLocked isAdmin />)
+    expect(screen.getByLabelText(/start_time_label/i)).toBeEnabled()
+    expect(screen.getByLabelText(/start_date_label/i)).toBeDisabled()
+    for (const type of TYPES) expect(screen.getByDisplayValue(type)).toBeDisabled()
+    expect(screen.getByTestId('schedule-locked-hint')).toHaveTextContent('schedule_locked_hint_admin_recurring')
+    expect(screen.queryByTestId('schedule-locked-contact-admin')).not.toBeInTheDocument()
+  })
+
+  it('SCF-02 admin + locked other_recurring: time editable, raw RRULE locked', () => {
+    render(
+      <EventForm mode="edit" initialData={{ ...SAT_EVENT, event_type: 'other_recurring', recurrence_rule: 'FREQ=MONTHLY;BYDAY=4SA' }} scheduleLocked isAdmin />,
+    )
+    expect(screen.getByLabelText(/start_time_label/i)).toBeEnabled()
+    expect(screen.getByTestId('rrule-input')).toBeDisabled()
+  })
+
+  it('SCF-03 admin + locked adhoc: date + time editable; type locked; adhoc hint', () => {
+    render(<EventForm mode="edit" initialData={ADHOC_EVENT} scheduleLocked isAdmin />)
+    expect(screen.getByLabelText(/start_time_label/i)).toBeEnabled()
+    expect(screen.getByLabelText(/start_date_label/i)).toBeEnabled()
+    for (const type of TYPES) expect(screen.getByDisplayValue(type)).toBeDisabled()
+    expect(screen.getByTestId('schedule-locked-hint')).toHaveTextContent('schedule_locked_hint_admin_adhoc')
+  })
+
+  for (const [label, event] of [['recurring', SAT_EVENT], ['adhoc', ADHOC_EVENT]] as const) {
+    it(`SCF-04 organizer + locked ${label}: Phase 1 lock unchanged + contact-admin line`, () => {
+      render(<EventForm mode="edit" initialData={event} scheduleLocked isAdmin={false} />)
+      expect(screen.getByLabelText(/start_time_label/i)).toBeDisabled()
+      expect(screen.getByLabelText(/start_date_label/i)).toBeDisabled()
+      for (const type of TYPES) expect(screen.getByDisplayValue(type)).toBeDisabled()
+      expect(screen.getByTestId('schedule-locked-hint')).toHaveTextContent('schedule_locked_hint')
+      expect(screen.getByTestId('schedule-locked-contact-admin')).toHaveTextContent('schedule_locked_contact_admin')
+    })
+  }
+
+  it('SCF-05 admin + not locked: everything editable, no hint', () => {
+    render(<EventForm mode="edit" initialData={SAT_EVENT} scheduleLocked={false} isAdmin />)
+    expect(screen.queryByTestId('schedule-locked-hint')).not.toBeInTheDocument()
+    expect(screen.getByLabelText(/start_date_label/i)).toBeEnabled()
+    expect(screen.getByDisplayValue('saturday_monthly')).toBeEnabled()
+  })
+})
+
+describe('EventForm — schedule-change confirm step (S9.5-T5.5 P2)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('SCF-10 R: preview → confirm copy → save with confirmScheduleChange; only start_time sent of the schedule fields', async () => {
+    mockPreview.mockResolvedValue({ status: 'ok', shape: 'R', moved: 13, cancelled_moved: 1, to_date: '2026-11-14', to_time: '16:00' })
+    mockUpdateEvent.mockResolvedValue({ status: 'ok', event_id: 'ev-sat', schedule_change: { moved: 13, cancelled_moved: 1 } })
+    const user = userEvent.setup()
+    render(<EventForm mode="edit" initialData={SAT_EVENT} scheduleLocked isAdmin />)
+    await setTime(user, '16:00')
+    await submit(user)
+
+    expect(mockPreview).toHaveBeenCalledWith('ev-sat', { start_date: '2026-11-14', start_time: '16:00' })
+    expect(mockUpdateEvent).not.toHaveBeenCalled()
+    expect(screen.getByRole('dialog')).toHaveTextContent('confirm_title')
+    // mock t renders "key param1 param2 …" in insertion order: count, time, cancelled
+    expect(screen.getByTestId('schedule-change-confirm-body')).toHaveTextContent('confirm_body_recurring 13 16:00 1')
+
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: 'confirm' }))
+    })
+    expect(mockUpdateEvent).toHaveBeenCalledTimes(1)
+    const [id, input, options] = mockUpdateEvent.mock.calls[0] as [string, Record<string, unknown>, unknown]
+    expect(id).toBe('ev-sat')
+    expect(options).toEqual({ confirmScheduleChange: true })
+    expect(input).toMatchObject({ start_time: '16:00', duration_min: 210 })
+    for (const k of ['event_type', 'start_date', 'recurrence_rule']) expect(input).not.toHaveProperty(k)
+  })
+
+  it('SCF-11 Back closes the confirm step without saving', async () => {
+    mockPreview.mockResolvedValue({ status: 'ok', shape: 'R', moved: 2, cancelled_moved: 0, to_date: '2026-11-14', to_time: '16:00' })
+    const user = userEvent.setup()
+    render(<EventForm mode="edit" initialData={SAT_EVENT} scheduleLocked isAdmin />)
+    await setTime(user, '16:00')
+    await submit(user)
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: 'back' }))
+    })
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(mockUpdateEvent).not.toHaveBeenCalled()
+  })
+
+  it('SCF-12 A: date + time sent; adhoc confirm copy with a long date', async () => {
+    mockPreview.mockResolvedValue({ status: 'ok', shape: 'A', moved: 1, cancelled_moved: 0, to_date: '2026-11-21', to_time: '17:30' })
+    mockUpdateEvent.mockResolvedValue({ status: 'ok', event_id: 'ev-adhoc' })
+    const user = userEvent.setup()
+    render(<EventForm mode="edit" initialData={ADHOC_EVENT} scheduleLocked isAdmin />)
+    const dateEl = screen.getByLabelText(/start_date_label/i)
+    await user.clear(dateEl)
+    await user.type(dateEl, '2026-11-21')
+    await setTime(user, '17:30')
+    await submit(user)
+    expect(mockPreview).toHaveBeenCalledWith('ev-adhoc', { start_date: '2026-11-21', start_time: '17:30' })
+    expect(screen.getByTestId('schedule-change-confirm-body')).toHaveTextContent(
+      'confirm_body_adhoc Saturday, November 21, 2026 17:30',
+    )
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: 'confirm' }))
+    })
+    const [, input, options] = mockUpdateEvent.mock.calls[0] as [string, Record<string, unknown>, unknown]
+    expect(options).toEqual({ confirmScheduleChange: true })
+    expect(input).toMatchObject({ start_date: '2026-11-21', start_time: '17:30' })
+    expect(input).not.toHaveProperty('event_type')
+    expect(input).not.toHaveProperty('recurrence_rule')
+  })
+
+  it('SCF-13 preview refusal → mapped message, no dialog, no save', async () => {
+    mockPreview.mockResolvedValue({ status: 'refused', reason: 'early_time' })
+    const user = userEvent.setup()
+    render(<EventForm mode="edit" initialData={SAT_EVENT} scheduleLocked isAdmin />)
+    await setTime(user, '06:00')
+    await submit(user)
+    expect(screen.getByRole('alert')).toHaveTextContent('errors.early_time')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(mockUpdateEvent).not.toHaveBeenCalled()
+  })
+
+  it('SCF-14 save refusal (raced) → mapped message; partial → partial message', async () => {
+    mockPreview.mockResolvedValue({ status: 'ok', shape: 'R', moved: 2, cancelled_moved: 0, to_date: '2026-11-14', to_time: '16:00' })
+    mockUpdateEvent.mockResolvedValueOnce({ status: 'schedule_change_refused', reason: 'slot_taken' })
+    const user = userEvent.setup()
+    render(<EventForm mode="edit" initialData={SAT_EVENT} scheduleLocked isAdmin />)
+    await setTime(user, '16:00')
+    await submit(user)
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: 'confirm' }))
+    })
+    expect(screen.getByRole('alert')).toHaveTextContent('errors.slot_taken')
+
+    mockUpdateEvent.mockResolvedValueOnce({ status: 'partial', event_id: 'ev-sat', schedule_change: { moved: 2, cancelled_moved: 0 } })
+    await submit(user)
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: 'confirm' }))
+    })
+    expect(screen.getByRole('alert')).toHaveTextContent('partial')
+  })
+
+  it('SCF-15 admin locked save without a time change → plain save, no preview', async () => {
+    mockUpdateEvent.mockResolvedValue({ status: 'ok', event_id: 'ev-sat' })
+    const user = userEvent.setup()
+    render(<EventForm mode="edit" initialData={SAT_EVENT} scheduleLocked isAdmin />)
+    await submit(user)
+    expect(mockPreview).not.toHaveBeenCalled()
+    const [, input, options] = mockUpdateEvent.mock.calls[0] as [string, Record<string, unknown>, unknown]
+    expect(options).toBeUndefined()
+    for (const k of ['event_type', 'start_date', 'start_time', 'recurrence_rule']) expect(input).not.toHaveProperty(k)
+  })
+})

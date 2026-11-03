@@ -6,6 +6,15 @@ import { subDays, addDays } from 'date-fns'
 import { expandRRule } from '@/lib/events/recurrence'
 import { materializeEvents } from '@/lib/events/materialize.impl'
 import { formatJakarta, toJakartaInstant } from '@/lib/events/timezone'
+import {
+  planScheduleChange,
+  scheduleDiffers,
+  normalizeTime,
+  type PlanInstance,
+  type ScheduleChangeRefusal,
+  type ScheduleFields,
+  type SchedulePlan,
+} from '@/lib/events/schedule-change'
 import { logAudit, AUDIT_ACTIONS } from '../audit'
 import type {
   EventInput,
@@ -24,6 +33,9 @@ import type {
   ListNearestResult,
   RescheduleErrorCode,
   RescheduleInstanceResult,
+  UpdateEventOptions,
+  ScheduleChangeInput,
+  PreviewScheduleChangeResult,
 } from './events.types'
 
 const VALID_EVENT_TYPES = ['friday_monthly', 'saturday_monthly', 'sunday_monthly', 'adhoc', 'other_recurring']
@@ -227,16 +239,20 @@ export async function impl_createEvent({
 
 // ── updateEvent ──────────────────────────────────────────────────────────────
 
+const SCHEDULE_KEYS = ['start_date', 'start_time', 'recurrence_rule', 'event_type'] as const
+
 export async function impl_updateEvent({
   supabase,
   adminSupabase,
   eventId,
   input,
+  options,
 }: {
   supabase: SupabaseClient
   adminSupabase: SupabaseClient
   eventId: string
   input: UpdateEventInput
+  options?: UpdateEventOptions
 }): Promise<UpdateEventResult> {
   const validationError = validateUpdateInput(input)
   if (validationError) {
@@ -247,6 +263,50 @@ export async function impl_updateEvent({
   if (!claims) return { status: 'error', message: 'Not authenticated' }
   const actorId = claims.claims.sub
 
+  // S9.5-T5.5 P2: an admin-confirmed R/A schedule change moves the upcoming
+  // occurrences through apply_event_schedule_change(). The plan is always
+  // re-derived here from current DB state — never taken from the client.
+  // Anything that is not an applicable R/A plan falls through to the plain
+  // update, where trg_events_schedule_lock decides (Phase 1 behaviour).
+  if (options?.confirmScheduleChange && SCHEDULE_KEYS.some(k => input[k] !== undefined)) {
+    const prep = await prepareScheduleChange({ supabase, eventId, input })
+    if (prep.kind === 'refused' && prep.reason !== 'unsupported_change' && prep.reason !== 'not_admin') {
+      return { status: 'schedule_change_refused', reason: prep.reason }
+    }
+    if (prep.kind === 'plan') {
+      const applied = await applyScheduleChange({ supabase, eventId, prep })
+      if (applied.status !== 'ok') return applied
+
+      const rest: UpdateEventInput = { ...input }
+      for (const k of SCHEDULE_KEYS) delete rest[k]
+      if (Object.keys(rest).length === 0) {
+        return { status: 'ok', event_id: eventId, schedule_change: applied.change }
+      }
+      const restResult = await plainUpdate({ supabase, adminSupabase, eventId, input: rest, actorId })
+      if (restResult.status === 'ok') {
+        return { status: 'ok', event_id: eventId, schedule_change: applied.change }
+      }
+      console.error('[updateEvent] schedule change applied, remaining fields failed', restResult)
+      return { status: 'partial', event_id: eventId, schedule_change: applied.change }
+    }
+  }
+
+  return plainUpdate({ supabase, adminSupabase, eventId, input, actorId })
+}
+
+async function plainUpdate({
+  supabase,
+  adminSupabase,
+  eventId,
+  input,
+  actorId,
+}: {
+  supabase: SupabaseClient
+  adminSupabase: SupabaseClient
+  eventId: string
+  input: UpdateEventInput
+  actorId: string
+}): Promise<UpdateEventResult> {
   // Trim name in payload if provided; notes trimmed, '' → null
   const updatePayload = {
     ...input,
@@ -298,6 +358,204 @@ export async function impl_updateEvent({
   }, supabase)
 
   return { status: 'ok', event_id: eventId }
+}
+
+// ── schedule change (S9.5-T5.5 P2) ───────────────────────────────────────────
+
+type ScheduleRow = ScheduleFields & { id: string }
+
+type PreparedScheduleChange =
+  | { kind: 'not_found' }
+  | { kind: 'error'; message: string }
+  | { kind: 'unchanged' }
+  | { kind: 'no_future_rows' }
+  | { kind: 'refused'; reason: ScheduleChangeRefusal }
+  | {
+      kind: 'plan'
+      current: ScheduleRow
+      next: ScheduleFields
+      plan: Extract<SchedulePlan, { status: 'ok' }>
+    }
+
+/**
+ * Reads the current row, detects a schedule change by value (normalized) and,
+ * when upcoming occurrences exist and the caller is an admin, plans it.
+ * Read-only. Used by impl_updateEvent (commit) and impl_previewScheduleChange.
+ */
+async function prepareScheduleChange({
+  supabase,
+  eventId,
+  input,
+  now = new Date(),
+}: {
+  supabase: SupabaseClient
+  eventId: string
+  input: UpdateEventInput
+  now?: Date
+}): Promise<PreparedScheduleChange> {
+  const { data: rawEvent, error: eventError } = await supabase
+    .from('events')
+    .select('id, start_date, start_time, recurrence_rule, event_type')
+    .eq('id', eventId)
+    .maybeSingle()
+  if (eventError) {
+    console.error('[scheduleChange] read event', eventError)
+    return { kind: 'error', message: 'Failed to read event' }
+  }
+  if (!rawEvent) return { kind: 'not_found' }
+  const current = rawEvent as ScheduleRow
+
+  const next: ScheduleFields = {
+    start_date:      input.start_date ?? current.start_date,
+    start_time:      input.start_time ?? current.start_time,
+    recurrence_rule: input.recurrence_rule !== undefined ? input.recurrence_rule : current.recurrence_rule,
+    event_type:      input.event_type ?? current.event_type,
+  }
+  if (!scheduleDiffers(current, next)) return { kind: 'unchanged' }
+
+  // Rows at or before now can never be a move target or an expected slot;
+  // a one-day margin keeps the read small without touching that logic.
+  const { data: rawRows, error: rowsError } = await supabase
+    .from('event_instances')
+    .select('id, scheduled_at, status')
+    .eq('event_id', eventId)
+    .gt('scheduled_at', subDays(now, 1).toISOString())
+  if (rowsError) {
+    console.error('[scheduleChange] read instances', rowsError)
+    return { kind: 'error', message: 'Failed to read occurrences' }
+  }
+  const instances = (rawRows ?? []) as PlanInstance[]
+  const hasFuture = instances.some(
+    i => Date.parse(i.scheduled_at) > now.getTime() && (i.status === 'scheduled' || i.status === 'cancelled'),
+  )
+  if (!hasFuture) return { kind: 'no_future_rows' }
+
+  const { data: isAdmin, error: adminError } = await supabase.rpc('is_admin')
+  if (adminError) {
+    console.error('[scheduleChange] is_admin', adminError)
+    return { kind: 'error', message: 'Failed to check role' }
+  }
+  if (isAdmin !== true) return { kind: 'refused', reason: 'not_admin' }
+
+  // Same source + fallback as the materializer (defaultHorizonMonths = 12).
+  const { data: settings } = await supabase
+    .from('app_settings')
+    .select('materialization_horizon_mo')
+    .limit(1)
+    .maybeSingle()
+  const horizonMonths =
+    (settings as { materialization_horizon_mo: number | null } | null)?.materialization_horizon_mo ?? 12
+
+  const plan = planScheduleChange({ old: current, new: next, instances, horizonMonths, now })
+  if (plan.status === 'refused') return { kind: 'refused', reason: plan.reason }
+  return { kind: 'plan', current, next, plan }
+}
+
+const SCHEDULE_CHANGE_SQL_CODES: Partial<Record<string, ScheduleChangeRefusal>> = {
+  not_admin:          'not_admin',
+  not_found:          'stale',
+  stale:              'stale',
+  move_invalid:       'stale',
+  unsupported_change: 'unsupported_change',
+  nothing_to_move:    'nothing_to_move',
+  in_progress:        'in_progress',
+  slot_taken:         'slot_taken',
+  expected_missing:   'slots_mismatch',
+  invalid_input:      'unknown',
+}
+
+export function mapScheduleChangeError(error: { code?: string; message?: string }): ScheduleChangeRefusal {
+  const match = /^schedule_change:([a-z_]+)$/.exec(error.message ?? '')
+  if (match) return SCHEDULE_CHANGE_SQL_CODES[match[1]] ?? 'unknown'
+  if (error.code === '42501') return 'not_admin'
+  return 'unknown'
+}
+
+async function applyScheduleChange({
+  supabase,
+  eventId,
+  prep,
+}: {
+  supabase: SupabaseClient
+  eventId: string
+  prep: Extract<PreparedScheduleChange, { kind: 'plan' }>
+}): Promise<
+  | { status: 'ok'; change: { moved: number; cancelled_moved: number } }
+  | { status: 'schedule_change_refused'; reason: ScheduleChangeRefusal }
+> {
+  const { current, next, plan } = prep
+  const { data, error } = await supabase.rpc('apply_event_schedule_change', {
+    p_event_id: eventId,
+    // p_old carries the stored values verbatim (optimistic concurrency).
+    p_old: {
+      start_date:      current.start_date,
+      start_time:      current.start_time,
+      recurrence_rule: current.recurrence_rule,
+      event_type:      current.event_type,
+    },
+    p_new: {
+      start_date:      next.start_date,
+      start_time:      normalizeTime(next.start_time),
+      recurrence_rule: current.recurrence_rule,
+      event_type:      current.event_type,
+    },
+    p_moves:          plan.moves.map(({ id, from_at, to_at }) => ({ id, from_at, to_at })),
+    p_expected_slots: plan.expected,
+  })
+  if (error) {
+    const reason = mapScheduleChangeError(error)
+    if (reason === 'unknown') console.error('[updateEvent] apply_event_schedule_change', error)
+    return { status: 'schedule_change_refused', reason }
+  }
+  const result = data as { moved?: unknown; cancelled_moved?: unknown } | null
+  if (typeof result?.moved !== 'number' || typeof result.cancelled_moved !== 'number') {
+    console.error('[updateEvent] apply_event_schedule_change returned', data)
+    return { status: 'schedule_change_refused', reason: 'unknown' }
+  }
+  return { status: 'ok', change: { moved: result.moved, cancelled_moved: result.cancelled_moved } }
+}
+
+/**
+ * EventForm confirm step: what an admin save of this date/time would do.
+ * Read-only; the save re-plans from scratch (impl_updateEvent).
+ */
+export async function impl_previewScheduleChange({
+  supabase,
+  eventId,
+  input,
+}: {
+  supabase: SupabaseClient
+  eventId: string
+  input: ScheduleChangeInput
+}): Promise<PreviewScheduleChangeResult> {
+  if (!UUID_RE.test(eventId)) return { status: 'not_found' }
+  if (!DATE_RE.test(input.start_date)) return { status: 'refused', reason: 'unknown' }
+  if (!HHMM_RE.test(input.start_time)) return { status: 'refused', reason: 'unknown' }
+
+  const { data: claims } = await supabase.auth.getClaims()
+  if (!claims) return { status: 'error', message: 'Not authenticated' }
+
+  const prep = await prepareScheduleChange({
+    supabase,
+    eventId,
+    input: { start_date: input.start_date, start_time: input.start_time },
+  })
+  switch (prep.kind) {
+    case 'not_found':      return { status: 'not_found' }
+    case 'error':          return { status: 'error', message: prep.message }
+    case 'unchanged':      return { status: 'unchanged' }
+    case 'no_future_rows': return { status: 'no_future_rows' }
+    case 'refused':        return { status: 'refused', reason: prep.reason }
+    case 'plan':
+      return {
+        status:          'ok',
+        shape:           prep.plan.shape,
+        moved:           prep.plan.moved,
+        cancelled_moved: prep.plan.cancelled_moved,
+        to_date:         prep.next.start_date,
+        to_time:         normalizeTime(prep.next.start_time).slice(0, 5),
+      }
+  }
 }
 
 // ── hasFutureOccurrences (S9.5-T5.5) ─────────────────────────────────────────

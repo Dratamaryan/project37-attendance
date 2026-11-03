@@ -1,5 +1,9 @@
 // Types for event server actions — imported by events.impl.ts and events.ts.
 
+import type { ScheduleChangeRefusal, ScheduleChangeShape } from '@/lib/events/schedule-change'
+
+export type { ScheduleChangeRefusal, ScheduleChangeShape }
+
 export type EventInput = {
   name: string
   name_id?: string | null
@@ -67,13 +71,46 @@ export type CreateEventResult =
   | { status: 'error'; message: string }
 
 export type UpdateEventResult =
-  | { status: 'ok'; event_id: string }
+  // schedule_change: S9.5-T5.5 P2 — present when upcoming occurrences were moved.
+  | { status: 'ok'; event_id: string; schedule_change?: { moved: number; cancelled_moved: number } }
   | { status: 'invalid_input'; field: string; message: string }
   // S9.5-T5.5: trg_events_schedule_lock refused a start_date / start_time /
   // recurrence_rule / event_type change — the event has upcoming occurrences.
   | { status: 'schedule_locked' }
+  // S9.5-T5.5 P2: an R/A schedule change was refused before (or by) the SQL
+  // function; nothing was written.
+  | { status: 'schedule_change_refused'; reason: ScheduleChangeRefusal }
+  // S9.5-T5.5 P2: the schedule change was applied but the remaining fields of
+  // the same save failed — the occurrences HAVE moved.
+  | { status: 'partial'; event_id: string; schedule_change: { moved: number; cancelled_moved: number } }
   | { status: 'not_found' }
   | { status: 'forbidden'; message: string }
+  | { status: 'error'; message: string }
+
+export type UpdateEventOptions = {
+  /** S9.5-T5.5 P2: the admin confirmed moving upcoming occurrences (EventForm confirm step). */
+  confirmScheduleChange?: boolean
+}
+
+export type ScheduleChangeInput = {
+  start_date: string            // YYYY-MM-DD
+  start_time: string            // HH:mm
+}
+
+export type PreviewScheduleChangeResult =
+  // no_future_rows: nothing to move; a plain save applies (the lock does not fire)
+  | { status: 'no_future_rows' }
+  | { status: 'unchanged' }
+  | {
+      status: 'ok'
+      shape: ScheduleChangeShape
+      moved: number
+      cancelled_moved: number
+      to_date: string           // YYYY-MM-DD (new start_date)
+      to_time: string           // HH:mm
+    }
+  | { status: 'refused'; reason: ScheduleChangeRefusal }
+  | { status: 'not_found' }
   | { status: 'error'; message: string }
 
 export type CancelInstanceResult =

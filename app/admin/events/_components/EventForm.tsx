@@ -2,19 +2,39 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { useTranslations } from 'next-intl'
-import { createEvent, updateEvent } from '@/lib/actions/events'
+import { useLocale, useTranslations } from 'next-intl'
+import { createEvent, previewScheduleChange, updateEvent } from '@/lib/actions/events'
 import { buildRRule, RRuleInput } from './RRuleBuilder'
-import type { EventRow, UpdateEventInput } from '@/lib/actions/events.types'
+import type {
+  EventRow,
+  ScheduleChangeRefusal,
+  ScheduleChangeShape,
+  UpdateEventInput,
+} from '@/lib/actions/events.types'
 
 type Props =
-  | { mode: 'create'; initialData?: undefined; scheduleLocked?: undefined }
+  | { mode: 'create'; initialData?: undefined; scheduleLocked?: undefined; isAdmin?: undefined }
   | {
       mode: 'edit'
       initialData: EventRow
       /** S9.5-T5.5: upcoming occurrences exist — start date/time/type/RRULE are read-only. */
       scheduleLocked?: boolean
+      /**
+       * S9.5-T5.5 P2: admins may still move the schedule of a locked event —
+       * recurring: start time only; adhoc: start date + time — after a confirm
+       * step. Organizers keep the Phase 1 lock.
+       */
+      isAdmin?: boolean
     }
+
+type PendingScheduleChange = {
+  input: UpdateEventInput
+  shape: ScheduleChangeShape
+  moved: number
+  cancelledMoved: number
+  toDate: string
+  toTime: string
+}
 
 // Same cap as events_schedule_note(_id)_len (char_length = code points).
 const SCHEDULE_NOTE_MAX = 160
@@ -32,9 +52,11 @@ const EVENT_TYPES = [
 
 type EventTypeKey = typeof EVENT_TYPES[number]
 
-export function EventForm({ mode, initialData, scheduleLocked = false }: Props) {
+export function EventForm({ mode, initialData, scheduleLocked = false, isAdmin = false }: Props) {
   const t = useTranslations('admin.events.form')
   const tType = useTranslations('admin.events.type')
+  const tSc = useTranslations('admin.events.form.schedule_change')
+  const locale = useLocale()
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
@@ -69,10 +91,62 @@ export function EventForm({ mode, initialData, scheduleLocked = false }: Props) 
   )
   // Locked only applies to edits; create never has occurrences yet.
   const locked = mode === 'edit' && scheduleLocked
+  // S9.5-T5.5 P2 editable-field matrix (locked event): admin + recurring →
+  // start time; admin + adhoc → start date + time; organizer → nothing.
+  const storedRecurring =
+    mode === 'edit' && initialData.event_type !== 'adhoc' && initialData.recurrence_rule !== null
+  const storedAdhoc =
+    mode === 'edit' && initialData.event_type === 'adhoc' && initialData.recurrence_rule === null
+  const adminMove: ScheduleChangeShape | null =
+    locked && isAdmin ? (storedRecurring ? 'R' : storedAdhoc ? 'A' : null) : null
+  const dateDisabled = locked && adminMove !== 'A'
+  const timeDisabled = locked && adminMove === null
   const [rawRRule, setRawRRule] = useState(initialRawRRule)
+  const [pending, setPending] = useState<PendingScheduleChange | null>(null)
 
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [formError, setFormError] = useState<string | null>(null)
+
+  const refusalMessage = (reason: ScheduleChangeRefusal) => tSc(`errors.${reason}`)
+
+  function formatWibDate(ymd: string): string {
+    const [y, m, d] = ymd.split('-').map(Number)
+    return new Intl.DateTimeFormat(locale === 'id' ? 'id-ID' : 'en-US', {
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC',
+    }).format(new Date(Date.UTC(y, m - 1, d, 12)))
+  }
+
+  /** Save an edit; confirmScheduleChange only after the admin confirmed the move. */
+  function saveEdit(updateInput: UpdateEventInput, confirmScheduleChange: boolean) {
+    if (mode !== 'edit') return
+    startTransition(async () => {
+      const result = await updateEvent(
+        initialData.id,
+        updateInput,
+        confirmScheduleChange ? { confirmScheduleChange: true } : undefined,
+      )
+      setPending(null)
+      if (result.status === 'ok') {
+        router.push(`/admin/events?updated=${result.event_id}`)
+        return
+      }
+      if (result.status === 'invalid_input') {
+        setFieldErrors({ [result.field]: result.message })
+        return
+      }
+      setFormError(
+        result.status === 'schedule_change_refused'
+          ? refusalMessage(result.reason)
+          : result.status === 'partial'
+            ? tSc('partial')
+            : result.status === 'schedule_locked'
+              ? t('schedule_locked_banner')
+              : result.status === 'forbidden'
+                ? t('forbidden_banner')
+                : t('error_banner'),
+      )
+    })
+  }
 
   function validate(): FieldErrors {
     const errors: FieldErrors = {}
@@ -144,22 +218,64 @@ export function EventForm({ mode, initialData, scheduleLocked = false }: Props) 
           delete updateInput.start_time
           delete updateInput.recurrence_rule
         }
-        const result = await updateEvent(initialData.id, updateInput)
-        if (result.status === 'ok') {
-          router.push(`/admin/events?updated=${result.event_id}`)
+
+        // S9.5-T5.5 P2: admin moved the schedule of a locked event → preview,
+        // then a confirm step; the save itself re-plans server-side.
+        const timeChanged = startTime !== initialData.start_time.slice(0, 5)
+        const dateChanged = startDate !== initialData.start_date
+        const moving =
+          (adminMove === 'R' && timeChanged) || (adminMove === 'A' && (timeChanged || dateChanged))
+        if (!moving) {
+          const result = await updateEvent(initialData.id, updateInput)
+          if (result.status === 'ok') {
+            router.push(`/admin/events?updated=${result.event_id}`)
+            return
+          }
+          if (result.status === 'invalid_input') {
+            setFieldErrors({ [result.field]: result.message })
+            return
+          }
+          setFormError(
+            result.status === 'schedule_locked'
+              ? t('schedule_locked_banner')
+              : result.status === 'forbidden'
+                ? t('forbidden_banner')
+                : t('error_banner'),
+          )
           return
         }
-        if (result.status === 'invalid_input') {
-          setFieldErrors({ [result.field]: result.message })
+
+        const scheduleInput: UpdateEventInput = {
+          ...updateInput,
+          start_time: startTime,
+          ...(adminMove === 'A' && { start_date: startDate }),
+        }
+        const preview = await previewScheduleChange(initialData.id, {
+          start_date: adminMove === 'A' ? startDate : initialData.start_date,
+          start_time: startTime,
+        })
+        if (preview.status === 'ok') {
+          setPending({
+            input: scheduleInput,
+            shape: preview.shape,
+            moved: preview.moved,
+            cancelledMoved: preview.cancelled_moved,
+            toDate: preview.to_date,
+            toTime: preview.to_time,
+          })
           return
         }
-        setFormError(
-          result.status === 'schedule_locked'
-            ? t('schedule_locked_banner')
-            : result.status === 'forbidden'
-              ? t('forbidden_banner')
-              : t('error_banner'),
-        )
+        if (preview.status === 'refused') {
+          setFormError(refusalMessage(preview.reason))
+          return
+        }
+        if (preview.status === 'no_future_rows' || preview.status === 'unchanged') {
+          // Nothing to move any more (e.g. the last session just started):
+          // a plain save applies; the trigger stays the judge.
+          saveEdit(scheduleInput, false)
+          return
+        }
+        setFormError(t('error_banner'))
       }
     })
   }
@@ -215,14 +331,25 @@ export function EventForm({ mode, initialData, scheduleLocked = false }: Props) 
           />
         </div>
 
-        {/* S9.5-T5.5: schedule lock hint */}
+        {/* S9.5-T5.5: schedule lock hint (P2: admin variants) */}
         {locked && (
-          <p
+          <div
             className="px-4 py-3 rounded-lg bg-cream-2 border border-line text-sm text-ink-2"
             data-testid="schedule-locked-hint"
           >
-            {t('schedule_locked_hint')}
-          </p>
+            <p>
+              {adminMove === 'R'
+                ? t('schedule_locked_hint_admin_recurring')
+                : adminMove === 'A'
+                  ? t('schedule_locked_hint_admin_adhoc')
+                  : t('schedule_locked_hint')}
+            </p>
+            {!isAdmin && (
+              <p className="mt-1 font-medium" data-testid="schedule-locked-contact-admin">
+                {t('schedule_locked_contact_admin')}
+              </p>
+            )}
+          </div>
         )}
 
         {/* Event type */}
@@ -292,7 +419,7 @@ export function EventForm({ mode, initialData, scheduleLocked = false }: Props) 
               type="date"
               value={startDate}
               onChange={e => setStartDate(e.target.value)}
-              disabled={locked}
+              disabled={dateDisabled}
               className={`w-full px-3 py-2 border rounded-lg text-sm text-charcoal bg-cream focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold transition-colors ${fieldErrors.start_date ? 'border-red-400' : 'border-line'}`}
               required
             />
@@ -311,7 +438,7 @@ export function EventForm({ mode, initialData, scheduleLocked = false }: Props) 
               type="time"
               value={startTime}
               onChange={e => setStartTime(e.target.value)}
-              disabled={locked}
+              disabled={timeDisabled}
               className={`w-full px-3 py-2 border rounded-lg text-sm text-charcoal bg-cream focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold transition-colors ${fieldErrors.start_time ? 'border-red-400' : 'border-line'}`}
               required
             />
@@ -442,6 +569,55 @@ export function EventForm({ mode, initialData, scheduleLocked = false }: Props) 
           {t('cancel')}
         </button>
       </div>
+
+      {/* S9.5-T5.5 P2: schedule-change confirm step */}
+      {pending && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="schedule-change-title"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
+        >
+          <div className="bg-cream rounded-xl border border-line shadow-lg max-w-md w-full p-6">
+            <h2
+              id="schedule-change-title"
+              className="font-heading text-xl font-semibold text-charcoal mb-3"
+            >
+              {tSc('confirm_title')}
+            </h2>
+            <p className="text-sm text-ink-2 mb-6" data-testid="schedule-change-confirm-body">
+              {pending.shape === 'R'
+                ? tSc('confirm_body_recurring', {
+                    count: pending.moved,
+                    time: pending.toTime,
+                    cancelled: pending.cancelledMoved,
+                  })
+                : tSc('confirm_body_adhoc', {
+                    date: formatWibDate(pending.toDate),
+                    time: pending.toTime,
+                  })}
+            </p>
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setPending(null)}
+                disabled={isSubmitting}
+                className="px-4 py-2 border border-line text-charcoal rounded-lg text-sm font-medium hover:bg-cream-2 transition-colors disabled:opacity-60"
+              >
+                {tSc('back')}
+              </button>
+              <button
+                type="button"
+                onClick={() => saveEdit(pending.input, true)}
+                disabled={isSubmitting}
+                className="px-4 py-2 bg-gold text-cream rounded-lg text-sm font-semibold hover:bg-gold-dark transition-colors disabled:opacity-60"
+              >
+                {isSubmitting ? t('submit_update_pending') : tSc('confirm')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </form>
   )
 }

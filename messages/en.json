@@ -774,7 +774,31 @@
         "schedule_note_id_label": "Schedule note (ID)",
         "schedule_note_help": "Optional. Shown under the time on the RSVP page, in the link preview and in the WhatsApp share text.",
         "schedule_note_counter": "{count}/{max}",
-        "field_error_note_too_long": "Max {max} characters"
+        "field_error_note_too_long": "Max {max} characters",
+        "schedule_locked_hint_admin_recurring": "Upcoming sessions already exist. You can change the start time — all upcoming sessions move to the new time on the same date. Type and start date stay locked; for a single session use 'Reschedule'.",
+        "schedule_locked_hint_admin_adhoc": "An upcoming session already exists. You can change the date and time — the session moves with them. The type stays locked.",
+        "schedule_locked_contact_admin": "Contact an admin to change the schedule.",
+        "schedule_change": {
+          "confirm_title": "Move upcoming sessions?",
+          "confirm_body_recurring": "{count, plural, one {# session} other {# sessions}} will move to {time} on the same date{cancelled, plural, =0 {} other { (including # cancelled)}}. Session IDs, RSVP links and RSVPs stay the same. Invitations already sent are not updated automatically.",
+          "confirm_body_adhoc": "The session will move to {date} {time}. Session ID, RSVP link and RSVPs stay the same. Invitations already sent are not updated automatically.",
+          "confirm": "Yes, move sessions",
+          "back": "Back",
+          "partial": "The schedule was changed and the sessions moved, but your other changes weren't saved. Please save again.",
+          "errors": {
+            "not_admin": "Only admins can change the schedule of an event with upcoming sessions. Nothing was saved.",
+            "stale": "The event changed while you were editing. Reload the page and try again. Nothing was saved.",
+            "unsupported_change": "This schedule change isn't possible while upcoming sessions exist. Nothing was saved.",
+            "nothing_to_move": "The upcoming sessions don't follow the current schedule, so nothing can be moved automatically. Use 'Reschedule' on each session. Nothing was saved.",
+            "early_time": "Start times before 07:00 can't be moved automatically — the sessions would land on a different day. Nothing was saved.",
+            "in_progress": "Today's session has already started, or would move to a time that has passed. Try again after today's session. Nothing was saved.",
+            "horizon_edge": "The session list hasn't caught up with the planning window yet. Try again tomorrow. Nothing was saved.",
+            "beyond_horizon": "The new date is beyond the planning window. Choose an earlier date. Nothing was saved.",
+            "slots_mismatch": "The new time doesn't line up with the existing sessions. Nothing was saved.",
+            "slot_taken": "A session already exists at the new time on one of the dates. Nothing was saved.",
+            "unknown": "Couldn't change the schedule. Please try again. Nothing was saved."
+          }
+        }
       }
     },
     "people": {
@@ -1112,7 +1136,8 @@
         "APP_USER_REACTIVATE": "User reactivated",
         "BIRTHDAY_DIGEST_MANUAL_TRIGGER": "Birthday digest run manually",
         "ATTENDANCE_SUMMARY_MANUAL_TRIGGER": "Attendance summary run manually",
-        "RSVP_ANONYMIZE": "RSVPs anonymized (retention)"
+        "RSVP_ANONYMIZE": "RSVPs anonymized (retention)",
+        "EVENT_SCHEDULE_CHANGE": "Event schedule changed (sessions moved)"
       }
     }
   },

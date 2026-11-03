@@ -774,7 +774,31 @@
         "schedule_note_id_label": "Catatan jadwal (ID)",
         "schedule_note_help": "Opsional. Ditampilkan di bawah jam pada halaman RSVP, di pratinjau tautan, dan di teks bagikan WhatsApp.",
         "schedule_note_counter": "{count}/{max}",
-        "field_error_note_too_long": "Maksimal {max} karakter"
+        "field_error_note_too_long": "Maksimal {max} karakter",
+        "schedule_locked_hint_admin_recurring": "Sudah ada sesi mendatang. Jam mulai dapat diubah — semua sesi mendatang dipindah ke jam baru pada tanggal yang sama. Jenis dan tanggal mulai tetap terkunci; untuk satu sesi gunakan 'Jadwalkan ulang'.",
+        "schedule_locked_hint_admin_adhoc": "Sudah ada sesi mendatang. Tanggal dan jam dapat diubah — sesinya ikut dipindah. Jenis tetap terkunci.",
+        "schedule_locked_contact_admin": "Hubungi admin untuk mengubah jadwal",
+        "schedule_change": {
+          "confirm_title": "Pindahkan sesi mendatang?",
+          "confirm_body_recurring": "{count} sesi akan dipindah ke {time} pada tanggal yang sama{cancelled, plural, =0 {} other { (termasuk # sesi yang dibatalkan)}}. ID sesi, link RSVP dan RSVP tetap sama. Undangan yang sudah terkirim tidak diperbarui otomatis.",
+          "confirm_body_adhoc": "Sesi akan dipindah ke {date} {time}. ID sesi, link RSVP dan RSVP tetap sama. Undangan yang sudah terkirim tidak diperbarui otomatis.",
+          "confirm": "Ya, pindahkan sesi",
+          "back": "Kembali",
+          "partial": "Jadwal sudah diubah dan sesi sudah dipindah, tetapi perubahan lainnya belum tersimpan. Silakan simpan lagi.",
+          "errors": {
+            "not_admin": "Hanya admin yang dapat mengubah jadwal acara yang sudah memiliki sesi mendatang. Tidak ada yang disimpan.",
+            "stale": "Acara berubah saat Anda mengedit. Muat ulang halaman lalu coba lagi. Tidak ada yang disimpan.",
+            "unsupported_change": "Perubahan jadwal ini tidak dapat dilakukan selama masih ada sesi mendatang. Tidak ada yang disimpan.",
+            "nothing_to_move": "Sesi mendatang tidak mengikuti jadwal saat ini, jadi tidak ada yang dapat dipindah otomatis. Gunakan 'Jadwalkan ulang' pada setiap sesi. Tidak ada yang disimpan.",
+            "early_time": "Jam mulai sebelum 07.00 tidak dapat dipindah otomatis — sesi akan jatuh di hari yang berbeda. Tidak ada yang disimpan.",
+            "in_progress": "Sesi hari ini sudah dimulai, atau akan dipindah ke jam yang sudah lewat. Coba lagi setelah sesi hari ini. Tidak ada yang disimpan.",
+            "horizon_edge": "Daftar sesi belum mencakup seluruh jangka perencanaan. Coba lagi besok. Tidak ada yang disimpan.",
+            "beyond_horizon": "Tanggal baru melewati jangka perencanaan. Pilih tanggal yang lebih awal. Tidak ada yang disimpan.",
+            "slots_mismatch": "Jam baru tidak sejalan dengan sesi yang sudah ada. Tidak ada yang disimpan.",
+            "slot_taken": "Sudah ada sesi pada jam baru di salah satu tanggal. Tidak ada yang disimpan.",
+            "unknown": "Gagal mengubah jadwal. Silakan coba lagi. Tidak ada yang disimpan."
+          }
+        }
       }
     },
     "people": {
@@ -1112,7 +1136,8 @@
         "APP_USER_REACTIVATE": "Pengguna diaktifkan kembali",
         "BIRTHDAY_DIGEST_MANUAL_TRIGGER": "Digest ulang tahun dijalankan manual",
         "ATTENDANCE_SUMMARY_MANUAL_TRIGGER": "Ringkasan kehadiran dijalankan manual",
-        "RSVP_ANONYMIZE": "RSVP dianonimkan (retensi)"
+        "RSVP_ANONYMIZE": "RSVP dianonimkan (retensi)",
+        "EVENT_SCHEDULE_CHANGE": "Jadwal acara diubah (sesi dipindah)"
       }
     }
   },

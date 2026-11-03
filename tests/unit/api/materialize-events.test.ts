@@ -21,6 +21,7 @@ const FIXED_RESULT = {
   instances_inserted: 38,
   instances_pruned: 0,
   events_with_errors: [],
+  events_skipped: [],
 };
 
 function makeRequest(headers: Record<string, string> = {}): Request {

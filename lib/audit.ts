@@ -48,6 +48,8 @@ export const AUDIT_ACTIONS = {
   RSVP_ANONYMIZE:          'rsvp.anonymize',
   // Written only by reschedule_instance() (SQL), never by logAudit().
   EVENT_INSTANCE_RESCHEDULE: 'event_instance.reschedule',
+  // Written only by apply_event_schedule_change() (SQL), never by logAudit().
+  EVENT_SCHEDULE_CHANGE:   'event.schedule_change',
 } as const
 
 export type AuditAction = typeof AUDIT_ACTIONS[keyof typeof AUDIT_ACTIONS]

@@ -13,6 +13,7 @@ import {
   impl_listInstancesForEvent,
   impl_listNearestInstances,
   impl_hasFutureOccurrences,
+  impl_previewScheduleChange,
 } from './events.impl'
 import type {
   EventInput,
@@ -27,6 +28,9 @@ import type {
   ListEventsResult,
   ListInstancesResult,
   ListNearestResult,
+  UpdateEventOptions,
+  ScheduleChangeInput,
+  PreviewScheduleChangeResult,
 } from './events.types'
 
 export async function createEvent(input: EventInput): Promise<CreateEventResult> {
@@ -40,12 +44,22 @@ export async function createEvent(input: EventInput): Promise<CreateEventResult>
 export async function updateEvent(
   eventId: string,
   input: UpdateEventInput,
+  options?: UpdateEventOptions,
 ): Promise<UpdateEventResult> {
   const supabase = await createClient()
   const adminSupabase = createAdminClient()
-  const result = await impl_updateEvent({ supabase, adminSupabase, eventId, input })
-  if (result.status === 'ok') revalidatePath('/admin/events')
+  const result = await impl_updateEvent({ supabase, adminSupabase, eventId, input, options })
+  if (result.status === 'ok' || result.status === 'partial') revalidatePath('/admin/events')
   return result
+}
+
+/** S9.5-T5.5 P2: read-only preview for the EventForm schedule-change confirm step. */
+export async function previewScheduleChange(
+  eventId: string,
+  input: ScheduleChangeInput,
+): Promise<PreviewScheduleChangeResult> {
+  const supabase = await createClient()
+  return impl_previewScheduleChange({ supabase, eventId, input })
 }
 
 export async function cancelInstance(
