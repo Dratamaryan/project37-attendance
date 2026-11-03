@@ -759,3 +759,31 @@ branch-expected ref for remote ops.
   local-build head render, see the staging entry above) / Prod ✓ — schema verified:server-side
   (read-only), og/twitter/body verified:live via GET; UI lock + notes per owner. WhatsApp/bit.ly
   may serve a cached preview for a while. No real PII at any rung.
+- S9.5-T5.5 PHASE 2 STAGING VERIFIED (2026-11-03; prod pending, mode TBD by owner): schedule-edit
+  propagation (07f9509; migration 20261103120000_s9_5_t5_5_p2_schedule_change.sql). Admin-only, two
+  shapes while upcoming occurrences exist: R = recurring start_time only (future rows on old rule
+  slots → same WIB date at the new time; T4 one-offs stay), A = adhoc start_date and/or start_time.
+  Ids unchanged, so RSVP links/RSVPs/invitations stay attached; sent invitations are not re-sent.
+  apply_event_schedule_change(p_event_id, p_old, p_new, p_moves, p_expected_slots) — SECURITY INVOKER,
+  is_admin() guard, EXECUTE authenticated only: event FOR UPDATE + p_old check ('stale'), R/A shape
+  check, per-move checks, UPDATE scheduled_at (unique → 'slot_taken'), txid-bound transaction-local
+  flag for the event update, post-assert every expected slot exists (materializer inserts 0), audit
+  event.schedule_change, never deletes. events_schedule_lock() honours the flag only for R/A with
+  nothing but start_date/start_time/updated_at changed. materialize_event_slots(p_event_id,
+  p_schedule, p_slots) — service_role only — replaces the materializer's client upsert:
+  FOR SHARE + schedule compare → -1 ('schedule_changed', result.events_skipped) or ON CONFLICT DO
+  NOTHING; prevents the stale-insert race reproduced locally (24 rows on 12 dates). MIGRATION BEFORE
+  DEPLOY (new materializer code needs the function). TS planner lib/events/schedule-change.ts;
+  previewScheduleChange; impl_updateEvent propagates only with { confirmScheduleChange: true }.
+  EventForm: admin R → time editable, admin A → date + time, confirm step (ID/EN), typed refusals;
+  organizer → Phase 1 lock + "Hubungi admin untuk mengubah jadwal". Verification rungs (rule 17):
+  Local ✓ verified:vitest (gate 2093/2093 ×2; earlier full run had 1 unrelated failure —
+  rsvp-health.test.tsx "sentinels: healthy run", passed in isolation and in 4 later full runs;
+  lint 0 errors, typecheck, build) / Staging ✓ (Claude Code under delegation: preflight + pin;
+  dry-run = this migration only; db push; push 07f9509 → deploy D5PBtsnhxxoqmNX38MTWfMT94UfD success;
+  scripts/s9-5/t5-5-p2-staging-smoke.ts, verified:server-side — [SYNTH] Saturday 8c3385f3:
+  15:00→16:00 moved 12 (1 cancelled), one-off 2026-12-19 15:00 unmoved, ids + 11-14 RSVP link
+  stable, get_rsvp_context 16:00, audit 165, materializer 0 ×2; 16:00→15:00 same, rows == baseline,
+  audit 166; temp [SYNTH] adhoc 1 row moved, same id, materializer 0 ×2, deleted in cleanup;
+  06:00 → early_time, nothing changed; zero residue) — UI not live-verified (owner checklist in
+  docs/sprint-9-5-task-5-5-p2-verify.md §8). Prod: pending owner (runbook §9). No real PII at any rung.
