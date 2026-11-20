@@ -787,3 +787,39 @@ branch-expected ref for remote ops.
   audit 166; temp [SYNTH] adhoc 1 row moved, same id, materializer 0 ×2, deleted in cleanup;
   06:00 → early_time, nothing changed; zero residue) — UI not live-verified (owner checklist in
   docs/sprint-9-5-task-5-5-p2-verify.md §8). Prod: pending owner (runbook §9). No real PII at any rung.
+- S9.5-T5.5 PHASE 2 PROD VERIFIED (2026-11-20): schedule-edit propagation live on prod (main
+  1d70488..1c5f343; feat 07f9509; migration 20261103120000_s9_5_t5_5_p2_schedule_change.sql).
+  CC-run under a one-time owner exception to "prod is owner-run" (standing rule unchanged), phased
+  with an explicit owner "GO <phase>" between phases; owner staging UI checklist passed first; no
+  [SYNTH] UI Adhoc on staging (0 events created since 2026-11-03), staging residue 0. Phase A
+  (read-only, 16:36–16:41 WIB): range 1d70488..origin/staging = a100ae5 (docs) + 07f9509 + 1c5f343
+  (docs/smoke), T5.5-P2 + docs only; gate on 1c5f343: 2093/2093 (155 files, no failures), lint 0
+  errors (2 known warnings), typecheck, build; staging has 20261103120000, staging deploy
+  dpl_7V6dZ41NzB2xRG3on9qXdiu6bTRr READY on 1c5f343; main fast-forwarded locally 1d70488..1c5f343;
+  CLI linked bftifxgdcmisasgvobuf; preflight OK branch=main op=db-push (bare `npm run preflight`
+  without --op aborts remote-write-op-no-resolvable-ref by design — env-URL mode); dry-run = only
+  20261103120000; Phase 1 lock body present (no flag), 1 trigger, note columns, unique
+  idx_event_instances_event_date; P3 Saturday Project Day 7237c6d6 15:00:00 / 210, only
+  scheduled@Sat 15:00 ×12 + completed@Sat 15:00 ×1; P4 0 rows; Saturday future rows 2026-12-12 …
+  2027-11-13 (12 scheduled, 0 cancelled). Phase B (16:41:50–16:41:53 WIB): npm run db:push →
+  "Applying migration 20261103120000… Finished"; apply_event_schedule_change ACL
+  {postgres,authenticated=X} (anon/service_role f), materialize_event_slots
+  {postgres,service_role=X} (anon/authenticated f), both SECURITY INVOKER, search_path pinned;
+  events_schedule_lock body contains app.event_schedule_change, 1 trigger; unique index intact;
+  CLI relinked to staging. Phase C (16:42–16:46 WIB): git push origin main 1d70488..1c5f343 →
+  Vercel production dpl_GZThasAkvD25SxjhSminVZqEk6sM READY 16:44:00 (aliases
+  project37-attendance.vercel.app …); no RSVP link exists on any future Saturday occurrence →
+  fallback GET (no cookie) /privacy and /login → 200, title "Absensi Project 37", description
+  intact (no og: tags on these pages); checked out staging. Owner then opened the Saturday edit
+  form on prod, start time 16:00 → confirm step (12 sessions) → Back, not confirmed. Phase D
+  (16:47 WIB, read-only): event row + 12 future ids/dates/15:00 unchanged, per-event counts
+  identical to Phase A, event.schedule_change audit 0, no event.* audit since Phase A, P4 0.
+  Phase E (16:48:22 WIB): one GET /api/cron/materialize-events (route = materializeEvents only:
+  insert via materialize_event_slots, horizon prune, system_health row) → 200 {ok:true,
+  horizon_months:12, events_processed:7, instances_inserted:0, instances_pruned:0,
+  events_with_errors:[], events_skipped:[]}; system_health row ok 16:48:23; P4 0; per-event counts
+  unchanged (48 instances total), Saturday still 12 @15:00 same ids. Read-only prod queries ran via
+  supabase db query --linked from main with the preflight guard, CLI relinked to staging after each.
+  Verification rungs (rule 17): Local ✓ (2093/2093) / Staging ✓ (see staging entry above + owner UI
+  checklist) / Prod ✓ — schema + data verified:server-side (read-only), deploy + GET + materializer
+  verified:live; confirm-step copy per owner. No real PII at any rung.
